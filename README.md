@@ -133,11 +133,16 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 - [x] Duplicar ficha (mesmo aluno, outro aluno ou como modelo) e aplicar modelo a um aluno
 - [x] Fichas mostram quem criou; Personal compartilhado também monta fichas
 - [x] Aluno vê suas fichas (somente leitura)
-- [ ] Migração `fichas` aplicada no Supabase de produção (pendente)
 
 ### Etapa 5 — Execução
-- [ ] Execução com séries, carga, timer de descanso, Wake Lock, histórico
-- [ ] Registro manual pelo Personal
+- [x] Execução: 3 séries por padrão, adicionar/remover séries, carga pré-preenchida com a última vez, reps com o alvo, Feita/Não feita
+- [x] Timer de descanso automático (ajustável ±15s e por exercício), com som e vibração; tela ligada (Wake Lock)
+- [x] Última carga/reps e recorde em cada exercício; recorde pessoal (PR) detectado ao salvar
+- [x] Progresso salvo no aparelho durante o treino; treino finalizado sem internet fica na fila e sincroniza depois (idempotente)
+- [x] Registro manual pelo Personal ("registrado pelo instrutor")
+- [x] Histórico de treinos, detalhe do treino e histórico por exercício com gráfico de evolução de carga
+- [x] Lista de alunos com treinos na semana (seg–dom, fuso SP), último treino e status
+- [ ] Migrações `fichas` e `sessoes_treino` aplicadas no Supabase de produção (pendente: `npx supabase db push`)
 
 ### Etapa 6 — Peso corporal
 - [ ] Registro, privacidade e trava de pesagem

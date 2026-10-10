@@ -301,6 +301,78 @@ export type Database = {
           },
         ];
       };
+      workout_sessions: {
+        Row: {
+          client_id: string;
+          created_at: string;
+          duration_seconds: number;
+          finished_at: string;
+          id: string;
+          kind: Database["public"]["Enums"]["session_kind"];
+          logged_by: string | null;
+          notes: string | null;
+          plan_id: string | null;
+          plan_name: string | null;
+          started_at: string;
+          student_id: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: "workout_sessions_logged_by_fkey";
+            columns: ["logged_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "workout_sessions_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "workout_plans";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "workout_sessions_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      session_sets: {
+        Row: {
+          done: boolean;
+          equipment_id: string;
+          exercise_order: number;
+          id: string;
+          is_pr: boolean;
+          load_kg: number;
+          reps: number;
+          session_id: string;
+          set_number: number;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: "session_sets_equipment_id_fkey";
+            columns: ["equipment_id"];
+            isOneToOne: false;
+            referencedRelation: "equipment";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "session_sets_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "workout_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -348,6 +420,11 @@ export type Database = {
         Args: { p_personal: string; p_student: string };
         Returns: undefined;
       };
+      save_workout_session: {
+        Args: { p: Json };
+        Returns: Json;
+      };
+      can_view_session: { Args: { p_session: string }; Returns: boolean };
       save_workout_plan: {
         Args: {
           p_plan: string | null;
@@ -377,6 +454,7 @@ export type Database = {
     };
     Enums: {
       link_role: "responsavel" | "compartilhado";
+      session_kind: "ficha" | "livre";
       muscle_group:
         | "peito"
         | "costas"

@@ -128,7 +128,12 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 - [x] Visibilidade: catálogo padrão para todos; exercícios de um Personal visíveis para ele, seus alunos e Personais que compartilham alunos com ele
 
 ### Etapa 4 — Fichas
-- [ ] Fichas por aluno (A/B/C), exercícios ordenados, duplicar, modelos
+- [x] Fichas por aluno (A/B/C) com nome, objetivo, observações e validade opcional
+- [x] Exercícios ordenados (subir/descer), séries (padrão 3), repetições-alvo (ex.: 10–12), carga sugerida, descanso e observações
+- [x] Duplicar ficha (mesmo aluno, outro aluno ou como modelo) e aplicar modelo a um aluno
+- [x] Fichas mostram quem criou; Personal compartilhado também monta fichas
+- [x] Aluno vê suas fichas (somente leitura)
+- [ ] Migração `fichas` aplicada no Supabase de produção (pendente)
 
 ### Etapa 5 — Execução
 - [ ] Execução com séries, carga, timer de descanso, Wake Lock, histórico

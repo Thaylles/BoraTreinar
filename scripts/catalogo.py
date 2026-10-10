@@ -113,7 +113,7 @@ on conflict (lower(name)) where is_default do update set
   image_credit = excluded.image_credit,
   is_bodyweight = excluded.is_bodyweight;
 """
-    out = Path(__file__).resolve().parent.parent / "supabase" / "migrations" / "20261010140100_catalogo_padrao.sql"
+    out = Path(__file__).resolve().parent.parent / "supabase" / "migrations" / "20261010132945_catalogo_padrao.sql"
     out.write_text(sql, encoding="utf-8")
     print(f"{len(CATALOGO)} itens → {out.name}")
 

@@ -1,0 +1,262 @@
+// Gerado a partir do schema do Supabase (supabase gen types typescript).
+// Regenerar após cada migração: npx supabase gen types typescript --project-id <ref> > src/lib/database.types.ts
+
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
+type Rel = {
+  foreignKeyName: string;
+  columns: string[];
+  isOneToOne: boolean;
+  referencedRelation: string;
+  referencedColumns: string[];
+};
+
+type InviteRow = {
+  created_at: string;
+  expires_at: string;
+  id: string;
+  label: string | null;
+  personal_id: string;
+  revoked_at: string | null;
+  token: string;
+  used_at: string | null;
+  used_by: string | null;
+};
+
+type TransferRow = {
+  created_at: string;
+  from_personal_id: string;
+  id: string;
+  kind: Database["public"]["Enums"]["transfer_kind"];
+  responded_at: string | null;
+  status: Database["public"]["Enums"]["transfer_status"];
+  student_id: string;
+  to_personal_id: string;
+};
+
+export type Database = {
+  __InternalSupabase: { PostgrestVersion: "14.18" };
+  public: {
+    Tables: {
+      invites: {
+        Row: InviteRow;
+        Insert: Partial<InviteRow> & { expires_at: string; personal_id: string };
+        Update: Partial<InviteRow>;
+        Relationships: [
+          {
+            foreignKeyName: "invites_personal_id_fkey";
+            columns: ["personal_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invites_used_by_fkey";
+            columns: ["used_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      notifications: {
+        Row: {
+          body: string | null;
+          created_at: string;
+          id: string;
+          link: string | null;
+          read_at: string | null;
+          title: string;
+          user_id: string;
+        };
+        Insert: {
+          body?: string | null;
+          created_at?: string;
+          id?: string;
+          link?: string | null;
+          read_at?: string | null;
+          title: string;
+          user_id: string;
+        };
+        Update: { read_at?: string | null };
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      personal_students: {
+        Row: {
+          archived_at: string | null;
+          created_at: string;
+          ended_at: string | null;
+          id: string;
+          personal_id: string;
+          role: Database["public"]["Enums"]["link_role"];
+          status: Database["public"]["Enums"]["link_status"];
+          student_id: string;
+        };
+        Insert: {
+          archived_at?: string | null;
+          created_at?: string;
+          ended_at?: string | null;
+          id?: string;
+          personal_id: string;
+          role: Database["public"]["Enums"]["link_role"];
+          status?: Database["public"]["Enums"]["link_status"];
+          student_id: string;
+        };
+        Update: { archived_at?: string | null };
+        Relationships: [
+          {
+            foreignKeyName: "personal_students_personal_id_fkey";
+            columns: ["personal_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "personal_students_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      profiles: {
+        Row: {
+          birth_date: string | null;
+          created_at: string;
+          email: string;
+          full_name: string;
+          id: string;
+          phone: string | null;
+          role: Database["public"]["Enums"]["user_role"];
+          terms_accepted_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          birth_date?: string | null;
+          email: string;
+          full_name: string;
+          id: string;
+          phone?: string | null;
+          role: Database["public"]["Enums"]["user_role"];
+          terms_accepted_at?: string | null;
+        };
+        Update: {
+          birth_date?: string | null;
+          full_name?: string;
+          phone?: string | null;
+        };
+        Relationships: Rel[];
+      };
+      student_transfers: {
+        Row: TransferRow;
+        Insert: Partial<TransferRow> & {
+          from_personal_id: string;
+          kind: Database["public"]["Enums"]["transfer_kind"];
+          student_id: string;
+          to_personal_id: string;
+        };
+        Update: Partial<TransferRow>;
+        Relationships: [
+          {
+            foreignKeyName: "student_transfers_from_personal_id_fkey";
+            columns: ["from_personal_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "student_transfers_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "student_transfers_to_personal_id_fkey";
+            columns: ["to_personal_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+    };
+    Views: { [_ in never]: never };
+    Functions: {
+      cancel_student_transfer: { Args: { p_transfer: string }; Returns: undefined };
+      create_invite: {
+        Args: { p_days?: number; p_label?: string };
+        Returns: InviteRow;
+        SetofOptions: { from: "*"; to: "invites"; isOneToOne: true; isSetofReturn: false };
+      };
+      current_role_is: {
+        Args: { r: Database["public"]["Enums"]["user_role"] };
+        Returns: boolean;
+      };
+      find_personal_by_email: {
+        Args: { p_email: string };
+        Returns: { full_name: string; id: string }[];
+      };
+      get_invite_public: {
+        Args: { p_token: string };
+        Returns: { expires_at: string; personal_name: string; status: string }[];
+      };
+      is_linked_personal: { Args: { p_student: string }; Returns: boolean };
+      is_responsible_personal: { Args: { p_student: string }; Returns: boolean };
+      request_student_transfer: {
+        Args: {
+          p_kind: Database["public"]["Enums"]["transfer_kind"];
+          p_student: string;
+          p_to_personal: string;
+        };
+        Returns: TransferRow;
+        SetofOptions: {
+          from: "*";
+          to: "student_transfers";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      respond_student_transfer: {
+        Args: { p_accept: boolean; p_transfer: string };
+        Returns: undefined;
+      };
+      revoke_invite: { Args: { p_invite: string }; Returns: undefined };
+      revoke_student_share: {
+        Args: { p_personal: string; p_student: string };
+        Returns: undefined;
+      };
+      set_student_archived: {
+        Args: { p_archived: boolean; p_student: string };
+        Returns: undefined;
+      };
+    };
+    Enums: {
+      link_role: "responsavel" | "compartilhado";
+      link_status: "ativo" | "revogado";
+      transfer_kind: "compartilhamento" | "transferencia";
+      transfer_status: "pendente" | "aceito" | "recusado" | "cancelado";
+      user_role: "personal" | "aluno";
+    };
+    CompositeTypes: { [_ in never]: never };
+  };
+};
+
+type PublicSchema = Database["public"];
+export type Tables<T extends keyof PublicSchema["Tables"]> = PublicSchema["Tables"][T]["Row"];
+export type Enums<T extends keyof PublicSchema["Enums"]> = PublicSchema["Enums"][T];

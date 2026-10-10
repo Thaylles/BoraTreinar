@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Archive, ArchiveRestore, ArrowLeft, Mail, Phone } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, ChevronRight, ClipboardList, Mail, Phone, Plus } from "lucide-react";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { inputClass } from "@/components/ui/field";
+import { applyTemplate } from "../../fichas/actions";
 import { Badge, Card } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
@@ -12,12 +16,19 @@ import { TransferForm } from "./transfer-form";
 
 export const metadata: Metadata = { title: "Aluno" };
 
-export default async function AlunoPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AlunoPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ erro?: string }>;
+}) {
   const { id } = await params;
+  const { erro } = await searchParams;
   const { profile: me } = await requireRole("personal");
   const supabase = await createClient();
 
-  const [{ data: student }, { data: links }, { data: transfers }] = await Promise.all([
+  const [{ data: student }, { data: links }, { data: transfers }, { data: plans }, { data: templates }] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", id).eq("role", "aluno").maybeSingle(),
     supabase
       .from("personal_students")
@@ -30,7 +41,16 @@ export default async function AlunoPage({ params }: { params: Promise<{ id: stri
       .eq("student_id", id)
       .eq("from_personal_id", me.id)
       .eq("status", "pendente"),
+    supabase
+      .from("workout_plans")
+      .select("id, name, goal, valid_until, archived_at, created_by, creator:profiles!workout_plans_created_by_fkey(full_name), items:workout_plan_items(count)")
+      .eq("student_id", id)
+      .order("name"),
+    supabase.from("workout_plans").select("id, name").eq("is_template", true).eq("created_by", me.id).order("name"),
   ]);
+  const activePlans = plans?.filter((p) => !p.archived_at) ?? [];
+  const archivedPlans = plans?.filter((p) => p.archived_at) ?? [];
+  const today = new Date().toISOString().slice(0, 10);
 
   const myLink = links?.find((l) => l.personal_id === me.id);
   if (!student || !myLink) notFound();
@@ -54,6 +74,78 @@ export default async function AlunoPage({ params }: { params: Promise<{ id: stri
           </div>
         </div>
       </div>
+
+      {erro && <Alert className="mb-4">{erro}</Alert>}
+
+      <section className="mb-6">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="font-display text-xl font-bold">Fichas</h2>
+          <Link
+            href={`/personal/alunos/${id}/fichas/nova`}
+            className="inline-flex items-center gap-1 rounded-xl bg-bandeira-500 px-3 py-1.5 font-display text-sm font-bold text-white hover:bg-bandeira-600"
+          >
+            <Plus className="size-4" aria-hidden /> Nova ficha
+          </Link>
+        </div>
+        {!activePlans.length ? (
+          <div className="flex items-center gap-3 rounded-3xl border-2 border-dashed border-border p-4 text-sm text-muted">
+            <ClipboardList className="size-6 shrink-0 text-bandeira-500" aria-hidden />
+            Nenhuma ficha ainda. Monte a primeira ou aplique um modelo.
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {activePlans.map((p) => (
+              <li key={p.id}>
+                <Link href={`/personal/fichas/${p.id}`}>
+                  <Card className="flex items-center gap-3 p-4 transition hover:border-bandeira-500">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold">{p.name}</p>
+                      <p className="text-xs text-muted">
+                        {p.items[0]?.count ?? 0} exercícios
+                        {p.goal && ` · ${p.goal}`} · por {p.created_by === me.id ? "você" : (p.creator?.full_name ?? "—")}
+                      </p>
+                    </div>
+                    {p.valid_until && p.valid_until < today && <Badge tone="red">Vencida</Badge>}
+                    <ChevronRight className="size-5 text-muted" aria-hidden />
+                  </Card>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+        {!!archivedPlans.length && (
+          <details className="mt-2 text-sm">
+            <summary className="cursor-pointer text-muted">{archivedPlans.length} ficha(s) arquivada(s)</summary>
+            <ul className="mt-2 space-y-1 pl-4">
+              {archivedPlans.map((p) => (
+                <li key={p.id}>
+                  <Link href={`/personal/fichas/${p.id}`} className="hover:underline">
+                    {p.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+        {!!templates?.length && (
+          <form action={applyTemplate} className="mt-3 flex gap-2">
+            <input type="hidden" name="student_id" value={id} />
+            <select name="template_id" required defaultValue="" className={inputClass + " py-2"} aria-label="Modelo">
+              <option value="" disabled>
+                Aplicar um modelo…
+              </option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+            <Button type="submit" variant="secondary" size="sm" className="shrink-0">
+              Aplicar
+            </Button>
+          </form>
+        )}
+      </section>
 
       <Card className="mb-4 space-y-2 text-sm">
         <p className="flex items-center gap-2">
@@ -133,7 +225,7 @@ export default async function AlunoPage({ params }: { params: Promise<{ id: stri
       </form>
 
       <p className="mt-8 rounded-2xl bg-ipe-100 p-4 text-sm text-anil-900 dark:bg-ipe-500/15 dark:text-ipe-400">
-        🚧 Fichas, histórico e dashboard deste aluno chegam nas próximas etapas.
+        🚧 Histórico e dashboard deste aluno chegam nas próximas etapas.
       </p>
     </>
   );

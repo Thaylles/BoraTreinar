@@ -5,6 +5,7 @@ import { ArrowLeft, Trash2 } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge, Card } from "@/components/ui/card";
 import { EquipmentImage } from "@/components/equipment-image";
+import { ConfirmSubmit } from "@/components/confirm-submit";
 import { requireRole } from "@/lib/auth";
 import { groupLabel } from "@/lib/catalog";
 import { createClient } from "@/lib/supabase/server";
@@ -70,9 +71,12 @@ export default async function ExercicioPage({
               </Link>
               <form action={deleteEquipment}>
                 <input type="hidden" name="id" value={eq.id} />
-                <button className="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 font-semibold text-pitanga-600 hover:bg-pitanga-100 dark:hover:bg-pitanga-500/15">
+                <ConfirmSubmit
+                  message="Excluir este exercício?"
+                  className="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 font-semibold text-pitanga-600 hover:bg-pitanga-100 dark:hover:bg-pitanga-500/15"
+                >
                   <Trash2 className="size-4" aria-hidden /> Excluir
-                </button>
+                </ConfirmSubmit>
               </form>
             </div>
           )}

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Inbox, Ticket, UserPlus, Users } from "lucide-react";
+import { ClipboardList, Dumbbell, Inbox, Ticket, UserPlus, Users } from "lucide-react";
 import { Card, PageTitle } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { NotificationsList } from "@/components/notifications";
@@ -56,9 +56,17 @@ export default async function PersonalHome() {
         ))}
       </div>
 
-      <LinkButton href="/personal/convites" size="lg" className="mb-8 w-full">
+      <LinkButton href="/personal/convites" size="lg" className="mb-3 w-full">
         <UserPlus className="size-5" aria-hidden /> Convidar aluno
       </LinkButton>
+      <div className="mb-8 grid grid-cols-2 gap-3">
+        <LinkButton href="/personal/modelos" variant="secondary">
+          <ClipboardList className="size-5" aria-hidden /> Modelos
+        </LinkButton>
+        <LinkButton href="/personal/exercicios" variant="secondary">
+          <Dumbbell className="size-5" aria-hidden /> Exercícios
+        </LinkButton>
+      </div>
 
       <NotificationsList />
     </>

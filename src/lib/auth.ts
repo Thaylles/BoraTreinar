@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { supabaseConfigured } from "@/lib/env";
 import type { Enums, Tables } from "@/lib/database.types";
@@ -9,6 +10,7 @@ export type Profile = Tables<"profiles">;
 
 /** Usuário logado + perfil (memoizado por requisição). */
 export const getSessionProfile = cache(async () => {
+  await connection(); // sempre dinâmico, mesmo sem variáveis do Supabase no build
   if (!supabaseConfigured) return null;
   const supabase = await createClient();
   const {

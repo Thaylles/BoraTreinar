@@ -236,6 +236,71 @@ export type Database = {
           },
         ];
       };
+      workout_plans: {
+        Row: {
+          archived_at: string | null;
+          created_at: string;
+          created_by: string | null;
+          goal: string | null;
+          id: string;
+          is_template: boolean;
+          name: string;
+          notes: string | null;
+          student_id: string | null;
+          updated_at: string;
+          valid_until: string | null;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: "workout_plans_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "workout_plans_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      workout_plan_items: {
+        Row: {
+          equipment_id: string;
+          id: string;
+          notes: string | null;
+          plan_id: string;
+          position: number;
+          reps_max: number | null;
+          reps_min: number | null;
+          rest_seconds: number;
+          sets: number;
+          suggested_load: number | null;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: "workout_plan_items_equipment_id_fkey";
+            columns: ["equipment_id"];
+            isOneToOne: false;
+            referencedRelation: "equipment";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "workout_plan_items_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "workout_plans";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -283,6 +348,28 @@ export type Database = {
         Args: { p_personal: string; p_student: string };
         Returns: undefined;
       };
+      save_workout_plan: {
+        Args: {
+          p_plan: string | null;
+          p_student: string | null;
+          p_name: string;
+          p_goal: string | null;
+          p_notes: string | null;
+          p_valid_until: string | null;
+          p_items: Json;
+        };
+        Returns: string;
+      };
+      duplicate_workout_plan: {
+        Args: { p_plan: string; p_student: string | null; p_name?: string | null };
+        Returns: string;
+      };
+      set_workout_plan_archived: {
+        Args: { p_plan: string; p_archived: boolean };
+        Returns: undefined;
+      };
+      can_view_plan: { Args: { p_plan: string }; Returns: boolean };
+      can_edit_plan: { Args: { p_plan: string }; Returns: boolean };
       set_student_archived: {
         Args: { p_archived: boolean; p_student: string };
         Returns: undefined;

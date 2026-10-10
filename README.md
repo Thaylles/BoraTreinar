@@ -43,7 +43,7 @@ npm run dev                  # http://localhost:3000
 
 ### Banco de dados
 
-As migrações SQL ficam em `supabase/migrations/` e o seed do catálogo em `supabase/seed.sql`.
+As migrações SQL ficam em `supabase/migrations/`. O catálogo padrão é uma migração de dados gerada por `python3 scripts/catalogo.py` (as ilustrações, por `python3 scripts/gerar-ilustracoes.py`).
 
 ```bash
 # Com Supabase CLI ligado a um projeto remoto
@@ -121,8 +121,11 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 - [x] RLS em todas as tabelas + 34 testes SQL (`npm run test:db`)
 
 ### Etapa 3 — Catálogo
-- [ ] Seed de equipamentos/exercícios com imagens livres
-- [ ] Cadastro de equipamentos pelo Personal (upload com compressão)
+- [x] Seed com 69 exercícios por grupo muscular, com **ilustrações próprias** (licença MIT) — `scripts/catalogo.py` e `scripts/gerar-ilustracoes.py`
+- [ ] Trocar ilustrações por fotos do Wikimedia Commons (bloqueado pela rede do ambiente de desenvolvimento; o campo `image_credit` já existe)
+- [x] Cadastro/edição/exclusão de exercícios pelo Personal, com upload comprimido (WebP ≤1024px) no Supabase Storage
+- [x] Aviso ao salvar sem foto; placeholder com ícone do grupo muscular
+- [x] Visibilidade: catálogo padrão para todos; exercícios de um Personal visíveis para ele, seus alunos e Personais que compartilham alunos com ele
 
 ### Etapa 4 — Fichas
 - [ ] Fichas por aluno (A/B/C), exercícios ordenados, duplicar, modelos

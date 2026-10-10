@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/shell/app-shell";
 import { requireRole } from "@/lib/auth";
+import { OutboxSync } from "@/components/workout/outbox-sync";
 
 export default async function AlunoLayout({ children }: { children: React.ReactNode }) {
   const { profile } = await requireRole("aluno");
@@ -10,9 +11,11 @@ export default async function AlunoLayout({ children }: { children: React.ReactN
       root="/aluno"
       items={[
         { href: "/aluno", label: "Início", icon: "house" },
+        { href: "/aluno/historico", label: "Histórico", icon: "history" },
         { href: "/aluno/personais", label: "Personais", icon: "user" },
       ]}
     >
+      <OutboxSync />
       {children}
     </AppShell>
   );

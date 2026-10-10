@@ -6,6 +6,9 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { inputClass } from "@/components/ui/field";
 import { applyTemplate } from "../../fichas/actions";
+import { SessionList } from "@/components/workout/session-list";
+import { listSessions } from "@/lib/sessions-server";
+import { daysAgoLabel, daysAgoSP, startOfWeekSP } from "@/lib/week";
 import { Badge, Card } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
@@ -48,6 +51,9 @@ export default async function AlunoPage({
       .order("name"),
     supabase.from("workout_plans").select("id, name").eq("is_template", true).eq("created_by", me.id).order("name"),
   ]);
+  const sessions = await listSessions(id, 10);
+  const weekStart = startOfWeekSP();
+  const thisWeek = sessions.filter((s) => s.started_at >= weekStart);
   const activePlans = plans?.filter((p) => !p.archived_at) ?? [];
   const archivedPlans = plans?.filter((p) => p.archived_at) ?? [];
   const today = new Date().toISOString().slice(0, 10);
@@ -147,6 +153,32 @@ export default async function AlunoPage({
         )}
       </section>
 
+      <section className="mb-6">
+        <h2 className="mb-1 font-display text-xl font-bold">Treinos</h2>
+        <p className="mb-3 text-sm text-muted">
+          <strong className="text-foreground">{thisWeek.length}</strong> nesta semana (seg–dom)
+          {sessions[0] && ` · último ${daysAgoLabel(daysAgoSP(sessions[0].started_at))}`}
+        </p>
+        {!!activePlans.length && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {activePlans.map((p) => (
+              <Link
+                key={p.id}
+                href={`/personal/alunos/${id}/registrar/${p.id}`}
+                className="rounded-xl border border-border bg-surface px-3 py-1.5 text-sm font-semibold hover:border-bandeira-500"
+              >
+                ✍️ Registrar {p.name}
+              </Link>
+            ))}
+          </div>
+        )}
+        {sessions.length ? (
+          <SessionList sessions={sessions} href={(sid) => `/personal/treinos/${sid}`} />
+        ) : (
+          <p className="text-sm text-muted">Nenhum treino registrado ainda.</p>
+        )}
+      </section>
+
       <Card className="mb-4 space-y-2 text-sm">
         <p className="flex items-center gap-2">
           <Phone className="size-4 text-muted" aria-hidden /> {formatPhoneBR(student.phone) || "Sem telefone"}
@@ -225,7 +257,7 @@ export default async function AlunoPage({
       </form>
 
       <p className="mt-8 rounded-2xl bg-ipe-100 p-4 text-sm text-anil-900 dark:bg-ipe-500/15 dark:text-ipe-400">
-        🚧 Histórico e dashboard deste aluno chegam nas próximas etapas.
+        🚧 O dashboard deste aluno chega na etapa 9.
       </p>
     </>
   );

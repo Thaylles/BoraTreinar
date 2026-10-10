@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Dumbbell, House, Inbox, Ticket, UserRound, Users } from "lucide-react";
+import { Bell, Dumbbell, History, House, Inbox, Ticket, UserRound, Users } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-const ICONS = { dumbbell: Dumbbell, house: House, users: Users, ticket: Ticket, inbox: Inbox, user: UserRound, bell: Bell };
+const ICONS = { history: History, dumbbell: Dumbbell, house: House, users: Users, ticket: Ticket, inbox: Inbox, user: UserRound, bell: Bell };
 export type NavIcon = keyof typeof ICONS;
 export type NavItem = { href: string; label: string; icon: NavIcon; badge?: number };
 
@@ -16,6 +16,8 @@ function isActive(pathname: string, href: string, root: string) {
 /** Navegação inferior fixa no celular, lateral no desktop. */
 export function NavLinks({ items, root }: { items: NavItem[]; root: string }) {
   const pathname = usePathname();
+  // Durante o treino a tela é só do treino (o timer ocupa o rodapé).
+  if (/\/(treinar|registrar|livre)(\/|$)/.test(pathname)) return null;
   return (
     <nav
       aria-label="Navegação principal"

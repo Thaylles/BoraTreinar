@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/shell/app-shell";
 import { requireRole } from "@/lib/auth";
+import { OutboxSync } from "@/components/workout/outbox-sync";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function PersonalLayout({ children }: { children: React.ReactNode }) {
@@ -24,6 +25,7 @@ export default async function PersonalLayout({ children }: { children: React.Rea
         { href: "/personal/solicitacoes", label: "Pedidos", icon: "inbox", badge: count ?? 0 },
       ]}
     >
+      <OutboxSync />
       {children}
     </AppShell>
   );

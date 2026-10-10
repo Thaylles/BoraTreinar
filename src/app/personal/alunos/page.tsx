@@ -4,9 +4,9 @@ import { ChevronRight, Users } from "lucide-react";
 import { Badge, Card, EmptyState, PageTitle } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { requireRole } from "@/lib/auth";
-import { formatPhoneBR } from "@/lib/phone";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/cn";
+import { daysAgoLabel, daysAgoSP, startOfWeekSP } from "@/lib/week";
 
 export const metadata: Metadata = { title: "Alunos" };
 
@@ -26,6 +26,21 @@ export default async function AlunosPage({
     .eq("status", "ativo");
   query = showArchived ? query.not("archived_at", "is", null) : query.is("archived_at", null);
   const { data: links } = await query;
+
+  const ids = (links ?? []).map((l) => l.student?.id).filter((x): x is string => !!x);
+  const { data: recent } = ids.length
+    ? await supabase
+        .from("workout_sessions")
+        .select("student_id, started_at")
+        .in("student_id", ids)
+        .gte("started_at", new Date(Date.now() - 90 * 86_400_000).toISOString())
+        .order("started_at", { ascending: false })
+    : { data: [] };
+  const weekStart = startOfWeekSP();
+  const statsFor = (sid: string) => {
+    const mine = (recent ?? []).filter((r) => r.student_id === sid);
+    return { week: mine.filter((r) => r.started_at >= weekStart).length, last: mine[0]?.started_at ?? null };
+  };
 
   const students = (links ?? [])
     .filter((l) => l.student)
@@ -74,7 +89,7 @@ export default async function AlunosPage({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold">{student!.full_name}</p>
-                    <p className="text-xs text-muted">{formatPhoneBR(student!.phone) || "Sem telefone"}</p>
+                    <StudentStatus {...statsFor(student!.id)} />
                   </div>
                   {role === "compartilhado" && <Badge tone="blue">Compartilhado</Badge>}
                   <ChevronRight className="size-5 text-muted" aria-hidden />
@@ -85,5 +100,21 @@ export default async function AlunosPage({
         </ul>
       )}
     </>
+  );
+}
+
+/** Treinos na semana atual + indicador de atividade (verde: ≤3 dias, amarelo: ≤7, vermelho: mais). */
+function StudentStatus({ week, last }: { week: number; last: string | null }) {
+  const days = last ? daysAgoSP(last) : null;
+  const tone = days == null || days > 7 ? "bg-pitanga-500" : days > 3 ? "bg-ipe-500" : "bg-bandeira-500";
+  return (
+    <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
+      <span className={cn("inline-block size-2 rounded-full", tone)} aria-hidden />
+      <span>
+        <strong className="text-foreground">{week}</strong> na semana
+      </span>
+      <span>· {last ? `último ${daysAgoLabel(days!)}` : "nunca treinou"}</span>
+      {days != null && days > 7 && <span className="font-semibold text-pitanga-600">· sem treinar há {days} dias</span>}
+    </p>
   );
 }

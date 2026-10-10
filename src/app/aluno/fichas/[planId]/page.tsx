@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Play } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { PlanItemsList } from "@/components/plans/plan-view";
 import { requireRole } from "@/lib/auth";
@@ -29,10 +29,13 @@ export default async function AlunoFichaPage({ params }: { params: Promise<{ pla
         {plan.valid_until && ` · válida até ${formatDate(`${plan.valid_until}T12:00:00`)}`}
       </p>
       {plan.notes && <Card className="mb-4 whitespace-pre-line text-sm">{plan.notes}</Card>}
+      <Link
+        href={`/aluno/treinar/${plan.id}`}
+        className="mb-6 flex items-center justify-center gap-2 rounded-2xl bg-bandeira-500 py-4 font-display text-lg font-bold text-white shadow-lg shadow-bandeira-500/25 hover:bg-bandeira-600"
+      >
+        <Play className="size-5" aria-hidden /> Iniciar treino
+      </Link>
       <PlanItemsList items={items} />
-      <p className="mt-6 rounded-2xl bg-ipe-100 p-4 text-sm text-anil-900 dark:bg-ipe-500/15 dark:text-ipe-400">
-        🚧 O botão &quot;Iniciar treino&quot; chega na próxima etapa.
-      </p>
     </>
   );
 }

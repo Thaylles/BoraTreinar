@@ -44,6 +44,47 @@ export type Database = {
   __InternalSupabase: { PostgrestVersion: "14.18" };
   public: {
     Tables: {
+      equipment: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          description: string | null;
+          id: string;
+          image_credit: string | null;
+          image_path: string | null;
+          image_url: string | null;
+          is_bodyweight: boolean;
+          is_default: boolean;
+          muscle_group: Database["public"]["Enums"]["muscle_group"];
+          name: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_by: string;
+          description?: string | null;
+          id?: string;
+          image_path?: string | null;
+          is_bodyweight?: boolean;
+          muscle_group: Database["public"]["Enums"]["muscle_group"];
+          name: string;
+        };
+        Update: {
+          description?: string | null;
+          image_path?: string | null;
+          is_bodyweight?: boolean;
+          muscle_group?: Database["public"]["Enums"]["muscle_group"];
+          name?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "equipment_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       invites: {
         Row: InviteRow;
         Insert: Partial<InviteRow> & { expires_at: string; personal_id: string };
@@ -216,6 +257,7 @@ export type Database = {
         Args: { p_token: string };
         Returns: { expires_at: string; personal_name: string; status: string }[];
       };
+      knows_personal: { Args: { p: string }; Returns: boolean };
       is_linked_personal: { Args: { p_student: string }; Returns: boolean };
       is_responsible_personal: { Args: { p_student: string }; Returns: boolean };
       request_student_transfer: {
@@ -248,6 +290,21 @@ export type Database = {
     };
     Enums: {
       link_role: "responsavel" | "compartilhado";
+      muscle_group:
+        | "peito"
+        | "costas"
+        | "ombros"
+        | "biceps"
+        | "triceps"
+        | "antebraco"
+        | "quadriceps"
+        | "posterior"
+        | "gluteos"
+        | "adutores"
+        | "panturrilha"
+        | "abdomen"
+        | "cardio"
+        | "corpo_inteiro";
       link_status: "ativo" | "revogado";
       transfer_kind: "compartilhamento" | "transferencia";
       transfer_status: "pendente" | "aceito" | "recusado" | "cancelado";

@@ -19,6 +19,7 @@ export default async function PersonalLayout({ children }: { children: React.Rea
       items={[
         { href: "/personal", label: "Início", icon: "house" },
         { href: "/personal/alunos", label: "Alunos", icon: "users" },
+        { href: "/personal/exercicios", label: "Exercícios", icon: "dumbbell" },
         { href: "/personal/convites", label: "Convites", icon: "ticket" },
         { href: "/personal/solicitacoes", label: "Pedidos", icon: "inbox", badge: count ?? 0 },
       ]}

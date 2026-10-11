@@ -42,9 +42,15 @@ const recursos = [
   },
 ];
 
-export default function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ conta?: string }> }) {
+  const deleted = (await searchParams).conta === "excluida";
   return (
     <main className="bg-calcadao min-h-dvh">
+      {deleted && (
+        <p role="status" className="bg-anil-700 px-4 py-3 text-center text-sm font-semibold text-white">
+          Sua conta e seus dados foram excluídos. Valeu por treinar com a gente! 💚💛
+        </p>
+      )}
       <header className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
         <Logo size={36} />
         <Link

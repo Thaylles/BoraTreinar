@@ -53,7 +53,7 @@ export default function TermosPage() {
         <h2>5. Seus direitos</h2>
         <p>
           Você pode, a qualquer momento, acessar e corrigir seus dados, exportá-los, revogar o consentimento
-          e pedir a exclusão da sua conta, pelas configurações do app. A exclusão apaga definitivamente seus
+          e pedir a exclusão da sua conta, na página <strong>Privacidade e meus dados</strong> (aba Personais). A exclusão apaga definitivamente seus
           dados de treino e de peso.
         </p>
 

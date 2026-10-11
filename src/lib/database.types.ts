@@ -79,6 +79,9 @@ export type Database = {
           name?: string;
           // Só pelo admin (service role):
           locked?: boolean;
+          image_credit?: string | null;
+          image_updated_by?: string | null;
+          image_updated_at?: string | null;
         };
         Relationships: [
           {

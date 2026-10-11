@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Play } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { PlanItemsList } from "@/components/plans/plan-view";
+import { PlanExportButtons } from "@/components/plans/export-buttons";
 import { requireRole } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { loadPlan } from "@/lib/plans-server";
@@ -36,6 +37,9 @@ export default async function AlunoFichaPage({ params }: { params: Promise<{ pla
         <Play className="size-5" aria-hidden /> Iniciar treino
       </Link>
       <PlanItemsList items={items} />
+      <div className="mt-6">
+        <PlanExportButtons planId={plan.id} />
+      </div>
     </>
   );
 }

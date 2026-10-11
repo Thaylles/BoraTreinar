@@ -7,6 +7,7 @@ import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { inputClass } from "@/components/ui/field";
 import { PlanItemsList } from "@/components/plans/plan-view";
+import { PlanExportButtons } from "@/components/plans/export-buttons";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { requireRole } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
@@ -76,6 +77,9 @@ export default async function FichaPage({
         >
           <Pencil className="size-4" aria-hidden /> Editar
         </Link>
+      </div>
+      <div className="mb-6 -mt-3">
+        <PlanExportButtons planId={planId} />
       </div>
 
       <PlanItemsList items={items} />

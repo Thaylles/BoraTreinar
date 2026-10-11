@@ -43,7 +43,7 @@ npm run dev                  # http://localhost:3000
 
 ### Banco de dados
 
-As migrações SQL ficam em `supabase/migrations/`. O catálogo padrão é uma migração de dados gerada por `python3 scripts/catalogo.py` (as ilustrações, por `python3 scripts/gerar-ilustracoes.py`).
+As migrações SQL ficam em `supabase/migrations/`. O catálogo padrão é uma migração de dados gerada por `python3 scripts/catalogo.py` (as ilustrações, por `python3 scripts/gerar-ilustracoes.py`). O logo e os ícones saem de `python3 scripts/gerar-icones.py` (os PNGs são renderizados a partir dos SVGs gerados).
 
 ```bash
 # Com Supabase CLI ligado a um projeto remoto

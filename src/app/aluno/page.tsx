@@ -9,6 +9,7 @@ import { Alert } from "@/components/ui/alert";
 import { Card, PageTitle } from "@/components/ui/card";
 import { NotificationsList } from "@/components/notifications";
 import { requireRole } from "@/lib/auth";
+import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { firstName } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Início" };
@@ -39,6 +40,8 @@ export default async function AlunoHome({
           Conta criada! Você já está vinculado ao seu Personal. Bem-vindo ao BoraTreinar! 🇧🇷
         </Alert>
       )}
+
+      <InstallPrompt />
 
       {weighIn.overdue && (
         <Link

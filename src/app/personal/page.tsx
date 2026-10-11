@@ -5,6 +5,7 @@ import { Card, PageTitle } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { NotificationsList } from "@/components/notifications";
 import { requireRole } from "@/lib/auth";
+import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { createClient } from "@/lib/supabase/server";
 import { firstName } from "@/lib/format";
 import { PersonalOverview } from "@/components/dashboard/personal-overview";
@@ -45,6 +46,8 @@ export default async function PersonalHome({ searchParams }: { searchParams: Pro
   return (
     <>
       <PageTitle sub="Bora acompanhar a galera?">Fala, {firstName(profile.full_name)}! 👋</PageTitle>
+
+      <InstallPrompt />
 
       <div className="mb-6 grid grid-cols-3 gap-3">
         {stats.map(({ href, label, value, icon: Icon }) => (

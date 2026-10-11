@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Mail } from "lucide-react";
+import Link from "next/link";
+import { ChevronRight, Mail, ShieldCheck } from "lucide-react";
 import { Badge, Card, PageTitle } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
@@ -45,6 +46,15 @@ export default async function PersonaisPage() {
         Todos os Personais listados aqui podem ver suas fichas e seu histórico de treinos. Seu peso só aparece
         para eles se você permitir.
       </p>
+      <Link
+        href="/aluno/privacidade"
+        className="mt-4 flex items-center gap-3 rounded-2xl border border-border bg-surface p-4 transition hover:border-bandeira-500"
+      >
+        <ShieldCheck className="size-5 text-bandeira-500" aria-hidden />
+        <span className="flex-1 font-semibold">Privacidade e meus dados</span>
+        <span className="text-xs text-muted">baixar ou excluir</span>
+        <ChevronRight className="size-4 text-muted" aria-hidden />
+      </Link>
     </>
   );
 }

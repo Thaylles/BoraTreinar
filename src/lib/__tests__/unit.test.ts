@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { formatPhoneBR, normalizePhoneBR } from "../phone.ts";
 import { whatsappLink } from "../whatsapp.ts";
+import { exportFileName, planCsv, repsLabel, restLabel } from "../plan-export.ts";
 import { buildStudentReport, reportHtml, ruleSuggestions, sessionsLine } from "../report.ts";
 import { computeDashboard, periodFor, shiftPeriod, weightChange, type SummarySession } from "../stats.ts";
 import { addDays, addMonths, mondayOf, monthGrid, upcomingOccurrences, weekdayOf } from "../schedule.ts";
@@ -189,4 +190,31 @@ test("sugestões por regras para quem não treinou", () => {
   const sug = ruleSuggestions(r);
   assert.equal(sug.length, 2);
   assert.ok(sug[0].startsWith("Não treinou"));
+});
+
+test("exportação da ficha em CSV: uma linha por série e colunas para anotar", () => {
+  const plan = {
+    name: "Treino A",
+    goal: "Força",
+    notes: null,
+    validUntil: "2026-12-31",
+    studentName: "Ana Souza",
+    creatorName: "Dora",
+    items: [
+      { name: "Supino; reto", group: "Peito", sets: 3, repsMin: 8, repsMax: 10, load: 40, bodyweight: false, rest: 90, notes: 'Desça "devagar"' },
+      { name: "Prancha", group: "Abdômen", sets: 2, repsMin: 30, repsMax: 30, load: null, bodyweight: true, rest: 30, notes: null },
+    ],
+  };
+  const csv = planCsv(plan, 2);
+  assert.ok(csv.startsWith("﻿"), "BOM para o Excel");
+  const lines = csv.trim().split("\r\n");
+  const header = lines.findIndex((l) => l.startsWith("Ordem;"));
+  assert.equal(lines.length - header - 1, 5, "3 + 2 séries");
+  assert.ok(lines[header].endsWith("Dia 2 carga (kg);Dia 2 reps;Dia 2 feito"));
+  assert.ok(lines[header + 1].startsWith('1;"Supino; reto";Peito;1/3;8–10;40 kg;1min30;"Desça ""devagar""";'));
+  assert.ok(lines.at(-1)!.startsWith("2;Prancha;Abdômen;2/2;30;peso corporal;30s;;"));
+  assert.ok(lines.includes("Validade;31/12/2026"));
+  assert.equal(exportFileName(plan), "treino-a-ana-souza");
+  assert.equal(repsLabel(12, 12), "12");
+  assert.equal(restLabel(120), "2min");
 });

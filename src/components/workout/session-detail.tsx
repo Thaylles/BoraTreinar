@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/card";
 import { EquipmentImage } from "@/components/equipment-image";
 import { formatDateTime } from "@/lib/format";
 import type { loadSession } from "@/lib/sessions-server";
+import { effortInfo } from "@/lib/effort";
 
 type Loaded = NonNullable<Awaited<ReturnType<typeof loadSession>>>;
 
@@ -51,6 +52,16 @@ export function SessionDetail({ data, exerciseHref }: { data: Loaded; exerciseHr
           </div>
         ))}
       </div>
+
+      {session.effort != null && (
+        <div className={`mb-6 rounded-3xl border p-4 ${session.pain ? "border-pitanga-500/60 bg-pitanga-100/50 dark:bg-pitanga-500/10" : "border-border bg-surface"}`}>
+          <p className="font-semibold">
+            {effortInfo(session.effort)?.emoji} Esforço: {effortInfo(session.effort)?.label} ({session.effort}/5)
+          </p>
+          {session.pain && <p className="mt-1 text-sm font-semibold text-pitanga-600">⚠️ Relatou dor ou desconforto</p>}
+          {session.feedback && <p className="mt-1 text-sm">💬 “{session.feedback}”</p>}
+        </div>
+      )}
 
       <ol className="space-y-3">
         {exercises.map((ex) => (

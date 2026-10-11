@@ -17,6 +17,9 @@ export async function GET(request: NextRequest) {
   const { data, error } = await admin.rpc("daily_class_reminders", { p_date: date });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // Alunos parados há alguns dias recebem um lembrete (vira push no celular de quem ativou).
+  const { data: nudges } = await admin.rpc("inactivity_nudges");
+
   let emails = 0;
   for (const r of data ?? []) {
     // Só envia e-mail quando a notificação é nova (evita duplicar se o cron rodar duas vezes).
@@ -39,5 +42,5 @@ export async function GET(request: NextRequest) {
     if (await sendEmail(r.personal_email, `Hoje: ${items.length} ${items.length === 1 ? "aula" : "aulas"} — BoraTreinar`, html)) emails++;
   }
 
-  return NextResponse.json({ ok: true, date, personais: data?.length ?? 0, emails });
+  return NextResponse.json({ ok: true, date, personais: data?.length ?? 0, emails, lembretesInatividade: nudges ?? 0 });
 }

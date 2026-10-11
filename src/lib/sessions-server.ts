@@ -29,7 +29,7 @@ export async function listSessions(studentId: string, limit = 30) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("workout_sessions")
-    .select("id, plan_name, kind, started_at, duration_seconds, logged_by, student_id, sets:session_sets(done, is_pr)")
+    .select("id, plan_name, kind, started_at, duration_seconds, logged_by, student_id, effort, pain, sets:session_sets(done, is_pr)")
     .eq("student_id", studentId)
     .order("started_at", { ascending: false })
     .limit(limit);

@@ -5,6 +5,7 @@
  *   sem internet, a última versão salva — assim o treino abre mesmo com a conexão caindo.
  * - Demais páginas: só rede; sem internet, mostra /offline.html (página estática, sem JS do Next).
  * - Ao sair da conta (POST /sair), apaga as páginas salvas.
+ * - Notificações push: mostra o aviso e abre o link ao tocar.
  */
 const VERSION = "v1";
 const STATIC = `bt-static-${VERSION}`;
@@ -81,6 +82,37 @@ async function otherPage(request) {
     return (await caches.match(request)) || (await caches.match(OFFLINE_URL)) || Response.error();
   }
 }
+
+// Notificações push: mostra o aviso e, ao tocar, abre (ou foca) a tela do link.
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { title: event.data?.text() };
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || "BoraTreinar", {
+      body: data.body || "",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      tag: data.tag,
+      data: { link: data.link || "/" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL(event.notification.data?.link || "/", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      const open = list.find((c) => c.url.startsWith(self.location.origin));
+      if (open) return open.navigate(target).then((c) => (c || open).focus());
+      return self.clients.openWindow(target);
+    }),
+  );
+});
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;

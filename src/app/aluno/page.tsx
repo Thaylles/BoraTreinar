@@ -10,7 +10,9 @@ import { Card, PageTitle } from "@/components/ui/card";
 import { NotificationsList } from "@/components/notifications";
 import { requireRole } from "@/lib/auth";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
+import { PushToggle } from "@/components/pwa/push-toggle";
 import { firstName } from "@/lib/format";
+import { WeeklyGoal } from "@/components/weekly-goal";
 
 export const metadata: Metadata = { title: "Início" };
 
@@ -42,6 +44,7 @@ export default async function AlunoHome({
       )}
 
       <InstallPrompt />
+      <PushToggle />
 
       {weighIn.overdue && (
         <Link
@@ -53,6 +56,8 @@ export default async function AlunoHome({
           <ChevronRight className="size-5" aria-hidden />
         </Link>
       )}
+
+      <WeeklyGoal studentId={profile.id} />
 
       {plans?.length ? (
         <section className="mb-8">

@@ -114,6 +114,20 @@ export type Database = {
           },
         ];
       };
+      push_subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          user_agent: string | null;
+          created_at: string;
+        };
+        Insert: { user_id: string; endpoint: string; p256dh: string; auth: string; user_agent?: string | null };
+        Update: never;
+        Relationships: [];
+      };
       notifications: {
         Row: {
           body: string | null;
@@ -293,6 +307,7 @@ export type Database = {
           rest_seconds: number;
           sets: number;
           suggested_load: number | null;
+          technique: "biset" | "triset" | "dropset" | "restpause" | "piramide" | null;
         };
         Insert: never;
         Update: never;
@@ -327,6 +342,10 @@ export type Database = {
           plan_name: string | null;
           started_at: string;
           student_id: string;
+          effort: number | null;
+          pain: boolean;
+          feedback: string | null;
+          rated_at: string | null;
         };
         Insert: never;
         Update: never;
@@ -414,15 +433,18 @@ export type Database = {
           updated_at: string;
           weigh_in_frequency: Database["public"]["Enums"]["weigh_in_frequency"];
           weight_visible_to_personal: boolean;
+          weekly_goal: number | null;
         };
         Insert: {
           student_id: string;
           weigh_in_frequency?: Database["public"]["Enums"]["weigh_in_frequency"];
           weight_visible_to_personal?: boolean;
+          weekly_goal?: number | null;
         };
         Update: {
           weigh_in_frequency?: Database["public"]["Enums"]["weigh_in_frequency"];
           weight_visible_to_personal?: boolean;
+          weekly_goal?: number | null;
         };
         Relationships: [];
       };
@@ -581,6 +603,11 @@ export type Database = {
       save_workout_session: {
         Args: { p: Json };
         Returns: Json;
+      };
+      inactivity_nudges: { Args: Record<string, never>; Returns: number };
+      rate_workout_session: {
+        Args: { p_session: string; p_effort: number; p_pain: boolean; p_feedback: string | null };
+        Returns: undefined;
       };
       can_view_session: { Args: { p_session: string }; Returns: boolean };
       save_workout_plan: {

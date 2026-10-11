@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { friendlyError, type ActionState } from "@/lib/errors";
+import { isTechnique, type Technique } from "@/lib/plans";
 
 export type PlanPayload = {
   planId: string | null;
@@ -20,12 +21,14 @@ export type PlanPayload = {
     suggested_load: number | null;
     rest_seconds: number;
     notes: string;
+    technique: Technique | null;
   }[];
 };
 
 export async function savePlan(p: PlanPayload): Promise<{ error: string } | void> {
   if (!p.name.trim()) return { error: "Dê um nome para a ficha (ex.: Treino A)." };
   if (!p.items.length) return { error: "Adicione pelo menos um exercício." };
+  if (p.items.some((it) => it.technique !== null && !isTechnique(it.technique))) return { error: "Técnica inválida." };
 
   const supabase = await createClient();
   const { data: id, error } = await supabase.rpc("save_workout_plan", {

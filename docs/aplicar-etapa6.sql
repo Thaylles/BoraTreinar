@@ -1,4 +1,4 @@
--- BoraTreinar: etapa 6 (peso corporal). Cole no Supabase → SQL Editor → Run.
+-- BoraTreinar: etapa 6 (peso corporal) + foto única do catálogo. Cole no Supabase → SQL Editor → Run.
 begin;
 
 create type public.weigh_in_frequency as enum ('semanal', 'quinzenal');
@@ -136,5 +136,46 @@ create policy "peso: aluno corrige" on public.body_weights
   using (student_id = (select auth.uid())) with check (student_id = (select auth.uid()));
 create policy "peso: aluno exclui" on public.body_weights
   for delete to authenticated using (student_id = (select auth.uid()));
-insert into supabase_migrations.schema_migrations (version, name, statements) values ('20261011030000', 'peso_corporal', '{}') on conflict (version) do nothing;
+
+alter table public.equipment
+  add column image_updated_by uuid references public.profiles (id) on delete set null,
+  add column image_updated_at timestamptz;
+
+create function public.set_equipment_image(p_equipment uuid, p_image_path text) returns void
+language plpgsql security definer set search_path = '' as $$
+declare
+  e public.equipment;
+  v_name text;
+begin
+  if not public.current_role_is('personal') then
+    raise exception 'Apenas Personais trocam fotos de exercícios' using errcode = '42501';
+  end if;
+  select * into e from public.equipment where id = p_equipment for update;
+  if not found or not (e.is_default or e.created_by = auth.uid()) then
+    raise exception 'Exercício não encontrado' using errcode = 'P0001';
+  end if;
+  if p_image_path is not null and p_image_path not like auth.uid()::text || '/%' then
+    raise exception 'Imagem inválida' using errcode = 'P0001';
+  end if;
+
+  select full_name into v_name from public.profiles where id = auth.uid();
+
+  update public.equipment
+    set image_path = p_image_path,
+        image_updated_by = case when p_image_path is null then null else auth.uid() end,
+        image_updated_at = now(),
+        image_credit = case
+          when not e.is_default then e.image_credit
+          when p_image_path is null then 'Ilustração própria BoraTreinar (licença MIT)'
+          else 'Foto enviada por ' || v_name
+        end
+    where id = p_equipment;
+end;
+$$;
+revoke execute on function public.set_equipment_image(uuid, text) from public, anon;
+grant execute on function public.set_equipment_image(uuid, text) to authenticated;
+insert into supabase_migrations.schema_migrations (version, name, statements) values
+  ('20261011030000', 'peso_corporal', '{}'),
+  ('20261011040000', 'foto_catalogo', '{}')
+on conflict (version) do nothing;
 commit;

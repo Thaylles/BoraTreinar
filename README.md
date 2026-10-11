@@ -125,6 +125,7 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 - [ ] Trocar ilustrações por fotos do Wikimedia Commons (bloqueado pela rede do ambiente de desenvolvimento; o campo `image_credit` já existe)
 - [x] Cadastro/edição/exclusão de exercícios pelo Personal, com upload comprimido (WebP ≤1024px) no Supabase Storage
 - [x] Aviso ao salvar sem foto; placeholder com ícone do grupo muscular
+- [x] Qualquer Personal pode trocar a foto de um exercício do catálogo padrão (vale para todos, com crédito de quem enviou) ou voltar à ilustração original
 - [x] Visibilidade: catálogo padrão para todos; exercícios de um Personal visíveis para ele, seus alunos e Personais que compartilham alunos com ele
 
 ### Etapa 4 — Fichas

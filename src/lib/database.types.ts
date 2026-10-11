@@ -52,6 +52,8 @@ export type Database = {
           id: string;
           image_credit: string | null;
           image_path: string | null;
+          image_updated_at: string | null;
+          image_updated_by: string | null;
           image_url: string | null;
           is_bodyweight: boolean;
           is_default: boolean;
@@ -452,6 +454,10 @@ export type Database = {
       revoke_invite: { Args: { p_invite: string }; Returns: undefined };
       revoke_student_share: {
         Args: { p_personal: string; p_student: string };
+        Returns: undefined;
+      };
+      set_equipment_image: {
+        Args: { p_equipment: string; p_image_path: string | null };
         Returns: undefined;
       };
       weigh_in_status: {

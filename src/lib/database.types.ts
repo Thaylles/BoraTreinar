@@ -409,6 +409,53 @@ export type Database = {
         Update: { weight_kg?: number };
         Relationships: [];
       };
+      class_schedules: {
+        Row: {
+          created_at: string;
+          duration_minutes: number;
+          ends_on: string | null;
+          id: string;
+          notes: string | null;
+          personal_id: string;
+          start_time: string;
+          starts_on: string;
+          student_id: string;
+          weekday: number;
+        };
+        Insert: {
+          duration_minutes?: number;
+          ends_on?: string | null;
+          notes?: string | null;
+          personal_id: string;
+          start_time: string;
+          starts_on?: string;
+          student_id: string;
+          weekday: number;
+        };
+        Update: { start_time?: string; duration_minutes?: number; ends_on?: string | null; notes?: string | null };
+        Relationships: [
+          {
+            foreignKeyName: "class_schedules_personal_id_fkey";
+            columns: ["personal_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "class_schedules_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      class_exceptions: {
+        Row: { created_at: string; id: string; on_date: string; reason: string | null; schedule_id: string };
+        Insert: { on_date: string; reason?: string | null; schedule_id: string };
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: { [_ in never]: never };
     Functions: {

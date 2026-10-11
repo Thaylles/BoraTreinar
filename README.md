@@ -91,6 +91,7 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 | `npm run build` | build de produção |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | checagem de tipos |
+| `npm run test:unit` | testes de unidade das funções puras (telefone, WhatsApp, agenda) |
 | `npm run test:db` | aplica as migrações num Postgres descartável (com stub do Supabase) e roda os testes SQL de RLS. Use `PGHOST`/`PGPORT`/`PGUSER` para apontar o servidor |
 
 ## Como funciona o acesso
@@ -158,8 +159,11 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 - [x] Mesma execução da ficha (séries, timer, histórico, trava de pesagem, offline) e aparece para os Personais como "livre"
 
 ### Etapa 8 — Agenda e WhatsApp
-- [ ] Aulas recorrentes com exceções
-- [ ] Botão "Chamar no WhatsApp"
+- [x] Aulas presenciais recorrentes (dias da semana, horário, duração, início) com cancelamento de datas avulsas e reativação
+- [x] Aluno é avisado de aula nova e de cancelamento; vê "Minhas aulas" e a próxima aula no início
+- [x] Agenda do Personal com as aulas dos próximos 14 dias
+- [x] Botão "Chamar no WhatsApp" na lista e na página do aluno (e na agenda), com telefone normalizado (DDI 55) e a mensagem "Olá, tudo bem? Confirmado nosso treino hoje?"
+- [x] Testes de unidade (`npm run test:unit`) para telefone, link do WhatsApp e cálculo da agenda
 
 ### Etapa 9 — Dashboard
 - [ ] Visões semanal/mensal, PRs, volume, ranking

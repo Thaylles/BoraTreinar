@@ -6,6 +6,7 @@ import { LinkButton } from "@/components/ui/button";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/cn";
+import { WhatsAppButton } from "@/components/whatsapp-button";
 import { daysAgoLabel, daysAgoSP, startOfWeekSP } from "@/lib/week";
 
 export const metadata: Metadata = { title: "Alunos" };
@@ -81,8 +82,8 @@ export default async function AlunosPage({
       ) : (
         <ul className="space-y-2">
           {students.map(({ student, role }) => (
-            <li key={student!.id}>
-              <Link href={`/personal/alunos/${student!.id}`}>
+            <li key={student!.id} className="flex items-center gap-2">
+              <Link href={`/personal/alunos/${student!.id}`} className="min-w-0 flex-1">
                 <Card className="flex items-center gap-3 p-4 transition hover:border-bandeira-500">
                   <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-bandeira-50 font-display text-lg font-bold text-bandeira-700 dark:bg-bandeira-500/15 dark:text-bandeira-100">
                     {student!.full_name.charAt(0).toUpperCase()}
@@ -95,6 +96,7 @@ export default async function AlunosPage({
                   <ChevronRight className="size-5 text-muted" aria-hidden />
                 </Card>
               </Link>
+              <WhatsAppButton phone={student!.phone} compact />
             </li>
           ))}
         </ul>

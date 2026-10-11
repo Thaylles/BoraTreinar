@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ClipboardList, Dumbbell, Inbox, Ticket, UserPlus, Users } from "lucide-react";
+import { CalendarDays, ClipboardList, Dumbbell, Inbox, Ticket, UserPlus, Users } from "lucide-react";
 import { Card, PageTitle } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { NotificationsList } from "@/components/notifications";
@@ -59,11 +59,14 @@ export default async function PersonalHome() {
       <LinkButton href="/personal/convites" size="lg" className="mb-3 w-full">
         <UserPlus className="size-5" aria-hidden /> Convidar aluno
       </LinkButton>
-      <div className="mb-8 grid grid-cols-2 gap-3">
-        <LinkButton href="/personal/modelos" variant="secondary">
+      <div className="mb-8 grid grid-cols-3 gap-2">
+        <LinkButton href="/personal/agenda" variant="secondary" size="sm" className="flex-col py-3">
+          <CalendarDays className="size-5" aria-hidden /> Agenda
+        </LinkButton>
+        <LinkButton href="/personal/modelos" variant="secondary" size="sm" className="flex-col py-3">
           <ClipboardList className="size-5" aria-hidden /> Modelos
         </LinkButton>
-        <LinkButton href="/personal/exercicios" variant="secondary">
+        <LinkButton href="/personal/exercicios" variant="secondary" size="sm" className="flex-col py-3">
           <Dumbbell className="size-5" aria-hidden /> Exercícios
         </LinkButton>
       </div>

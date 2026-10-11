@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Dumbbell, History, House, Inbox, Scale, Ticket, UserRound, Users } from "lucide-react";
+import { Bell, CalendarDays, Dumbbell, History, House, Inbox, Scale, Ticket, UserRound, Users } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-const ICONS = { scale: Scale, history: History, dumbbell: Dumbbell, house: House, users: Users, ticket: Ticket, inbox: Inbox, user: UserRound, bell: Bell };
+const ICONS = { calendar: CalendarDays, scale: Scale, history: History, dumbbell: Dumbbell, house: House, users: Users, ticket: Ticket, inbox: Inbox, user: UserRound, bell: Bell };
 export type NavIcon = keyof typeof ICONS;
 export type NavItem = { href: string; label: string; icon: NavIcon; badge?: number };
 

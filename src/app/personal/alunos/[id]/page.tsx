@@ -8,6 +8,8 @@ import { inputClass } from "@/components/ui/field";
 import { applyTemplate } from "../../fichas/actions";
 import { SessionList } from "@/components/workout/session-list";
 import { PersonalWeightSection } from "@/components/weight/personal-weight-section";
+import { StudentClassesSection } from "@/components/agenda/student-classes-section";
+import { WhatsAppButton } from "@/components/whatsapp-button";
 import { listSessions } from "@/lib/sessions-server";
 import { daysAgoLabel, daysAgoSP, startOfWeekSP } from "@/lib/week";
 import { Badge, Card } from "@/components/ui/card";
@@ -81,6 +83,8 @@ export default async function AlunoPage({
           </div>
         </div>
       </div>
+
+      <WhatsAppButton phone={student.phone} className="mb-4 w-full" />
 
       {erro && <Alert className="mb-4">{erro}</Alert>}
 
@@ -179,6 +183,8 @@ export default async function AlunoPage({
           <p className="text-sm text-muted">Nenhum treino registrado ainda.</p>
         )}
       </section>
+
+      <StudentClassesSection studentId={id} meId={me.id} />
 
       <PersonalWeightSection studentId={id} />
 

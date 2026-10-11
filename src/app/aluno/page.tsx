@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ChevronRight, Dumbbell } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getWeighInStatus } from "@/lib/weight-server";
+import { loadAgenda } from "@/lib/agenda-server";
+import { dayLabel } from "@/lib/schedule";
 import { Alert } from "@/components/ui/alert";
 import { Card, PageTitle } from "@/components/ui/card";
 import { NotificationsList } from "@/components/notifications";
@@ -19,7 +21,8 @@ export default async function AlunoHome({
   const { profile } = await requireRole("aluno");
   const welcome = (await searchParams).bemvindo === "1";
   const supabase = await createClient();
-  const weighIn = await getWeighInStatus(profile.id);
+  const [weighIn, agenda] = await Promise.all([getWeighInStatus(profile.id), loadAgenda({ studentId: profile.id, days: 7 })]);
+  const nextClass = agenda.occurrences.find((o) => !o.cancelled);
   const { data: plans } = await supabase
     .from("workout_plans")
     .select("id, name, goal, items:workout_plan_items(count)")
@@ -81,6 +84,22 @@ export default async function AlunoHome({
             </p>
           </div>
         </Card>
+      )}
+
+      {nextClass && (
+        <Link
+          href="/aluno/aulas"
+          className="mb-4 flex items-center gap-3 rounded-3xl bg-anil-700 p-4 text-white shadow-md transition hover:brightness-110"
+        >
+          <span className="text-2xl" aria-hidden>📅</span>
+          <span className="flex-1">
+            <span className="block text-xs uppercase tracking-wide text-white/70">Próxima aula com seu Personal</span>
+            <span className="font-display text-lg font-bold">
+              {dayLabel(nextClass.date, agenda.today)} às {nextClass.time}
+            </span>
+          </span>
+          <ChevronRight className="size-5" aria-hidden />
+        </Link>
       )}
 
       <Link

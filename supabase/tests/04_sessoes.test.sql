@@ -70,6 +70,7 @@ $$;
 
 -- Aluno registra o primeiro treino
 select pg_temp.as_user('otto@a.com');
+insert into public.body_weights (student_id, weight_kg) values (auth.uid(), 80); -- pesagem em dia (etapa 6)
 create temp table r1 as select public.save_workout_session(pg_temp.payload('00000000-0000-0000-0000-000000000001', 40)) as r;
 grant all on r1 to authenticated;
 select pg_temp.assert((select count(*) from public.session_sets) = 4, 'séries gravadas (feitas e não feitas)');

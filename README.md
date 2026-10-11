@@ -114,7 +114,7 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 - [x] Manifest PWA básico
 - [x] `vercel.json` com cron do relatório
 - [x] Projeto Supabase criado (`boratreinar`, região São Paulo)
-- [ ] Deploy inicial na Vercel (aguardando importação do repositório na Vercel)
+- [x] Deploy na Vercel (produção atualizada a cada merge na `main`)
 
 ### Etapa 2 — Autenticação, perfis e convites
 - [x] Login/cadastro por e-mail e senha, recuperação de senha
@@ -189,7 +189,15 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 - [x] Tabela `weekly_reports` com RLS (Personal só lê os seus; só o servidor grava) + testes SQL e de unidade
 
 ### Etapa 11 — PWA e polimento
-- [ ] Service worker, modo offline no treino, polimento visual
+- [x] **Service worker** (`public/sw.js`): telas de treino abrem sem internet (rede primeiro, cópia local), estáticos e imagens em cache, página `offline.html` para o resto; cache de páginas apagado ao sair da conta
+- [x] Aviso de "sem internet" e convite para **instalar o app** (botão no Android; instruções no iPhone)
+- [x] Treino em andamento salvo no aparelho e fila de sincronização (desde a etapa 5)
+- [x] Novo logo: halter com anilhas, pegada recartilhada e travas (`scripts/gerar-icones.py` gera favicon, ícones do PWA e o logo)
+- [x] Polimento: esqueletos de carregamento, tela de erro amigável, foco visível, respeito a "reduzir movimento", Agenda na navegação do Personal
+
+### Extras
+- [x] **Exportar ficha** em **PDF** (ficha + folha de registro para imprimir e preencher à mão: carga, reps e ok por série em 5 dias) e **CSV** (uma linha por série, abre no Excel), para Personal e aluno
+- [x] **LGPD**: o aluno baixa os próprios dados (JSON) e exclui a conta em *Personais → Privacidade e meus dados* (apaga tudo em cascata, remove dos relatórios e avisa os Personais)
 
 ## Licença
 

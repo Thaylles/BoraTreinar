@@ -153,7 +153,9 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 - [x] Página do aluno (Personal) mostra a situação da pesagem e o peso apenas quando permitido
 
 ### Etapa 7 — Treino livre
-- [ ] Treino livre só com exercícios do catálogo
+- [x] Treino livre: o aluno monta o treino do dia escolhendo e ordenando exercícios do catálogo (sugere a última seleção)
+- [x] Só exercícios do catálogo visível ao aluno (padrão + criados pelos seus Personais); aluno não cria exercício — garantido no banco
+- [x] Mesma execução da ficha (séries, timer, histórico, trava de pesagem, offline) e aparece para os Personais como "livre"
 
 ### Etapa 8 — Agenda e WhatsApp
 - [ ] Aulas recorrentes com exceções

@@ -17,7 +17,7 @@ function isActive(pathname: string, href: string, root: string) {
 export function NavLinks({ items, root }: { items: NavItem[]; root: string }) {
   const pathname = usePathname();
   // Durante o treino a tela é só do treino (o timer ocupa o rodapé).
-  if (/\/(treinar|registrar|livre)(\/|$)/.test(pathname)) return null;
+  if (/\/(treinar|registrar)(\/|$)/.test(pathname)) return null;
   return (
     <nav
       aria-label="Navegação principal"

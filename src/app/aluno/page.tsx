@@ -83,6 +83,18 @@ export default async function AlunoHome({
         </Card>
       )}
 
+      <Link
+        href="/aluno/livre"
+        className="mb-8 flex items-center gap-3 rounded-3xl border-2 border-dashed border-bandeira-500/50 p-4 transition hover:bg-bandeira-50 dark:hover:bg-bandeira-500/10"
+      >
+        <span className="text-2xl" aria-hidden>🏋️</span>
+        <span className="flex-1">
+          <span className="block font-display text-lg font-bold">Treino livre</span>
+          <span className="text-sm text-muted">Monte o treino de hoje com exercícios do catálogo.</span>
+        </span>
+        <ChevronRight className="size-5 text-muted" aria-hidden />
+      </Link>
+
       <NotificationsList />
     </>
   );

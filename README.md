@@ -137,6 +137,7 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 - [x] Fichas por aluno (A/B/C) com nome, objetivo, observações e validade opcional
 - [x] Exercícios ordenados (subir/descer), séries (padrão 3), repetições-alvo (ex.: 10–12), carga sugerida, descanso e observações
 - [x] Duplicar ficha (mesmo aluno, outro aluno ou como modelo) e aplicar modelo a um aluno
+- [x] **Aplicar a vários alunos de uma vez**: escolher um ou mais modelos/fichas e vários alunos, com a opção de **substituir** (arquivar) as fichas atuais — tudo numa transação (`apply_plans_to_students`)
 - [x] Fichas mostram quem criou; Personal compartilhado também monta fichas
 - [x] Aluno vê suas fichas (somente leitura)
 

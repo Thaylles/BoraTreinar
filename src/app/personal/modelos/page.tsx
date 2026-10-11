@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronRight, ClipboardList, Plus } from "lucide-react";
+import { ChevronRight, ClipboardList, Plus, Users } from "lucide-react";
 import { Card, EmptyState, PageTitle } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { requireRole } from "@/lib/auth";
@@ -26,6 +26,11 @@ export default async function ModelosPage() {
           <Plus className="size-4" aria-hidden /> Novo
         </LinkButton>
       </div>
+      {!!templates?.length && (
+        <LinkButton href="/personal/modelos/aplicar" variant="secondary" className="mb-4 w-full">
+          <Users className="size-5" aria-hidden /> Aplicar a vários alunos
+        </LinkButton>
+      )}
       {!templates?.length ? (
         <EmptyState icon={<ClipboardList className="size-8" />} title="Nenhum modelo ainda">
           Crie um aqui ou use &quot;Salvar como modelo&quot; em qualquer ficha.

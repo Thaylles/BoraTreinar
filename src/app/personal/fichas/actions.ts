@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { friendlyError } from "@/lib/errors";
+import { friendlyError, type ActionState } from "@/lib/errors";
 
 export type PlanPayload = {
   planId: string | null;
@@ -94,4 +94,26 @@ export async function deletePlan(fd: FormData) {
   if (error) redirect(`/personal/fichas/${planId}?erro=${encodeURIComponent(friendlyError(error.message))}`);
   revalidatePath("/personal", "layout");
   redirect(back.startsWith("/") ? back : "/personal");
+}
+
+/** Aplica uma ou mais fichas/modelos a vários alunos; opcionalmente arquiva as fichas ativas deles antes. */
+export async function applyPlansBulk(_: ActionState, fd: FormData): Promise<ActionState> {
+  const plans = fd.getAll("plan").map(String).filter(Boolean);
+  const students = fd.getAll("student").map(String).filter(Boolean);
+  if (!plans.length) return { error: "Escolha pelo menos uma ficha ou modelo." };
+  if (!students.length) return { error: "Escolha pelo menos um aluno." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("apply_plans_to_students", {
+    p_plans: plans,
+    p_students: students,
+    p_archive_current: fd.get("archive") === "1",
+  });
+  if (error) return { error: friendlyError(error.message) };
+  const r = data as { created: number; archived: number };
+  revalidatePath("/personal", "layout");
+  return {
+    ok: `Pronto! ${r.created} ${r.created === 1 ? "ficha criada" : "fichas criadas"} para ${new Set(students).size} ${
+      new Set(students).size === 1 ? "aluno" : "alunos"
+    }${r.archived ? ` e ${r.archived} ${r.archived === 1 ? "ficha antiga arquivada" : "fichas antigas arquivadas"}` : ""}. Tá pago ✅`,
+  };
 }

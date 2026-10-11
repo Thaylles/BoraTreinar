@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseConfigured } from "@/lib/env";
 
-const PROTECTED = ["/personal", "/aluno", "/painel"];
+const PROTECTED = ["/personal", "/aluno", "/admin", "/painel"];
 
 /** Renova a sessão do Supabase a cada requisição e protege as áreas logadas. */
 export async function updateSession(request: NextRequest) {

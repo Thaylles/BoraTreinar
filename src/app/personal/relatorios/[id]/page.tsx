@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { PageTitle } from "@/components/ui/card";
 import { ReportView } from "@/components/report/report-view";
+import { SourceVote } from "@/components/report/source-vote";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { ReportContent } from "@/lib/report";
@@ -16,7 +17,7 @@ export default async function RelatorioPage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   await requireRole("personal");
   const supabase = await createClient();
-  const { data: report } = await supabase.from("weekly_reports").select("id, content, ai_used, emailed_at, updated_at").eq("id", id).maybeSingle();
+  const { data: report } = await supabase.from("weekly_reports").select("id, content, ai_used, emailed_at, updated_at, preferred_source").eq("id", id).maybeSingle();
   if (!report) notFound();
   const c = report.content as unknown as ReportContent;
   const generated = new Date(report.updated_at).toLocaleString("pt-BR", {
@@ -34,7 +35,7 @@ export default async function RelatorioPage({ params }: { params: Promise<{ id: 
       <PageTitle sub={`Gerado em ${generated}${report.emailed_at ? " · enviado por e-mail" : ""}`}>
         Semana {ddmm(c.week_start)} a {ddmm(c.week_end)}
       </PageTitle>
-      <ReportView content={c} />
+      <ReportView content={c} vote={<SourceVote reportId={report.id} content={c} preferred={report.preferred_source} />} />
     </>
   );
 }

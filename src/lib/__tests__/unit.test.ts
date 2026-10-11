@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { formatPhoneBR, normalizePhoneBR } from "../phone.ts";
 import { whatsappLink } from "../whatsapp.ts";
 import { exportFileName, planCsv, repsLabel, restLabel } from "../plan-export.ts";
-import { buildStudentReport, reportHtml, ruleSuggestions, sessionsLine } from "../report.ts";
+import { buildStudentReport, reportHtml, ruleSuggestions, sessionsLine, suggestionSets } from "../report.ts";
 import { computeDashboard, periodFor, shiftPeriod, weightChange, type SummarySession } from "../stats.ts";
 import { addDays, addMonths, mondayOf, monthGrid, upcomingOccurrences, weekdayOf } from "../schedule.ts";
 
@@ -217,4 +217,27 @@ test("exportação da ficha em CSV: uma linha por série e colunas para anotar",
   assert.equal(exportFileName(plan), "treino-a-ana-souza");
   assert.equal(repsLabel(12, 12), "12");
   assert.equal(restLabel(120), "2min");
+});
+
+test("relatório compara regras e IAs com rótulo de cada fonte", () => {
+  const base = buildStudentReport({
+    id: "s3", name: "Caio", sessions: [], names: {}, period: periodFor("semana", "2026-10-11"), today: "2026-10-11", weights: null,
+  });
+  const s = {
+    ...base,
+    suggestions: ruleSuggestions(base),
+    aiSuggestions: [
+      { source: "gemini" as const, items: ["Combine 2 treinos curtos na semana."] },
+      { source: "claude" as const, items: [] },
+    ],
+  };
+  assert.deepEqual(suggestionSets(s).map((x) => x.source), ["regras", "gemini"], "IA sem sugestão não aparece");
+  assert.deepEqual(suggestionSets(base).map((x) => x.source), [], "relatório antigo sem sugestões");
+  const html = reportHtml(
+    { week_start: "2026-10-05", week_end: "2026-10-11", students: [s], ai: true, aiStatus: [{ source: "gemini", ok: true }] },
+    { personalName: "Dora", reportUrl: "https://x" },
+  );
+  assert.ok(html.includes("Sugestões · Regras (sem IA)"));
+  assert.ok(html.includes("Sugestões · Gemini (IA do Google)"));
+  assert.ok(html.includes("Fase de testes"));
 });

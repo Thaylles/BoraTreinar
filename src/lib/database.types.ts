@@ -57,6 +57,7 @@ export type Database = {
           image_url: string | null;
           is_bodyweight: boolean;
           is_default: boolean;
+          locked: boolean;
           muscle_group: Database["public"]["Enums"]["muscle_group"];
           name: string;
           updated_at: string;
@@ -76,6 +77,8 @@ export type Database = {
           is_bodyweight?: boolean;
           muscle_group?: Database["public"]["Enums"]["muscle_group"];
           name?: string;
+          // Só pelo admin (service role):
+          locked?: boolean;
         };
         Relationships: [
           {
@@ -180,6 +183,7 @@ export type Database = {
       profiles: {
         Row: {
           birth_date: string | null;
+          catalog_blocked: boolean;
           created_at: string;
           email: string;
           full_name: string;
@@ -202,6 +206,9 @@ export type Database = {
           birth_date?: string | null;
           full_name?: string;
           phone?: string | null;
+          // Só pelo admin (service role):
+          catalog_blocked?: boolean;
+          email?: string;
         };
         Relationships: Rel[];
       };
@@ -383,6 +390,7 @@ export type Database = {
           emailed_at: string | null;
           id: string;
           personal_id: string;
+          preferred_source: string | null;
           updated_at: string;
           week_start: string;
         };
@@ -394,7 +402,7 @@ export type Database = {
           updated_at?: string;
           week_start: string;
         };
-        Update: { ai_used?: boolean; content?: Json; emailed_at?: string | null; updated_at?: string };
+        Update: { ai_used?: boolean; content?: Json; emailed_at?: string | null; preferred_source?: string | null; updated_at?: string };
         Relationships: [];
       };
       student_settings: {
@@ -535,6 +543,8 @@ export type Database = {
           notified: boolean;
         }[];
       };
+      is_admin: { Args: Record<string, never>; Returns: boolean };
+      catalog_blocked: { Args: Record<string, never>; Returns: boolean };
       delete_own_account: {
         Args: Record<string, never>;
         Returns: undefined;
@@ -615,7 +625,7 @@ export type Database = {
       link_status: "ativo" | "revogado";
       transfer_kind: "compartilhamento" | "transferencia";
       transfer_status: "pendente" | "aceito" | "recusado" | "cancelado";
-      user_role: "personal" | "aluno";
+      user_role: "personal" | "aluno" | "admin";
     };
     CompositeTypes: { [_ in never]: never };
   };

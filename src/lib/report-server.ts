@@ -69,15 +69,28 @@ export async function generateWeeklyReports(opts: { personalId?: string; deliver
       }),
     );
 
+    // Regras sempre; cada IA configurada ao lado, para comparar.
     const ai = await aiSuggestions(students);
-    if (ai) result.ai++;
-    for (const s of students) s.suggestions = ai?.[s.id] ?? ruleSuggestions(s);
+    const answered = ai.filter((r) => r.ok);
+    if (answered.length) result.ai++;
+    for (const s of students) {
+      s.suggestions = ruleSuggestions(s);
+      s.aiSuggestions = answered
+        .map((r) => ({ source: r.source, items: r.suggestions[s.id] ?? [] }))
+        .filter((x) => x.items.length);
+    }
 
-    const content: ReportContent = { week_start: period.from, week_end: period.to, students, ai: !!ai };
+    const content: ReportContent = {
+      week_start: period.from,
+      week_end: period.to,
+      students,
+      ai: answered.length > 0,
+      aiStatus: ai.map(({ source, ok, error }) => ({ source, ok, ...(error ? { error } : {}) })),
+    };
     const { data: report, error: upsertError } = await admin
       .from("weekly_reports")
       .upsert(
-        { personal_id: personal.id, week_start: period.from, content, ai_used: !!ai, updated_at: new Date().toISOString() },
+        { personal_id: personal.id, week_start: period.from, content, ai_used: answered.length > 0, updated_at: new Date().toISOString() },
         { onConflict: "personal_id,week_start" },
       )
       .select("id, emailed_at")

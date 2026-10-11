@@ -16,7 +16,11 @@ export default async function NovoExercicioPage() {
       </Link>
       <PageTitle sub="Fica disponível para você e para os seus alunos.">Novo exercício</PageTitle>
       <Card>
-        <EquipmentForm userId={profile.id} />
+        {profile.catalog_blocked ? (
+          <p className="text-sm text-muted">🔒 Sua conta está sem permissão para criar exercícios. Fale com o administrador.</p>
+        ) : (
+          <EquipmentForm userId={profile.id} />
+        )}
       </Card>
     </>
   );

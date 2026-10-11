@@ -42,10 +42,17 @@ export default async function ExerciciosPage({
     <>
       <div className="flex items-start justify-between gap-3">
         <PageTitle sub={`${items?.length ?? 0} no catálogo`}>Exercícios</PageTitle>
-        <LinkButton href="/personal/exercicios/novo" size="sm" className="mt-1 shrink-0">
-          <Plus className="size-4" aria-hidden /> Novo
-        </LinkButton>
+        {!profile.catalog_blocked && (
+          <LinkButton href="/personal/exercicios/novo" size="sm" className="mt-1 shrink-0">
+            <Plus className="size-4" aria-hidden /> Novo
+          </LinkButton>
+        )}
       </div>
+      {profile.catalog_blocked && (
+        <p className="mb-3 rounded-2xl bg-border/40 px-3 py-2 text-sm text-muted">
+          🔒 Sua conta está sem permissão para criar ou editar exercícios. Você continua usando o catálogo nas fichas.
+        </p>
+      )}
 
       <form className="relative mb-3" role="search">
         <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted" aria-hidden />

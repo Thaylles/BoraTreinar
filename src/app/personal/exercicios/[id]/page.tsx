@@ -31,6 +31,8 @@ export default async function ExercicioPage({
     .maybeSingle();
   if (!eq) notFound();
   const mine = eq.created_by === profile.id;
+  // Travas do admin: Personal bloqueado ou exercício travado não são editáveis.
+  const canEdit = !profile.catalog_blocked && !eq.locked;
 
   return (
     <>
@@ -45,7 +47,7 @@ export default async function ExercicioPage({
       )}
       {sp.erro && <Alert className="mb-4">{sp.erro}</Alert>}
 
-      {mine && sp.editar === "1" ? (
+      {mine && canEdit && sp.editar === "1" ? (
         <Card>
           <h1 className="mb-4 font-display text-2xl font-extrabold">Editar exercício</h1>
           <EquipmentForm userId={profile.id} initial={eq} />
@@ -62,9 +64,15 @@ export default async function ExercicioPage({
           {eq.description && <p className="mt-4 leading-relaxed">{eq.description}</p>}
           {eq.image_credit && <p className="mt-4 text-xs text-muted">Imagem: {eq.image_credit}</p>}
 
-          {eq.is_default && <CatalogPhoto equipmentId={eq.id} userId={profile.id} hasPhoto={!!eq.image_path} />}
+          {(eq.locked || profile.catalog_blocked) && (
+            <p className="mt-4 rounded-2xl bg-border/40 px-3 py-2 text-sm text-muted">
+              🔒 {eq.locked ? "Exercício travado pelo administrador: não pode ser editado." : "Sua conta está sem permissão para editar exercícios. Fale com o administrador."}
+            </p>
+          )}
 
-          {mine && (
+          {eq.is_default && canEdit && <CatalogPhoto equipmentId={eq.id} userId={profile.id} hasPhoto={!!eq.image_path} />}
+
+          {mine && canEdit && (
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 href={`/personal/exercicios/${eq.id}?editar=1`}

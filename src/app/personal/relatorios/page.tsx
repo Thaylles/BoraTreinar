@@ -5,7 +5,7 @@ import { EmptyState, PageTitle } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { ReportContent } from "@/lib/report";
+import { SOURCE_LABEL, type ReportContent, type SuggestionSource } from "@/lib/report";
 import { generateReportNow } from "./actions";
 
 export const metadata: Metadata = { title: "Relatórios" };
@@ -17,9 +17,17 @@ export default async function RelatoriosPage() {
   const supabase = await createClient();
   const { data: reports } = await supabase
     .from("weekly_reports")
-    .select("id, week_start, content, ai_used, emailed_at")
+    .select("id, week_start, content, ai_used, emailed_at, preferred_source")
     .order("week_start", { ascending: false })
     .limit(52);
+
+  // Placar da comparação: quantas semanas cada fonte foi marcada como a mais útil.
+  const votes = new Map<SuggestionSource, number>();
+  for (const r of reports ?? []) {
+    const src = r.preferred_source as SuggestionSource | null;
+    if (src && src in SOURCE_LABEL) votes.set(src, (votes.get(src) ?? 0) + 1);
+  }
+  const totalVotes = [...votes.values()].reduce((a, b) => a + b, 0);
 
   return (
     <>
@@ -30,6 +38,35 @@ export default async function RelatoriosPage() {
         </SubmitButton>
         <p className="mt-1 text-center text-xs text-muted">A prévia não envia e-mail; o relatório de domingo atualiza esta semana.</p>
       </form>
+      {totalVotes > 0 && (
+        <section aria-labelledby="placar" className="mb-6 rounded-3xl border border-border bg-surface p-4">
+          <h2 id="placar" className="mb-2 font-display text-lg font-bold">
+            Placar das sugestões
+          </h2>
+          <ul className="space-y-2">
+            {(Object.keys(SOURCE_LABEL) as SuggestionSource[])
+              .filter((src) => votes.has(src))
+              .sort((a, b) => (votes.get(b) ?? 0) - (votes.get(a) ?? 0))
+              .map((src) => {
+                const n = votes.get(src) ?? 0;
+                return (
+                  <li key={src} className="text-sm">
+                    <div className="mb-1 flex justify-between gap-2">
+                      <span className="font-semibold">{SOURCE_LABEL[src]}</span>
+                      <span className="tabular-nums text-muted">
+                        {n} {n === 1 ? "semana" : "semanas"}
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-border/50" aria-hidden>
+                      <div className="h-2 rounded-full bg-bandeira-500" style={{ width: `${(n / totalVotes) * 100}%` }} />
+                    </div>
+                  </li>
+                );
+              })}
+          </ul>
+          <p className="mt-2 text-xs text-muted">Vote em cada relatório qual sugestão foi mais útil.</p>
+        </section>
+      )}
       {!reports?.length ? (
         <EmptyState icon={<FileBarChart className="size-8" />} title="Nenhum relatório ainda">
           O primeiro chega no domingo às 22h.
@@ -55,7 +92,10 @@ export default async function RelatoriosPage() {
                       {total} {total === 1 ? "treino" : "treinos"} · {trained} de {c.students.length}{" "}
                       {c.students.length === 1 ? "aluno treinou" : "alunos treinaram"}
                       {r.emailed_at ? " · enviado por e-mail" : ""}
-                      {r.ai_used ? " · sugestões por IA" : ""}
+                      {r.ai_used ? " · com IA" : ""}
+                      {r.preferred_source && r.preferred_source in SOURCE_LABEL
+                        ? ` · preferida: ${SOURCE_LABEL[r.preferred_source as SuggestionSource].split(" (")[0]}`
+                        : ""}
                     </span>
                   </span>
                   <ChevronRight className="size-5 text-muted" aria-hidden />

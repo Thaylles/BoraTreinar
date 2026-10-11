@@ -33,9 +33,12 @@ const GROUP_ICON: Record<MuscleGroup, typeof Shield> = {
 export function EquipmentImage({
   equipment,
   className,
+  fit = "cover",
 }: {
   equipment: Pick<Equipment, "name" | "image_path" | "image_url" | "muscle_group">;
   className?: string;
+  /** "contain" mostra a ilustração inteira (fundo branco), sem cortar. */
+  fit?: "cover" | "contain";
 }) {
   const src = equipmentImageSrc(equipment);
   if (src) {
@@ -45,7 +48,7 @@ export function EquipmentImage({
         src={src}
         alt={equipment.name}
         loading="lazy"
-        className={cn("aspect-[4/3] w-full rounded-2xl bg-ipe-100 object-cover", className)}
+        className={cn("aspect-[4/3] w-full", fit === "cover" ? "rounded-2xl bg-ipe-100 object-cover" : "bg-white object-contain", className)}
       />
     );
   }
@@ -55,7 +58,8 @@ export function EquipmentImage({
       role="img"
       aria-label={`${equipment.name} (sem foto)`}
       className={cn(
-        "flex aspect-[4/3] w-full flex-col items-center justify-center gap-1 rounded-2xl bg-anil-700/5 text-anil-700 dark:bg-white/5 dark:text-ipe-400",
+        "flex aspect-[4/3] w-full flex-col items-center justify-center gap-1 bg-anil-700/5 text-anil-700 dark:bg-white/5 dark:text-ipe-400",
+        fit === "cover" && "rounded-2xl",
         className,
       )}
     >

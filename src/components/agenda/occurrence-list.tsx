@@ -18,12 +18,14 @@ export function OccurrenceList({
   managerId,
   showStudent = false,
   showPersonal = false,
+  hideDayHeader = false,
 }: {
   occurrences: Occurrence<S>[];
   today: string;
   managerId?: string;
   showStudent?: boolean;
   showPersonal?: boolean;
+  hideDayHeader?: boolean;
 }) {
   if (!occurrences.length) return <p className="text-sm text-muted">Nenhuma aula nos próximos dias.</p>;
   const days = [...new Set(occurrences.map((o) => o.date))];
@@ -31,7 +33,7 @@ export function OccurrenceList({
     <div className="space-y-4">
       {days.map((day) => (
         <section key={day}>
-          <h3 className={cn("mb-1 text-sm font-bold", day === today ? "text-bandeira-600 dark:text-bandeira-100" : "text-muted")}>
+          <h3 className={cn("mb-1 text-sm font-bold", hideDayHeader && "sr-only", day === today ? "text-bandeira-600 dark:text-bandeira-100" : "text-muted")}>
             {dayLabel(day, today)}
           </h3>
           <ul className="space-y-2">
@@ -53,6 +55,7 @@ export function OccurrenceList({
                       {showPersonal && <p className="truncate font-semibold">com {o.schedule.personal?.full_name}</p>}
                       <p className="text-xs text-muted">
                         {o.schedule.duration_minutes} min
+                        {o.schedule.ends_on === o.schedule.starts_on && " · aula única"}
                         {o.cancelled && ` · cancelada${o.reason ? `: ${o.reason}` : ""}`}
                       </p>
                     </div>

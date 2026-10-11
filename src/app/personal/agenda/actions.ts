@@ -3,14 +3,23 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { friendlyError, type ActionState } from "@/lib/errors";
+import { weekdayOf } from "@/lib/schedule";
 
 export async function addSchedule(_: ActionState, fd: FormData): Promise<ActionState> {
-  const studentId = String(fd.get("student_id"));
-  const weekdays = fd.getAll("weekday").map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6);
+  const studentId = String(fd.get("student_id") ?? "");
+  const single = fd.get("kind") === "unica";
+  const onDate = String(fd.get("on_date") ?? "");
   const time = String(fd.get("start_time") ?? "");
   const duration = Number(fd.get("duration") ?? 60);
-  const startsOn = String(fd.get("starts_on") ?? "") || undefined;
   const notes = String(fd.get("notes") ?? "").trim() || null;
+  if (!studentId) return { error: "Escolha o aluno." };
+  if (single && !/^\d{4}-\d{2}-\d{2}$/.test(onDate)) return { error: "Informe a data da aula." };
+  // Aula única = linha com início e fim no mesmo dia (o banco confere o dia da semana).
+  const weekdays = single
+    ? [weekdayOf(onDate)]
+    : fd.getAll("weekday").map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6);
+  const startsOn = single ? onDate : String(fd.get("starts_on") ?? "") || undefined;
+  const endsOn = single ? onDate : null;
   if (!weekdays.length) return { error: "Escolha pelo menos um dia da semana." };
   if (!/^\d{2}:\d{2}$/.test(time)) return { error: "Informe o horário." };
 
@@ -27,13 +36,15 @@ export async function addSchedule(_: ActionState, fd: FormData): Promise<ActionS
       start_time: time,
       duration_minutes: duration,
       starts_on: startsOn,
+      ends_on: endsOn,
       notes,
     })),
   );
   if (error) return { error: friendlyError(error.message) };
   revalidatePath(`/personal/alunos/${studentId}`);
   revalidatePath("/personal/agenda");
-  return { ok: weekdays.length > 1 ? "Aulas agendadas! 📅" : "Aula agendada! 📅" };
+  if (single) return { ok: "Aula única agendada! 📅" };
+  return { ok: weekdays.length > 1 ? "Aulas agendadas toda semana! 📅" : "Aula agendada toda semana! 📅" };
 }
 
 export async function deleteSchedule(fd: FormData) {

@@ -65,3 +65,29 @@ export function dayLabel(date: string, today: string): string {
   if (date === addDays(today, 1)) return "Amanhã";
   return `${WEEKDAYS[weekdayOf(date)]}, ${date.slice(8, 10)}/${date.slice(5, 7)}`;
 }
+
+export const MONTHS = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+] as const;
+
+/** Segunda-feira da semana (seg–dom) que contém a data. */
+export function mondayOf(date: string): string {
+  return addDays(date, -((weekdayOf(date) + 6) % 7));
+}
+
+/** Soma meses a "YYYY-MM". */
+export function addMonths(month: string, n: number): string {
+  const [y, m] = month.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7);
+}
+
+/** Grade do mês em semanas de segunda a domingo: primeiro dia exibido e total de dias (múltiplo de 7). */
+export function monthGrid(month: string): { start: string; days: number } {
+  const first = `${month}-01`;
+  const last = addDays(`${addMonths(month, 1)}-01`, -1);
+  const start = mondayOf(first);
+  const end = addDays(mondayOf(last), 6);
+  const days = Math.round((Date.parse(end) - Date.parse(start)) / 86_400_000) + 1;
+  return { start, days };
+}

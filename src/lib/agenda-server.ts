@@ -3,8 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { upcomingOccurrences } from "@/lib/schedule";
 import { spDateKey } from "@/lib/week";
 
-/** Aulas (e cancelamentos) visíveis ao usuário logado, opcionalmente de um aluno. */
-export async function loadAgenda(opts: { studentId?: string; personalId?: string; days?: number }) {
+/** Aulas (e cancelamentos) visíveis ao usuário logado, opcionalmente de um aluno, a partir de `from` (padrão: hoje). */
+export async function loadAgenda(opts: { studentId?: string; personalId?: string; days?: number; from?: string }) {
   const supabase = await createClient();
   let q = supabase
     .from("class_schedules")
@@ -18,9 +18,10 @@ export async function loadAgenda(opts: { studentId?: string; personalId?: string
   const { data: schedules } = await q;
   const ids = (schedules ?? []).map((s) => s.id);
   const today = spDateKey();
+  const from = opts.from ?? today;
   const { data: exceptions } = ids.length
-    ? await supabase.from("class_exceptions").select("schedule_id, on_date, reason").in("schedule_id", ids).gte("on_date", today)
+    ? await supabase.from("class_exceptions").select("schedule_id, on_date, reason").in("schedule_id", ids).gte("on_date", from)
     : { data: [] };
-  const occurrences = upcomingOccurrences(schedules ?? [], exceptions ?? [], today, opts.days ?? 14);
+  const occurrences = upcomingOccurrences(schedules ?? [], exceptions ?? [], from, opts.days ?? 14);
   return { schedules: schedules ?? [], occurrences, today };
 }

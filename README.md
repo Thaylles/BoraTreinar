@@ -65,7 +65,7 @@ Veja `.env.example`. Resumo:
 | `NEXT_PUBLIC_SUPABASE_URL` | cliente/servidor | URL do projeto Supabase |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | cliente/servidor | chave pública (anon) |
 | `SUPABASE_SERVICE_ROLE_KEY` | **só servidor** | usada pelo cron do relatório |
-| `RESEND_API_KEY` / `EMAIL_FROM` | só servidor | envio de e-mails |
+| `RESEND_API_KEY` / `EMAIL_FROM` | só servidor | envio de e-mails (relatório e lembrete das 7h; sem elas, só a notificação no app) |
 | `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | só servidor | sugestões por IA (opcional) |
 | `CRON_SECRET` | só servidor | protege a rota do cron |
 
@@ -80,7 +80,10 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
      `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/redefinir-senha`.
      Assim o link funciona mesmo se aberto em outro aparelho/navegador.
 3. Importe o repositório na Vercel e configure as variáveis de ambiente acima.
-4. O `vercel.json` já agenda o relatório semanal: `0 1 * * 1` (UTC) = **domingo 22h em São Paulo** (Brasil sem horário de verão desde 2019).
+4. O `vercel.json` já agenda os crons (em UTC; Brasil sem horário de verão desde 2019):
+   - relatório semanal `0 1 * * 1` = **domingo 22h em São Paulo**;
+   - lembrete das aulas `0 10 * * *` = **todo dia às 7h em São Paulo**.
+   No plano Hobby da Vercel o cron pode disparar em qualquer minuto daquela hora; no Pro, no minuto exato.
 5. Defina `CRON_SECRET` na Vercel — ela envia esse valor automaticamente no header `Authorization` das chamadas de cron.
 
 ## Scripts
@@ -161,7 +164,9 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 ### Etapa 8 — Agenda e WhatsApp
 - [x] Aulas presenciais recorrentes (dias da semana, horário, duração, início) com cancelamento de datas avulsas e reativação
 - [x] Aluno é avisado de aula nova e de cancelamento; vê "Minhas aulas" e a próxima aula no início
-- [x] Agenda do Personal com as aulas dos próximos 14 dias
+- [x] Aulas semanais (repetem todo mês até o Personal remover) ou **aulas únicas** numa data
+- [x] **Calendário mensal** do Personal: alunos de cada dia, navegação entre meses, detalhe do dia (cancelar/reativar, WhatsApp, agendar aula naquele dia) e resumo dos alunos da semana
+- [x] **Lembrete às 7h (SP)**: notificação no app + e-mail ao Personal com os alunos do dia e o botão do WhatsApp de cada um (cron diário, idempotente)
 - [x] Botão "Chamar no WhatsApp" na lista e na página do aluno (e na agenda), com telefone normalizado (DDI 55) e a mensagem "Olá, tudo bem? Confirmado nosso treino hoje?"
 - [x] Testes de unidade (`npm run test:unit`) para telefone, link do WhatsApp e cálculo da agenda
 

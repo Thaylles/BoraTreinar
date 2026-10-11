@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // O admin envia a foto do exercício pela server action (já comprimida no navegador, até 2 MB).
+  experimental: { serverActions: { bodySizeLimit: "3mb" } },
   async headers() {
     return [
       {

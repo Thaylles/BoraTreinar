@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { formatPhoneBR, normalizePhoneBR } from "../phone.ts";
 import { whatsappLink } from "../whatsapp.ts";
+import { computeDashboard, periodFor, shiftPeriod, weightChange, type SummarySession } from "../stats.ts";
 import { addDays, addMonths, mondayOf, monthGrid, upcomingOccurrences, weekdayOf } from "../schedule.ts";
 
 test("normaliza telefone brasileiro com DDI 55", () => {
@@ -67,4 +68,66 @@ test("aula única aparece só no seu dia; semanal repete o mês todo", () => {
   assert.deepEqual(occ.filter((o) => o.schedule.id === "u").map((o) => o.date), ["2026-10-14"]);
   assert.deepEqual(occ.filter((o) => o.schedule.id === "w").map((o) => o.date), ["2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26"]);
   assert.ok(occ.find((o) => o.date === "2026-10-19")?.cancelled);
+});
+
+const sess = (date: string, ex: [string, number, boolean?][], kind: "ficha" | "livre" = "ficha"): SummarySession => ({
+  id: date,
+  started_at: `${date}T10:00:00Z`,
+  date,
+  kind,
+  duration: 3600,
+  ex: ex.map(([e, max, pr]) => ({ e, max, vol: max * 30, sets: 3, reps: 30, pr: !!pr })),
+});
+
+test("períodos semanal e mensal com o anterior para comparar", () => {
+  const w = periodFor("semana", "2026-10-11");
+  assert.deepEqual([w.from, w.to, w.prevFrom, w.prevTo], ["2026-10-05", "2026-10-11", "2026-09-28", "2026-10-04"]);
+  const m = periodFor("mes", "2026-03-15");
+  assert.deepEqual([m.from, m.to, m.prevFrom, m.prevTo, m.label], ["2026-03-01", "2026-03-31", "2026-02-01", "2026-02-28", "Março de 2026"]);
+  assert.equal(shiftPeriod(w, -1), "2026-09-28");
+  assert.equal(shiftPeriod(m, 1), "2026-04-01");
+});
+
+test("dashboard: progressão, maiores aumentos, recordes, sequência e volume", () => {
+  const sessions = [
+    sess("2026-09-22", [["supino", 20], ["agach", 40], ["remada", 30]]),
+    sess("2026-09-29", [["supino", 22], ["agach", 50]]),
+    sess("2026-10-06", [["supino", 25, true], ["agach", 50], ["remada", 25]]),
+    sess("2026-10-08", [["supino", 24], ["rosca", 10]], "livre"),
+  ];
+  const d = computeDashboard(sessions, periodFor("semana", "2026-10-08"), "2026-10-08");
+  assert.equal(d.totals.sessions, 2);
+  assert.equal(d.prevTotals.sessions, 1);
+  assert.equal(d.totals.sets, 15);
+  assert.equal(d.totals.volume, (25 + 50 + 25 + 24 + 10) * 30);
+  const byId = Object.fromEntries(d.progress.map((p) => [p.id, p]));
+  assert.equal(byId.supino.trend, "up");
+  assert.equal(byId.supino.delta, 3); // 25 na semana × 22 da última vez
+  assert.equal(byId.agach.trend, "same");
+  assert.equal(byId.remada.trend, "down"); // 25 × 30 de duas semanas antes
+  assert.equal(byId.rosca.trend, "new");
+  assert.deepEqual(d.topGains.map((p) => p.id), ["supino"]);
+  assert.deepEqual(d.prs, [{ id: "supino", load: 25, date: "2026-10-06" }]);
+  assert.equal(d.streakWeeks, 3);
+  assert.equal(d.bestVolume?.date, "2026-10-06");
+  assert.equal(d.bestVolume?.allTime, true);
+  assert.equal(d.weeks.length, 8);
+  assert.deepEqual(d.weeks.at(-1), { week: "2026-10-05", sessions: 2, volume: 134 * 30 });
+});
+
+test("semana em andamento sem treino não zera a sequência; semana vazia no meio zera", () => {
+  const sessions = [sess("2026-09-21", [["a", 10]]), sess("2026-09-28", [["a", 10]])];
+  assert.equal(computeDashboard(sessions, periodFor("semana", "2026-10-06"), "2026-10-06").streakWeeks, 2);
+  assert.equal(computeDashboard(sessions, periodFor("semana", "2026-10-13"), "2026-10-13").streakWeeks, 0);
+});
+
+test("variação de peso usa a primeira e a última pesagem do período", () => {
+  const p = periodFor("mes", "2026-10-01");
+  const ws = [
+    { measured_on: "2026-09-30", weight_kg: 90 },
+    { measured_on: "2026-10-02", weight_kg: 80 },
+    { measured_on: "2026-10-20", weight_kg: 78.6 },
+  ];
+  assert.deepEqual(weightChange(ws, p), { first: 80, last: 78.6, delta: -1.4, count: 2 });
+  assert.equal(weightChange(ws, periodFor("mes", "2026-08-01")), null);
 });

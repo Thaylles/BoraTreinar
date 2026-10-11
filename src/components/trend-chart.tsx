@@ -10,7 +10,7 @@ type Point = TrendPoint;
 const SERIES = { light: "#009C3B", dark: "#1DA857" };
 const PR = "#E6A800";
 
-function useDark() {
+export function useDark() {
   const [dark, setDark] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");

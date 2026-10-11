@@ -94,7 +94,7 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 | `npm run build` | build de produção |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | checagem de tipos |
-| `npm run test:unit` | testes de unidade das funções puras (telefone, WhatsApp, agenda) |
+| `npm run test:unit` | testes de unidade das funções puras (telefone, WhatsApp, agenda, estatísticas do dashboard) |
 | `npm run test:db` | aplica as migrações num Postgres descartável (com stub do Supabase) e roda os testes SQL de RLS. Use `PGHOST`/`PGPORT`/`PGUSER` para apontar o servidor |
 
 ## Como funciona o acesso
@@ -171,7 +171,14 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 - [x] Testes de unidade (`npm run test:unit`) para telefone, link do WhatsApp e cálculo da agenda
 
 ### Etapa 9 — Dashboard
-- [ ] Visões semanal/mensal, PRs, volume, ranking
+- [x] Aba **Evolução** do aluno e página "Ver evolução" de cada aluno (Personal), com visões **semanal (seg–dom) e mensal** e navegação entre períodos
+- [x] Treinos, volume (séries feitas × reps × carga), séries e tempo, comparados com o período anterior
+- [x] Frequência por semana (últimas 8 semanas) em gráfico de barras
+- [x] Progressão de carga por exercício (subiu / estável / caiu / primeira vez) com setas e cores; ranking de onde mais aumentou carga
+- [x] Evoluções notáveis: recordes (PRs), semanas seguidas treinando e maior volume (com aviso de recorde de volume)
+- [x] Peso corporal no período, respeitando a permissão do aluno (RLS)
+- [x] Visão geral do Personal no início: ranking de frequência (semana/mês) e alunos sem treinar há 7+ dias
+- [x] Agregados no banco (`training_summary`, `training_overview`, *security invoker*: o RLS decide o que cada um vê), com testes SQL e de unidade
 
 ### Etapa 10 — Relatório de domingo
 - [ ] Geração, e-mail, histórico no app, sugestões por IA/regras

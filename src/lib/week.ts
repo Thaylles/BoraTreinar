@@ -37,3 +37,8 @@ export function daysAgoLabel(days: number): string {
   if (days === 1) return "ontem";
   return `há ${days} dias`;
 }
+
+/** Instante (ISO) da meia-noite de São Paulo no dia civil "YYYY-MM-DD". */
+export function spMidnightISO(date: string): string {
+  return new Date(`${date}T00:00:00${spOffset(new Date(`${date}T12:00:00Z`))}`).toISOString();
+}

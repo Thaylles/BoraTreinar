@@ -513,6 +513,14 @@ export type Database = {
           notified: boolean;
         }[];
       };
+      training_summary: {
+        Args: { p_student: string };
+        Returns: Json;
+      };
+      training_overview: {
+        Args: { p_since: string };
+        Returns: Json;
+      };
       set_equipment_image: {
         Args: { p_equipment: string; p_image_path: string | null };
         Returns: undefined;

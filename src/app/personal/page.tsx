@@ -7,11 +7,13 @@ import { NotificationsList } from "@/components/notifications";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { firstName } from "@/lib/format";
+import { PersonalOverview } from "@/components/dashboard/personal-overview";
 
 export const metadata: Metadata = { title: "Início" };
 
-export default async function PersonalHome() {
+export default async function PersonalHome({ searchParams }: { searchParams: Promise<{ visao?: string }> }) {
   const { profile } = await requireRole("personal");
+  const kind = (await searchParams).visao === "mes" ? "mes" : "semana";
   const supabase = await createClient();
   const nowIso = new Date().toISOString();
   const [students, invites, requests] = await Promise.all([
@@ -70,6 +72,8 @@ export default async function PersonalHome() {
           <Dumbbell className="size-5" aria-hidden /> Exercícios
         </LinkButton>
       </div>
+
+      <PersonalOverview personalId={profile.id} kind={kind} />
 
       <NotificationsList />
     </>

@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Baloo_2, Inter } from "next/font/google";
 import "./globals.css";
+import { SwRegister } from "@/components/pwa/sw-register";
+import { ConnectionStatus } from "@/components/pwa/connection-status";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const baloo = Baloo_2({
@@ -37,7 +39,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={`${inter.variable} ${baloo.variable} antialiased`}>
+        <ConnectionStatus />
         {children}
+        <SwRegister />
       </body>
     </html>
   );

@@ -11,14 +11,17 @@ import {
   Pause,
   Plus,
   SkipForward,
+  TrendingUp,
   Trophy,
   X,
 } from "lucide-react";
 import { equipmentImageSrc, groupLabel, type MuscleGroup } from "@/lib/catalog";
-import { formatRest, formatKg } from "@/lib/plans";
+import { formatRest, formatKg, techniqueInfo, type Technique } from "@/lib/plans";
+import { suggestProgression } from "@/lib/progression";
 import { draftStore, outbox, type SessionPayload } from "@/lib/outbox";
 import type { ExerciseHistoryInfo } from "@/lib/history-server";
 import { saveSession } from "@/app/treino-actions";
+import { SessionRating } from "@/components/workout/session-rating";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { cn } from "@/lib/cn";
@@ -39,13 +42,17 @@ export type RunnerExercise = {
   repsMax: number | null;
   suggestedLoad: number | null;
   history: ExerciseHistoryInfo;
+  /** Técnica avançada da ficha (bi-set, drop-set…). */
+  technique?: Technique | null;
+  /** Quantos exercícios seguintes fazem parte do mesmo bi-set/tri-set (sem descanso até lá). */
+  groupedNext?: number;
 };
 
 type SetState = { load: string; reps: string; done: boolean | null };
 type ExerciseState = { rest: number; sets: SetState[] };
 type Draft = { v: 1; clientId: string; startedAt: string; exercises: ExerciseState[] };
 type Timer = { endsAt: number; total: number; exercise: number } | null;
-type Summary = { duration: number; doneSets: number; volume: number; prs: string[]; offline: boolean };
+type Summary = { duration: number; doneSets: number; volume: number; prs: string[]; offline: boolean; sessionId?: string };
 
 const fmtNum = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 const parseNum = (s: string) => {
@@ -207,7 +214,8 @@ export function WorkoutRunner({
     const next = current === done ? null : done;
     updateSet(ei, si, { done: next });
     const rest = draft?.exercises[ei].rest ?? 0;
-    if (next === true && rest > 0) {
+    // Bi-set/tri-set: o descanso vem só depois do último exercício do grupo.
+    if (next === true && rest > 0 && !exercises[ei].groupedNext) {
       setTimer({ endsAt: Date.now() + rest * 1000, total: rest, exercise: ei });
     }
   }
@@ -273,6 +281,7 @@ export function WorkoutRunner({
       setSummary({
         ...base,
         offline: false,
+        sessionId: res.id,
         prs: res.prs.map((id) => exercises.find((e) => e.equipment.id === id)?.equipment.name ?? "").filter(Boolean),
       });
     } catch {
@@ -292,7 +301,7 @@ export function WorkoutRunner({
     window.location.href = backHref;
   }
 
-  if (summary) return <WorkoutSummary summary={summary} backHref={backHref} />;
+  if (summary) return <WorkoutSummary summary={summary} backHref={backHref} canRate={!loggedByInstructor} />;
   if (!draft) {
     return (
       <div className="flex justify-center py-20 text-muted">
@@ -338,6 +347,11 @@ export function WorkoutRunner({
             onAdd={() => addSet(ei)}
             onRemove={() => removeSet(ei)}
             onRest={(rest) => updateExercise(ei, { rest })}
+            onUseLoad={(load) =>
+              updateExercise(ei, {
+                sets: draft.exercises[ei].sets.map((s) => (s.done === null ? { ...s, load: fmtNum(load) } : s)),
+              })
+            }
           />
         ))}
       </ol>
@@ -374,6 +388,7 @@ function ExerciseCard({
   onAdd,
   onRemove,
   onRest,
+  onUseLoad,
 }: {
   index: number;
   exercise: RunnerExercise;
@@ -383,9 +398,19 @@ function ExerciseCard({
   onAdd: () => void;
   onRemove: () => void;
   onRest: (rest: number) => void;
+  onUseLoad: (load: number) => void;
 }) {
   const src = equipmentImageSrc(exercise.equipment);
   const { last, best } = exercise.history;
+  const technique = techniqueInfo(exercise.technique);
+  const progression = suggestProgression({
+    lastSets: last?.sets ?? null,
+    targetSets: exercise.targetSets,
+    repsMin: exercise.repsMin,
+    repsMax: exercise.repsMax,
+    cardio: exercise.equipment.muscle_group === "cardio",
+  });
+  const usingSuggestion = progression != null && state.sets.every((s) => s.done !== null || parseNum(s.load) === progression.to);
   const allDone = state.sets.every((s) => s.done !== null);
   const isCardio = exercise.equipment.muscle_group === "cardio";
 
@@ -422,6 +447,36 @@ function ExerciseCard({
           )}
         </div>
       </div>
+
+      {(technique || !!exercise.groupedNext) && (
+        <p className="mt-3 rounded-2xl border border-anil-700/20 px-3 py-2 text-sm">
+          {technique && <strong className="mr-1">{technique.label}:</strong>}
+          {technique?.hint}
+          {!!exercise.groupedNext && (
+            <span className="block text-xs font-semibold text-anil-700 dark:text-ipe-400">
+              ↳ Sem descanso: siga direto para o próximo exercício.
+            </span>
+          )}
+        </p>
+      )}
+
+      {progression && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl bg-bandeira-50 px-3 py-2 text-sm dark:bg-bandeira-500/10">
+          <TrendingUp className="size-4 shrink-0 text-bandeira-600 dark:text-bandeira-100" aria-hidden />
+          <span className="min-w-0 flex-1">
+            Você completou tudo com {formatKg(progression.from)} na última vez. Que tal <strong>{formatKg(progression.to)}</strong>?
+          </span>
+          {!usingSuggestion && (
+            <button
+              type="button"
+              onClick={() => onUseLoad(progression.to)}
+              className="rounded-xl bg-bandeira-500 px-3 py-1 text-xs font-bold text-white hover:bg-bandeira-600"
+            >
+              Usar {formatKg(progression.to)}
+            </button>
+          )}
+        </div>
+      )}
 
       {exercise.notes && (
         <p className="mt-3 rounded-2xl bg-ipe-100 px-3 py-2 text-sm text-anil-900 dark:bg-ipe-500/15 dark:text-ipe-400">
@@ -572,7 +627,7 @@ function RestTimer({
   );
 }
 
-function WorkoutSummary({ summary, backHref }: { summary: Summary; backHref: string }) {
+function WorkoutSummary({ summary, backHref, canRate }: { summary: Summary; backHref: string; canRate: boolean }) {
   return (
     <div className="space-y-5 py-6 text-center">
       <p className="text-6xl" aria-hidden>
@@ -613,6 +668,7 @@ function WorkoutSummary({ summary, backHref }: { summary: Summary; backHref: str
           </ul>
         </div>
       )}
+      {canRate && summary.sessionId && <SessionRating sessionId={summary.sessionId} />}
       <Link href={backHref} className="block rounded-2xl bg-bandeira-500 py-4 font-display text-lg font-bold text-white hover:bg-bandeira-600">
         Voltar
       </Link>

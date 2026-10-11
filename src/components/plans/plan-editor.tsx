@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { ArrowDown, ArrowUp, Loader2, Minus, Plus, Trash2 } from "lucide-react";
 import { equipmentImageSrc, groupLabel } from "@/lib/catalog";
-import { parseReps, REST_OPTIONS, formatRest } from "@/lib/plans";
+import { parseReps, REST_OPTIONS, TECHNIQUES, formatRest, techniqueInfo, type Technique } from "@/lib/plans";
 import { savePlan, type PlanPayload } from "@/app/personal/fichas/actions";
 import { Field, inputClass } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ export type EditorItem = {
   load: string;
   rest: number;
   notes: string;
+  technique: Technique | "";
 };
 
 export type EditorInitial = {
@@ -64,7 +65,7 @@ export function PlanEditor({ initial, catalog }: { initial: EditorInitial; catal
   function addFromCatalog(c: CatalogItem) {
     setItems((list) => [
       ...list,
-      { key: newKey(), equipment: c, sets: 3, reps: c.muscle_group === "cardio" ? "20" : "10–12", load: "", rest: c.muscle_group === "cardio" ? 0 : 60, notes: "" },
+      { key: newKey(), equipment: c, sets: 3, reps: c.muscle_group === "cardio" ? "20" : "10–12", load: "", rest: c.muscle_group === "cardio" ? 0 : 60, notes: "", technique: "" },
     ]);
   }
 
@@ -83,6 +84,7 @@ export function PlanEditor({ initial, catalog }: { initial: EditorInitial; catal
         suggested_load: load,
         rest_seconds: it.rest,
         notes: it.notes,
+        technique: it.technique || null,
       });
     }
     startTransition(async () => {
@@ -193,14 +195,30 @@ export function PlanEditor({ initial, catalog }: { initial: EditorInitial; catal
                   </select>
                 </div>
               </div>
-              <input
-                value={it.notes}
-                onChange={(e) => update(it.key, { notes: e.target.value })}
-                maxLength={500}
-                placeholder="Observações (técnica, cadência, pegada…)"
-                aria-label={`Observações de ${it.equipment.name}`}
-                className={cn(inputClass, "mt-3 py-2 text-sm")}
-              />
+              <div className="mt-3 grid gap-3 sm:grid-cols-[11rem_1fr]">
+                <select
+                  value={it.technique}
+                  onChange={(e) => update(it.key, { technique: e.target.value as Technique | "" })}
+                  aria-label={`Técnica de ${it.equipment.name}`}
+                  className={cn(inputClass, "px-3 py-2 text-sm")}
+                >
+                  <option value="">Técnica: normal</option>
+                  {TECHNIQUES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={it.notes}
+                  onChange={(e) => update(it.key, { notes: e.target.value })}
+                  maxLength={500}
+                  placeholder="Observações (cadência, pegada, amplitude…)"
+                  aria-label={`Observações de ${it.equipment.name}`}
+                  className={cn(inputClass, "py-2 text-sm")}
+                />
+              </div>
+              {it.technique && <p className="mt-1.5 text-xs text-muted">{techniqueInfo(it.technique)?.hint}</p>}
             </article>
           );
         })}

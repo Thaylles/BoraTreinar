@@ -26,10 +26,14 @@ export const getSessionProfile = cache(async () => {
   return { user, profile };
 });
 
+/** O admin também entra nas áreas de Personal e de aluno (modos da mesma conta). */
+export const canActAs = (actual: Enums<"user_role">, role: Enums<"user_role">) =>
+  actual === role || (actual === "admin" && role !== "admin");
+
 export async function requireRole(role: Enums<"user_role">) {
   const session = await getSessionProfile();
   if (!session) redirect("/entrar");
-  if (session.profile.role !== role) redirect(homeFor(session.profile.role));
+  if (!canActAs(session.profile.role, role)) redirect(homeFor(session.profile.role));
   return session;
 }
 

@@ -3,17 +3,19 @@ import { loadPlan } from "@/lib/plans-server";
 import { loadExerciseHistory } from "@/lib/history-server";
 import { loadCatalogFor } from "@/lib/plans-server";
 import type { RunnerExercise } from "@/components/workout/workout-runner";
+import { groupedWithNext } from "@/lib/plans";
 
 /** Monta os exercícios da tela de execução a partir de uma ficha do aluno. */
 export async function loadRunnerForPlan(planId: string, studentId: string) {
   const loaded = await loadPlan(planId);
   if (!loaded || loaded.plan.is_template || loaded.plan.student_id !== studentId) return null;
   const items = loaded.items.filter((i) => i.equipment);
+  const grouped = groupedWithNext(items.map((i) => i.technique));
   const history = await loadExerciseHistory(
     studentId,
     [...new Set(items.map((i) => i.equipment!.id))],
   );
-  const exercises: RunnerExercise[] = items.map((i) => ({
+  const exercises: RunnerExercise[] = items.map((i, idx) => ({
     equipment: {
       id: i.equipment!.id,
       name: i.equipment!.name,
@@ -29,6 +31,8 @@ export async function loadRunnerForPlan(planId: string, studentId: string) {
     repsMax: i.reps_max,
     suggestedLoad: i.suggested_load == null ? null : Number(i.suggested_load),
     history: history[i.equipment!.id] ?? { last: null, best: null },
+    technique: i.technique,
+    groupedNext: grouped[idx],
   }));
   return { plan: loaded.plan, exercises };
 }

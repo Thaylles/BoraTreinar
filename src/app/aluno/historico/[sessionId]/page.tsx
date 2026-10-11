@@ -7,6 +7,7 @@ import { ConfirmSubmit } from "@/components/confirm-submit";
 import { requireRole } from "@/lib/auth";
 import { loadSession } from "@/lib/sessions-server";
 import { deleteSession } from "@/app/treino-actions";
+import { SessionRating } from "@/components/workout/session-rating";
 
 export const metadata: Metadata = { title: "Treino" };
 
@@ -22,6 +23,11 @@ export default async function AlunoSessaoPage({ params }: { params: Promise<{ se
         <ArrowLeft className="size-4" aria-hidden /> Histórico
       </Link>
       <SessionDetail data={data} exerciseHref={(id) => `/aluno/exercicios/${id}`} />
+      {data.session.effort == null && Date.parse(data.session.finished_at) > Date.now() - 7 * 86_400_000 && (
+        <div className="mt-6">
+          <SessionRating sessionId={sessionId} />
+        </div>
+      )}
       <form action={deleteSession} className="mt-8">
         <input type="hidden" name="id" value={sessionId} />
         <ConfirmSubmit

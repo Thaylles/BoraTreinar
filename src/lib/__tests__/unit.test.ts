@@ -241,3 +241,27 @@ test("relatório compara regras e IAs com rótulo de cada fonte", () => {
   assert.ok(html.includes("Sugestões · Gemini (IA do Google)"));
   assert.ok(html.includes("Fase de testes"));
 });
+
+test("progressão de carga: sugere subir quando bateu tudo", async () => {
+  const { suggestProgression, loadStep } = await import("../progression.ts");
+  const sets = (n: number, load: number, reps: number) => Array.from({ length: n }, () => ({ load, reps }));
+  assert.deepEqual(suggestProgression({ lastSets: sets(3, 40, 12), targetSets: 3, repsMin: 10, repsMax: 12 }), { from: 40, to: 42.5, step: 2.5 });
+  assert.deepEqual(suggestProgression({ lastSets: sets(4, 8, 15), targetSets: 3, repsMin: 15, repsMax: null }), { from: 8, to: 9, step: 1 });
+  // Faltou repetição, faltou série, cardio ou sem histórico: não sugere.
+  assert.equal(suggestProgression({ lastSets: [...sets(2, 40, 12), { load: 40, reps: 9 }], targetSets: 3, repsMin: 10, repsMax: 12 }), null);
+  assert.equal(suggestProgression({ lastSets: sets(2, 40, 12), targetSets: 3, repsMin: 10, repsMax: 12 }), null);
+  assert.equal(suggestProgression({ lastSets: sets(3, 40, 12), targetSets: 3, repsMin: 10, repsMax: 12, cardio: true }), null);
+  assert.equal(suggestProgression({ lastSets: null, targetSets: 3, repsMin: 10, repsMax: 12 }), null);
+  assert.equal(suggestProgression({ lastSets: sets(3, 0, 20), targetSets: 3, repsMin: 10, repsMax: 12 }), null);
+  // Sem faixa na ficha: referência de 12 repetições.
+  assert.equal(suggestProgression({ lastSets: sets(3, 50, 10), targetSets: 3, repsMin: null, repsMax: null }), null);
+  assert.equal(loadStep(120), 5);
+});
+
+test("bi-set e tri-set agrupam com os exercícios seguintes", async () => {
+  const { groupedWithNext } = await import("../plans.ts");
+  assert.deepEqual(groupedWithNext(["biset", null, null]), [1, 0, 0]);
+  assert.deepEqual(groupedWithNext(["triset", null, null, "dropset"]), [2, 1, 0, 0]);
+  assert.deepEqual(groupedWithNext([null, "biset"]), [0, 0]);
+  assert.deepEqual(groupedWithNext(["triset", null]), [1, 0]);
+});

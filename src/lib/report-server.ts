@@ -20,7 +20,7 @@ export async function generateWeeklyReports(opts: { personalId?: string; deliver
   const period = periodFor("semana", today);
   const result: Result = { personals: 0, reports: 0, emails: 0, ai: 0 };
 
-  let q = admin.from("profiles").select("id, full_name").eq("role", "personal");
+  let q = admin.from("profiles").select("id, full_name").in("role", ["personal", "admin"]);
   if (opts.personalId) q = q.eq("id", opts.personalId);
   const { data: personals, error } = await q;
   if (error) throw new Error(error.message);

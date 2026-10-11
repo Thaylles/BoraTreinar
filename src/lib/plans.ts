@@ -35,9 +35,37 @@ export const formatKg = (n: number | null | undefined) =>
 
 export const REST_OPTIONS = [0, 30, 45, 60, 75, 90, 120, 150, 180, 240, 300];
 
+export type Technique = NonNullable<PlanItem["technique"]>;
+
+/** Técnicas avançadas por exercício. Bi-set e tri-set agrupam com o(s) exercício(s) seguinte(s). */
+export const TECHNIQUES: { value: Technique; label: string; hint: string; groupSize?: number }[] = [
+  { value: "biset", label: "Bi-set", hint: "Junto com o próximo exercício, sem descanso entre eles", groupSize: 2 },
+  { value: "triset", label: "Tri-set", hint: "Junto com os 2 próximos exercícios, sem descanso entre eles", groupSize: 3 },
+  { value: "dropset", label: "Drop-set", hint: "Na última série, reduza a carga e continue até a falha" },
+  { value: "restpause", label: "Rest-pause", hint: "Na falha, pausa de 10–15 s e mais algumas repetições" },
+  { value: "piramide", label: "Pirâmide", hint: "Aumente a carga e diminua as repetições a cada série" },
+];
+
+export const techniqueInfo = (t: Technique | null | undefined) => (t ? TECHNIQUES.find((x) => x.value === t) : undefined);
+export const isTechnique = (v: unknown): v is Technique => TECHNIQUES.some((t) => t.value === v);
+
+/**
+ * Para cada posição, quantos exercícios seguintes ainda fazem parte do mesmo bi-set/tri-set.
+ * Ex.: [biset, normal, normal] → [1, 0, 0]: o 1º não descansa antes do 2º.
+ */
+export function groupedWithNext(techniques: (Technique | null | undefined)[]): number[] {
+  const out = techniques.map(() => 0);
+  for (let i = 0; i < techniques.length; i++) {
+    const size = techniqueInfo(techniques[i])?.groupSize;
+    if (!size) continue;
+    for (let k = 0; k < size - 1 && i + k < techniques.length - 1; k++) out[i + k] = size - 1 - k;
+  }
+  return out.map((n, i) => Math.min(n, techniques.length - 1 - i));
+}
+
 /** Converte itens do banco para o formato do editor. */
 export function toEditorItems(
-  rows: { sets: number; reps_min: number | null; reps_max: number | null; suggested_load: number | null; rest_seconds: number; notes: string | null; equipment: CatalogItem | null }[],
+  rows: { sets: number; reps_min: number | null; reps_max: number | null; suggested_load: number | null; rest_seconds: number; notes: string | null; technique?: Technique | null; equipment: CatalogItem | null }[],
 ): Omit<EditorItem, "key">[] {
   return rows
     .filter((r) => r.equipment)
@@ -48,5 +76,6 @@ export function toEditorItems(
       load: r.suggested_load == null ? "" : String(r.suggested_load).replace(".", ","),
       rest: r.rest_seconds,
       notes: r.notes ?? "",
+      technique: r.technique ?? "",
     }));
 }

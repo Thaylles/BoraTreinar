@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronRight, Trophy, UserCheck } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 import type { listSessions } from "@/lib/sessions-server";
+import { effortInfo } from "@/lib/effort";
 
 type Item = Awaited<ReturnType<typeof listSessions>>[number];
 
@@ -17,6 +18,12 @@ export function SessionList({ sessions, href }: { sessions: Item[]; href: (id: s
                 {s.kind === "livre" && <span className="text-xs font-normal text-muted">(livre)</span>}
                 {s.hasPr && <Trophy className="size-4 text-ipe-600" aria-label="Recorde" />}
                 {s.byInstructor && <UserCheck className="size-4 text-anil-500" aria-label="Registrado pelo instrutor" />}
+                {s.effort != null && (
+                  <span className="text-sm" title={`Esforço: ${effortInfo(s.effort)?.label}`} aria-label={`Esforço: ${effortInfo(s.effort)?.label}`}>
+                    {effortInfo(s.effort)?.emoji}
+                  </span>
+                )}
+                {s.pain && <span className="rounded-full bg-pitanga-100 px-1.5 text-xs font-bold text-pitanga-600 dark:bg-pitanga-500/20">dor</span>}
               </p>
               <p className="text-xs text-muted">
                 {formatDateTime(s.started_at)} · {Math.round(s.duration_seconds / 60)} min · {s.doneSets} séries

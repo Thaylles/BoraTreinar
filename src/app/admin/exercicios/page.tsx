@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Lock, LockOpen, Search } from "lucide-react";
 import { EmptyState, PageTitle } from "@/components/ui/card";
+import { EquipmentImage } from "@/components/equipment-image";
 import { inputClass } from "@/components/ui/field";
 import { adminSetEquipmentLocked } from "@/app/admin/actions";
 import { requireAdmin } from "@/lib/admin-server";
@@ -24,7 +25,7 @@ export default async function AdminExerciciosPage({ searchParams }: { searchPara
   const filtro = sp.filtro ?? "";
   let query = db
     .from("equipment")
-    .select("id, name, muscle_group, is_default, locked, created_by, image_credit, owner:profiles!equipment_created_by_fkey(full_name)")
+    .select("id, name, muscle_group, is_default, locked, created_by, image_credit, image_path, image_url, owner:profiles!equipment_created_by_fkey(full_name)")
     .order("muscle_group")
     .order("name")
     .limit(1000);
@@ -60,36 +61,47 @@ export default async function AdminExerciciosPage({ searchParams }: { searchPara
       {!items?.length ? (
         <EmptyState icon={<Search className="size-8" />} title="Nenhum exercício encontrado" />
       ) : (
-        <ul className="space-y-2">
-          {items.map((e) => (
-            <li key={e.id} className={cn("flex items-center gap-3 rounded-2xl border bg-surface p-3 text-sm", e.locked ? "border-pitanga-500/50" : "border-border")}>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1 truncate font-semibold">
-                  {e.locked && <Lock className="size-3.5 shrink-0 text-pitanga-600" aria-label="travado" />}
-                  {e.name}
-                </span>
-                <span className="block truncate text-xs text-muted">
-                  {groupLabel(e.muscle_group)} · {e.is_default ? "catálogo padrão" : `de ${e.owner?.full_name ?? "Personal excluído"}`}
-                  {e.is_default && e.image_credit?.startsWith("Foto enviada") ? ` · ${e.image_credit}` : ""}
-                </span>
-              </span>
-              <form action={adminSetEquipmentLocked}>
-                <input type="hidden" name="id" value={e.id} />
-                <input type="hidden" name="locked" value={e.locked ? "0" : "1"} />
-                <button
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-xl border-2 px-3 py-1.5 text-xs font-bold transition",
-                    e.locked ? "border-pitanga-500 text-pitanga-600 hover:bg-pitanga-100" : "border-border hover:border-bandeira-500",
-                  )}
-                  aria-label={e.locked ? `Destravar ${e.name}` : `Travar ${e.name}`}
-                >
-                  {e.locked ? <LockOpen className="size-3.5" aria-hidden /> : <Lock className="size-3.5" aria-hidden />}
-                  {e.locked ? "Destravar" : "Travar"}
-                </button>
-              </form>
-            </li>
-          ))}
-        </ul>
+        <>
+          <p className="mb-3 text-xs text-muted">
+            {items.length} {items.length === 1 ? "exercício" : "exercícios"} · {items.filter((e) => e.locked).length} travados
+          </p>
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {items.map((e) => (
+              <li
+                key={e.id}
+                className={cn("flex flex-col overflow-hidden rounded-2xl border bg-surface text-sm", e.locked ? "border-pitanga-500/50" : "border-border")}
+              >
+                <EquipmentImage equipment={e} fit="contain" />
+                <div className="flex flex-1 flex-col gap-2 p-3">
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-start gap-1 font-semibold leading-snug">
+                      {e.locked && <Lock className="mt-0.5 size-3.5 shrink-0 text-pitanga-600" aria-label="travado" />}
+                      {e.name}
+                    </span>
+                    <span className="mt-0.5 block text-xs text-muted">
+                      {groupLabel(e.muscle_group)} · {e.is_default ? "catálogo padrão" : `de ${e.owner?.full_name ?? "Personal excluído"}`}
+                      {e.is_default && e.image_credit?.startsWith("Foto enviada") ? ` · ${e.image_credit}` : ""}
+                    </span>
+                  </span>
+                  <form action={adminSetEquipmentLocked}>
+                    <input type="hidden" name="id" value={e.id} />
+                    <input type="hidden" name="locked" value={e.locked ? "0" : "1"} />
+                    <button
+                      className={cn(
+                        "inline-flex w-full items-center justify-center gap-1 rounded-xl border-2 px-3 py-1.5 text-xs font-bold transition",
+                        e.locked ? "border-pitanga-500 text-pitanga-600 hover:bg-pitanga-100" : "border-border hover:border-bandeira-500",
+                      )}
+                      aria-label={e.locked ? `Destravar ${e.name}` : `Travar ${e.name}`}
+                    >
+                      {e.locked ? <LockOpen className="size-3.5" aria-hidden /> : <Lock className="size-3.5" aria-hidden />}
+                      {e.locked ? "Destravar" : "Travar"}
+                    </button>
+                  </form>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </>
   );

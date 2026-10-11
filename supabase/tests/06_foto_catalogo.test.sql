@@ -34,6 +34,8 @@ insert into auth.users (email, raw_user_meta_data)
 select 'wil@a.com', jsonb_build_object('role','aluno','full_name','Wil Aluno',
   'phone','11944443333','invite_token', token, 'terms_accepted', true) from t_i;
 create temp table eq as select id from public.equipment where name = 'Leg press 45°';
+-- O catálogo padrão vem travado pelas fotos do admin; aqui testamos um exercício destravado.
+update public.equipment set locked = false where id = (select id from eq);
 grant all on eq to authenticated;
 
 select pg_temp.as_user('ugo@p.com');

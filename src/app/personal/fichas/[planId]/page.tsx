@@ -112,6 +112,12 @@ export default async function FichaPage({
             Duplicar ficha
           </Button>
         </form>
+        <Link
+          href={`/personal/modelos/aplicar?ficha=${planId}`}
+          className="mt-3 block text-center text-sm font-semibold text-bandeira-600 underline-offset-4 hover:underline dark:text-bandeira-100"
+        >
+          Duplicar para vários alunos de uma vez →
+        </Link>
       </Card>
 
       <div className="mt-6 flex flex-wrap gap-3">

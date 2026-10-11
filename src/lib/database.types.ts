@@ -543,6 +543,10 @@ export type Database = {
           notified: boolean;
         }[];
       };
+      apply_plans_to_students: {
+        Args: { p_plans: string[]; p_students: string[]; p_archive_current?: boolean };
+        Returns: Json;
+      };
       is_admin: { Args: Record<string, never>; Returns: boolean };
       catalog_blocked: { Args: Record<string, never>; Returns: boolean };
       delete_own_account: {

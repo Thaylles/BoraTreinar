@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { LinkButton } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
-import { getSessionProfile, homeFor } from "@/lib/auth";
+import { canActAs, getSessionProfile, homeFor } from "@/lib/auth";
+import { Alert } from "@/components/ui/alert";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { acceptInvite } from "./actions";
 import { firstName, formatDate } from "@/lib/format";
 import { StudentSignUpForm } from "./student-form";
 
@@ -13,8 +16,14 @@ const MOTIVOS: Record<string, string> = {
   revogado: "Esse convite foi cancelado pelo Personal.",
 };
 
-export default async function ConvitePage({ params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params;
+export default async function ConvitePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<{ erro?: string }>;
+}) {
+  const [{ token }, { erro }] = await Promise.all([params, searchParams]);
   const supabase = await createClient();
   const [{ data }, session] = await Promise.all([
     supabase.rpc("get_invite_public", { p_token: token }),
@@ -32,6 +41,29 @@ export default async function ConvitePage({ params }: { params: Promise<{ token:
         <p className="text-muted">Peça um novo link de convite ao seu Personal.</p>
         <LinkButton href="/entrar" variant="secondary" className="w-full">
           Já tenho conta
+        </LinkButton>
+      </div>
+    );
+  }
+
+  if (session && canActAs(session.profile.role, "aluno")) {
+    return (
+      <div className="space-y-4 text-center">
+        <p className="text-5xl" aria-hidden>🤝</p>
+        <h1 className="font-display text-2xl font-extrabold">{firstName(invite.personal_name)} te chamou pra treinar! 💪</h1>
+        <p className="text-muted">
+          Aceite para treinar com {invite.personal_name} usando a sua conta atual
+          {session.profile.role === "admin" ? " (no modo Aluno)" : ""}.
+        </p>
+        {erro && <Alert className="text-left">{erro}</Alert>}
+        <form action={acceptInvite}>
+          <input type="hidden" name="token" value={token} />
+          <SubmitButton className="w-full" pendingText="Aceitando…">
+            Aceitar convite
+          </SubmitButton>
+        </form>
+        <LinkButton href={homeFor(session.profile.role)} variant="secondary" className="w-full">
+          Agora não
         </LinkButton>
       </div>
     );

@@ -606,6 +606,7 @@ export type Database = {
         Returns: Json;
       };
       inactivity_nudges: { Args: Record<string, never>; Returns: number };
+      accept_invite: { Args: { p_token: string }; Returns: string };
       rate_workout_session: {
         Args: { p_session: string; p_effort: number; p_pain: boolean; p_feedback: string | null };
         Returns: undefined;

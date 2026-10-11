@@ -23,7 +23,7 @@ export default async function PersonalEvolucaoPage({
   await requireRole("personal");
   const supabase = await createClient();
   // O RLS só devolve o perfil de alunos vinculados a este Personal.
-  const { data: student } = await supabase.from("profiles").select("full_name").eq("id", id).eq("role", "aluno").maybeSingle();
+  const { data: student } = await supabase.from("profiles").select("full_name").eq("id", id).in("role", ["aluno", "admin"]).maybeSingle();
   if (!student) notFound();
   const [data, settings] = await Promise.all([
     loadDashboard(id, sp.periodo === "mes" ? "mes" : "semana", sp.ref),

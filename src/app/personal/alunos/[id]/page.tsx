@@ -35,7 +35,7 @@ export default async function AlunoPage({
   const supabase = await createClient();
 
   const [{ data: student }, { data: links }, { data: transfers }, { data: plans }, { data: templates }] = await Promise.all([
-    supabase.from("profiles").select("*").eq("id", id).eq("role", "aluno").maybeSingle(),
+    supabase.from("profiles").select("*").eq("id", id).in("role", ["aluno", "admin"]).maybeSingle(),
     supabase
       .from("personal_students")
       .select("personal_id, role, archived_at, created_at, personal:profiles!personal_students_personal_id_fkey(full_name, email)")

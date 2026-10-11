@@ -15,7 +15,7 @@ export default async function NovaFichaPage({ params }: { params: Promise<{ id: 
   await requireRole("personal");
   const supabase = await createClient();
   const [{ data: student }, { count }, catalog] = await Promise.all([
-    supabase.from("profiles").select("full_name").eq("id", id).eq("role", "aluno").maybeSingle(),
+    supabase.from("profiles").select("full_name").eq("id", id).in("role", ["aluno", "admin"]).maybeSingle(),
     supabase.from("workout_plans").select("id", { count: "exact", head: true }).eq("student_id", id).is("archived_at", null),
     loadCatalogFor(id),
   ]);

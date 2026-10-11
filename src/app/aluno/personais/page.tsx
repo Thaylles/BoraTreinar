@@ -2,14 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight, Mail, ShieldCheck } from "lucide-react";
 import { Badge, Card, PageTitle } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 import { requireRole } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Meus Personais" };
 
-export default async function PersonaisPage() {
-  const { profile } = await requireRole("aluno");
+export default async function PersonaisPage({ searchParams }: { searchParams: Promise<{ vinculado?: string }> }) {
+  const [{ profile }, { vinculado }] = await Promise.all([requireRole("aluno"), searchParams]);
   const supabase = await createClient();
   const { data: links } = await supabase
     .from("personal_students")
@@ -21,6 +22,11 @@ export default async function PersonaisPage() {
   return (
     <>
       <PageTitle sub="Quem acompanha seus treinos.">Meus Personais</PageTitle>
+      {vinculado && (
+        <Alert kind="success" className="mb-4">
+          Convite aceito! Agora esse Personal acompanha seus treinos. 💪
+        </Alert>
+      )}
       <ul className="space-y-3">
         {links?.map((l) => (
           <li key={l.personal?.id}>

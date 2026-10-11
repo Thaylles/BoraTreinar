@@ -29,7 +29,7 @@ export async function GET() {
   const { profile } = session;
   const supabase = await createClient();
   const uid = profile.id;
-  const isStudent = profile.role === "aluno";
+  const isStudent = profile.role !== "personal";
 
   try {
     const [settings, links, sessions, sets, weights, plans, planItems, schedules, notifications] = await Promise.all([

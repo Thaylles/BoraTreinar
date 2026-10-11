@@ -1,7 +1,10 @@
 -- Notificações push no celular (Web Push).
 -- Cada notificação criada no app (por função do banco ou pelo servidor) dispara um POST para
--- /api/push/dispatch, que envia o push aos aparelhos inscritos. A URL e o segredo ficam em
--- private.push_config (fora da API); sem essa linha, nada é enviado (ambiente local/testes).
+-- /api/push/dispatch, que envia o push aos aparelhos inscritos. A rota só envia notificações
+-- recém-criadas e ainda não enviadas (marca pushed_at), então chamá-la de fora não tem efeito.
+-- A URL fica em private.push_config (fora da API); sem essa linha, nada é enviado (local/testes).
+
+alter table public.notifications add column pushed_at timestamptz;
 
 create table public.push_subscriptions (
   id uuid primary key default gen_random_uuid(),
@@ -29,7 +32,8 @@ revoke all on schema private from public, anon, authenticated;
 create table private.push_config (
   id boolean primary key default true check (id),
   dispatch_url text not null,
-  secret text not null
+  -- Opcional: se definido, vai no cabeçalho x-push-secret (a rota confere se PUSH_WEBHOOK_SECRET existir).
+  secret text
 );
 
 -- pg_net pode não existir fora do Supabase (ex.: testes locais); o push só roda com ele.
@@ -55,7 +59,7 @@ begin
   perform net.http_post(
     url := cfg.dispatch_url,
     body := jsonb_build_object('id', new.id),
-    headers := jsonb_build_object('content-type', 'application/json', 'x-push-secret', cfg.secret)
+    headers := jsonb_strip_nulls(jsonb_build_object('content-type', 'application/json', 'x-push-secret', cfg.secret))
   );
   return new;
 exception when others then

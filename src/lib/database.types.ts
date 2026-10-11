@@ -130,6 +130,7 @@ export type Database = {
       };
       notifications: {
         Row: {
+          pushed_at: string | null;
           body: string | null;
           created_at: string;
           id: string;
@@ -147,7 +148,7 @@ export type Database = {
           title: string;
           user_id: string;
         };
-        Update: { read_at?: string | null };
+        Update: { read_at?: string | null; pushed_at?: string | null };
         Relationships: [
           {
             foreignKeyName: "notifications_user_id_fkey";

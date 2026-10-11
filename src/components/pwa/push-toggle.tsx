@@ -4,7 +4,6 @@ import { useEffect, useState, useTransition } from "react";
 import { Bell, BellOff, Loader2 } from "lucide-react";
 import { deletePushSubscription, savePushSubscription } from "@/app/push-actions";
 
-const KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
 type State = "loading" | "unsupported" | "ios-install" | "denied" | "off" | "on";
 
@@ -21,12 +20,12 @@ export function PushToggle() {
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
-    const supported = !!KEY && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    const supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
     if (!supported) {
       // iPhone/iPad: só funciona com o app instalado na tela de início (iOS 16.4+).
       const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
       const standalone = window.matchMedia("(display-mode: standalone)").matches;
-      setState(ios && !standalone && KEY ? "ios-install" : "unsupported");
+      setState(ios && !standalone ? "ios-install" : "unsupported");
       return;
     }
     if (Notification.permission === "denied") return setState("denied");
@@ -43,9 +42,12 @@ export function PushToggle() {
         const permission = await Notification.requestPermission();
         if (permission !== "granted") return setState(permission === "denied" ? "denied" : "off");
         const reg = await navigator.serviceWorker.ready;
-        const sub =
-          (await reg.pushManager.getSubscription()) ??
-          (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(KEY!) }));
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          const { publicKey } = (await fetch("/api/push/key").then((r) => r.json())) as { publicKey: string | null };
+          if (!publicKey) return setError("Notificações indisponíveis no momento.");
+          sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
+        }
         const json = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
         const res = await savePushSubscription(json, navigator.userAgent);
         if (res.error) return setError(res.error);

@@ -1,19 +1,37 @@
 import "server-only";
+import { createECDH, createHmac } from "node:crypto";
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { appUrl } from "@/lib/env";
 
-export const pushConfigured = Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
+type Vapid = { publicKey: string; privateKey: string };
+let cached: Vapid | null | undefined;
+
+/**
+ * Chaves VAPID do Web Push. Se VAPID_PRIVATE_KEY/NEXT_PUBLIC_VAPID_PUBLIC_KEY existirem, usa-as;
+ * senão, deriva um par estável da SUPABASE_SERVICE_ROLE_KEY (HMAC), sem nenhuma configuração extra.
+ */
+export function vapidKeys(): Vapid | null {
+  if (cached !== undefined) return cached;
+  if (process.env.VAPID_PRIVATE_KEY && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) {
+    return (cached = { publicKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY, privateKey: process.env.VAPID_PRIVATE_KEY });
+  }
+  const seed = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!seed) return (cached = null);
+  const priv = createHmac("sha256", seed).update("boratreinar:vapid:v1").digest();
+  const ecdh = createECDH("prime256v1");
+  ecdh.setPrivateKey(priv);
+  return (cached = { publicKey: ecdh.getPublicKey().toString("base64url"), privateKey: priv.toString("base64url") });
+}
 
 let ready = false;
 function setup() {
-  if (ready || !pushConfigured) return pushConfigured;
-  webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT || `${appUrl.startsWith("https") ? appUrl : "mailto:contato@boratreinar.app"}`,
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-    process.env.VAPID_PRIVATE_KEY!,
-  );
-  ready = true;
+  const keys = vapidKeys();
+  if (!keys) return false;
+  if (!ready) {
+    webpush.setVapidDetails(process.env.VAPID_SUBJECT || (appUrl.startsWith("https") ? appUrl : "mailto:contato@boratreinar.app"), keys.publicKey, keys.privateKey);
+    ready = true;
+  }
   return true;
 }
 

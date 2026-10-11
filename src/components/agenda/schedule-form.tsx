@@ -5,7 +5,7 @@ import { addSchedule } from "@/app/personal/agenda/actions";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { FormMessage } from "@/components/ui/alert";
 import { inputClass } from "@/components/ui/field";
-import { WEEKDAYS_SHORT, weekdayOf } from "@/lib/schedule";
+import { WEEKDAYS, WEEKDAYS_SHORT, weekdayOf } from "@/lib/schedule";
 import { cn } from "@/lib/cn";
 
 type Kind = "semanal" | "unica";
@@ -30,6 +30,12 @@ export function ScheduleForm({
   const [state, action] = useActionState(addSchedule, undefined);
   const [kind, setKind] = useState<Kind>(defaultKind);
   const day = date && date >= today ? date : today;
+  const [days, setDays] = useState<number[]>(date ? [weekdayOf(day)] : []);
+  const [perDay, setPerDay] = useState(false);
+  const [time, setTime] = useState("07:00");
+  const toggleDay = (d: number) => setDays((cur) => (cur.includes(d) ? cur.filter((x) => x !== d) : [...cur, d]));
+  // Ordem seg → dom para exibir os horários por dia.
+  const ordered = [1, 2, 3, 4, 5, 6, 0].filter((d) => days.includes(d));
   return (
     <form action={action} className="space-y-4">
       {studentId ? (
@@ -66,15 +72,16 @@ export function ScheduleForm({
       </div>
       {kind === "semanal" ? (
         <fieldset>
-          <legend className="mb-2 text-sm font-semibold">Dias da semana</legend>
+          <legend className="mb-2 text-sm font-semibold">Dias da semana <span className="font-normal text-muted">(marque um ou mais)</span></legend>
           <div className="grid grid-cols-7 gap-1">
-            {WEEKDAYS_SHORT.map((d, i) => (
-              <label key={d} className="cursor-pointer">
+            {[1, 2, 3, 4, 5, 6, 0].map((i) => (
+              <label key={i} className="cursor-pointer">
                 <input
                   type="checkbox"
                   name="weekday"
                   value={i}
-                  defaultChecked={!!date && weekdayOf(day) === i}
+                  checked={days.includes(i)}
+                  onChange={() => toggleDay(i)}
                   className="peer sr-only"
                 />
                 <span
@@ -83,12 +90,20 @@ export function ScheduleForm({
                     "peer-checked:border-bandeira-500 peer-checked:bg-bandeira-500 peer-checked:text-white peer-focus-visible:ring-4 peer-focus-visible:ring-bandeira-500/30",
                   )}
                 >
-                  {d}
+                  {WEEKDAYS_SHORT[i]}
                 </span>
               </label>
             ))}
           </div>
-          <p className="mt-1 text-xs text-muted">Repete toda semana até você remover. Dá para cancelar datas avulsas.</p>
+          <p className="mt-1 text-xs text-muted">
+            {days.length > 1 ? `${days.length} aulas por semana. ` : ""}Repete toda semana até você remover. Dá para cancelar datas avulsas.
+          </p>
+          {days.length > 1 && (
+            <label className="mt-2 flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={perDay} onChange={(e) => setPerDay(e.target.checked)} className="size-4 accent-bandeira-500" />
+              Horário diferente em cada dia
+            </label>
+          )}
         </fieldset>
       ) : (
         <label className="block">
@@ -96,11 +111,25 @@ export function ScheduleForm({
           <input type="date" name="on_date" required defaultValue={day} min={today} className={inputClass} />
         </label>
       )}
+      {kind === "semanal" && perDay && days.length > 1 && (
+        <div className="grid grid-cols-2 gap-3">
+          {ordered.map((d) => (
+            <label key={d} className="block">
+              <span className="mb-1 block text-sm font-semibold">{WEEKDAYS[d]}</span>
+              <input type="time" name={`time_${d}`} required defaultValue={time} className={inputClass} />
+            </label>
+          ))}
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3">
-        <label className="block">
-          <span className="mb-1 block text-sm font-semibold">Horário</span>
-          <input type="time" name="start_time" required defaultValue="07:00" className={inputClass} />
-        </label>
+        {!(kind === "semanal" && perDay && days.length > 1) ? (
+          <label className="block">
+            <span className="mb-1 block text-sm font-semibold">Horário</span>
+            <input type="time" name="start_time" required value={time} onChange={(e) => setTime(e.target.value)} className={inputClass} />
+          </label>
+        ) : (
+          <input type="hidden" name="start_time" value={time} />
+        )}
         <label className="block">
           <span className="mb-1 block text-sm font-semibold">Duração</span>
           <select name="duration" defaultValue="60" className={inputClass}>
@@ -121,7 +150,7 @@ export function ScheduleForm({
       <input name="notes" maxLength={200} placeholder="Observação (opcional): local, foco da aula…" className={inputClass} aria-label="Observação" />
       <FormMessage state={state} />
       <SubmitButton className="w-full" pendingText="Agendando…">
-        Agendar aula
+        {kind === "semanal" && days.length > 1 ? `Agendar ${days.length} aulas por semana` : "Agendar aula"}
       </SubmitButton>
     </form>
   );

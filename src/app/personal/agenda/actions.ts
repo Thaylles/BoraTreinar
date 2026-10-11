@@ -21,6 +21,11 @@ export async function addSchedule(_: ActionState, fd: FormData): Promise<ActionS
   const startsOn = single ? onDate : String(fd.get("starts_on") ?? "") || undefined;
   const endsOn = single ? onDate : null;
   if (!weekdays.length) return { error: "Escolha pelo menos um dia da semana." };
+  // Horário próprio de cada dia (opcional); sem ele, vale o horário geral.
+  const timeFor = (wd: number) => {
+    const t = String(fd.get(`time_${wd}`) ?? "");
+    return /^\d{2}:\d{2}$/.test(t) ? t : time;
+  };
   if (!/^\d{2}:\d{2}$/.test(time)) return { error: "Informe o horário." };
 
   const supabase = await createClient();
@@ -33,7 +38,7 @@ export async function addSchedule(_: ActionState, fd: FormData): Promise<ActionS
       personal_id: user.id,
       student_id: studentId,
       weekday,
-      start_time: time,
+      start_time: single ? time : timeFor(weekday),
       duration_minutes: duration,
       starts_on: startsOn,
       ends_on: endsOn,

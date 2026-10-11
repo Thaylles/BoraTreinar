@@ -164,7 +164,7 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 ### Etapa 8 — Agenda e WhatsApp
 - [x] Aulas presenciais recorrentes (dias da semana, horário, duração, início) com cancelamento de datas avulsas e reativação
 - [x] Aluno é avisado de aula nova e de cancelamento; vê "Minhas aulas" e a próxima aula no início
-- [x] Aulas semanais (repetem todo mês até o Personal remover) ou **aulas únicas** numa data
+- [x] Aulas semanais em **um ou mais dias da semana** (mesmo horário ou um horário por dia), que repetem todo mês até o Personal remover, ou **aulas únicas** numa data
 - [x] **Calendário mensal** do Personal: alunos de cada dia, navegação entre meses, detalhe do dia (cancelar/reativar, WhatsApp, agendar aula naquele dia) e resumo dos alunos da semana
 - [x] **Lembrete às 7h (SP)**: notificação no app + e-mail ao Personal com os alunos do dia e o botão do WhatsApp de cada um (cron diário, idempotente)
 - [x] Botão "Chamar no WhatsApp" na lista e na página do aluno (e na agenda), com telefone normalizado (DDI 55) e a mensagem "Olá, tudo bem? Confirmado nosso treino hoje?"

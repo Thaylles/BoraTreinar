@@ -503,6 +503,16 @@ export type Database = {
         Args: { p_personal: string; p_student: string };
         Returns: undefined;
       };
+      daily_class_reminders: {
+        Args: { p_date: string };
+        Returns: {
+          personal_id: string;
+          personal_name: string;
+          personal_email: string;
+          classes: Json;
+          notified: boolean;
+        }[];
+      };
       set_equipment_image: {
         Args: { p_equipment: string; p_image_path: string | null };
         Returns: undefined;

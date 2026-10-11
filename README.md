@@ -27,7 +27,7 @@ O padrão decorativo de fundo é inspirado no **calçadão de Copacabana** (onda
 - **Resend** (e-mail transacional)
 - **Recharts** (gráficos)
 - **PWA** instalável (manifest + service worker)
-- **API da Anthropic (Claude)** para sugestões do relatório semanal (opcional; sem chave usa regras simples)
+- **IA (Gemini e/ou Claude)** para sugestões do relatório semanal, comparadas lado a lado com regras simples (opcional)
 
 ## Rodando localmente
 
@@ -66,7 +66,8 @@ Veja `.env.example`. Resumo:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | cliente/servidor | chave pública (anon) |
 | `SUPABASE_SERVICE_ROLE_KEY` | **só servidor** | usada pelo cron do relatório |
 | `RESEND_API_KEY` / `EMAIL_FROM` | só servidor | envio de e-mails (relatório e lembrete das 7h; sem elas, só a notificação no app) |
-| `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | só servidor | sugestões do relatório por IA (opcional; sem chave usa regras simples) |
+| `GEMINI_API_KEY` / `GEMINI_MODEL` | só servidor | sugestões do relatório pelo Gemini (opcional; faixa gratuita no Google AI Studio) |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | só servidor | sugestões do relatório pelo Claude (opcional) |
 | `CRON_SECRET` | só servidor | protege a rota do cron |
 
 Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.env.example`).
@@ -183,7 +184,8 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 ### Etapa 10 — Relatório de domingo
 - [x] Todo **domingo às 22h (SP)** o cron gera o relatório de cada Personal: e-mail (Resend) + notificação + histórico em **Relatórios**
 - [x] Por aluno: treinos da semana com as fichas feitas e os treinos livres, carga de cada exercício (aumentou/manteve/diminuiu), recordes, semanas seguidas e variação de peso (**só com permissão do aluno**)
-- [x] Sugestões de estratégia por **IA** (`ANTHROPIC_API_KEY`; dados pseudonimizados, sem nome) ou, sem chave/erro, por **regras simples**
+- [x] Sugestões de estratégia por **regras simples** sempre, e ao lado as de cada **IA** configurada (Gemini e/ou Claude; dados pseudonimizados, sem nome), cada bloco com a fonte identificada
+- [x] Comparação das IAs (fase de testes): status de cada IA no relatório, voto "qual sugestão foi mais útil" e placar em Relatórios
 - [x] Inclui alunos compartilhados; idempotente (um relatório por semana, e-mail enviado uma vez)
 - [x] Botão "Gerar prévia desta semana agora" (sem e-mail)
 - [x] Tabela `weekly_reports` com RLS (Personal só lê os seus; só o servidor grava) + testes SQL e de unidade

@@ -21,3 +21,17 @@ export async function generateReportNow() {
   revalidatePath("/personal/relatorios");
   redirect(data ? `/personal/relatorios/${data.id}` : "/personal/relatorios");
 }
+
+const SOURCES = ["regras", "gemini", "claude"] as const;
+
+/** Marca qual conjunto de sugestões foi mais útil neste relatório (para comparar regras × IAs). */
+export async function setPreferredSource(fd: FormData) {
+  await requireRole("personal");
+  const id = String(fd.get("report_id") ?? "");
+  const raw = String(fd.get("source") ?? "");
+  const source = (SOURCES as readonly string[]).includes(raw) ? raw : null;
+  const supabase = await createClient();
+  await supabase.from("weekly_reports").update({ preferred_source: source }).eq("id", id);
+  revalidatePath("/personal/relatorios");
+  revalidatePath(`/personal/relatorios/${id}`);
+}

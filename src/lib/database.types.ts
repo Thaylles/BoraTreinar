@@ -383,6 +383,7 @@ export type Database = {
           emailed_at: string | null;
           id: string;
           personal_id: string;
+          preferred_source: string | null;
           updated_at: string;
           week_start: string;
         };
@@ -394,7 +395,7 @@ export type Database = {
           updated_at?: string;
           week_start: string;
         };
-        Update: { ai_used?: boolean; content?: Json; emailed_at?: string | null; updated_at?: string };
+        Update: { ai_used?: boolean; content?: Json; emailed_at?: string | null; preferred_source?: string | null; updated_at?: string };
         Relationships: [];
       };
       student_settings: {

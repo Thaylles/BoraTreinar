@@ -15,7 +15,19 @@ export type ReportStudent = {
   streakWeeks: number;
   /** `visible: false` quando o aluno não permite que o Personal veja o peso. */
   weight: { visible: false } | { visible: true; change: { first: number; last: number; delta: number } | null };
+  /** Sugestões por regras simples (sempre presentes; também é o formato dos relatórios antigos). */
   suggestions: string[];
+  /** Sugestões de cada IA configurada, para comparar lado a lado com as regras. */
+  aiSuggestions?: { source: AiSource; items: string[] }[];
+};
+
+export type AiSource = "gemini" | "claude";
+export type SuggestionSource = "regras" | AiSource;
+
+export const SOURCE_LABEL: Record<SuggestionSource, string> = {
+  regras: "Regras (sem IA)",
+  gemini: "Gemini (IA do Google)",
+  claude: "Claude (IA da Anthropic)",
 };
 
 export type ReportContent = {
@@ -23,7 +35,17 @@ export type ReportContent = {
   week_end: string;
   students: ReportStudent[];
   ai: boolean;
+  /** Como cada IA se saiu ao gerar este relatório (ausente nos relatórios antigos). */
+  aiStatus?: { source: AiSource; ok: boolean; error?: string }[];
 };
+
+/** Blocos de sugestões de um aluno, na ordem regras → IAs. */
+export function suggestionSets(s: ReportStudent): { source: SuggestionSource; items: string[] }[] {
+  const sets: { source: SuggestionSource; items: string[] }[] = [];
+  if (s.suggestions.length) sets.push({ source: "regras", items: s.suggestions });
+  for (const a of s.aiSuggestions ?? []) if (a.items.length) sets.push(a);
+  return sets;
+}
 
 /** Monta o bloco de um aluno a partir do resumo de treinos (sem as sugestões). */
 export function buildStudentReport(input: {
@@ -128,7 +150,12 @@ export function reportHtml(content: ReportContent, opts: { personalName: string;
   <p style="margin:0 0 8px;color:#5b6577">${esc(sessionsLine(s))}${s.volume ? ` · volume ${formatKg(s.volume)}` : ""}</p>
   ${ex ? `<table style="border-collapse:collapse;font-size:14px;margin:0 0 8px">${ex}</table>` : ""}
   ${notes.length ? `<p style="margin:0 0 8px;font-size:14px">${notes.join("<br>")}</p>` : ""}
-  ${s.suggestions.length ? `<p style="margin:8px 0 4px;font-weight:700;color:#009C3B">Sugestões</p><ul style="margin:0;padding-left:20px;font-size:14px;list-style:disc">${s.suggestions.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+  ${suggestionSets(s)
+    .map(
+      (set) =>
+        `<p style="margin:10px 0 4px;font-weight:700;color:${set.source === "regras" ? "#5b6577" : "#009C3B"}">Sugestões · ${esc(SOURCE_LABEL[set.source])}</p><ul style="margin:0;padding-left:20px;font-size:14px;list-style:disc">${set.items.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`,
+    )
+    .join("")}
 </div>`;
     })
     .join("\n");
@@ -137,7 +164,9 @@ export function reportHtml(content: ReportContent, opts: { personalName: string;
 <p style="margin:0 0 16px">Fala, ${esc(opts.personalName.split(" ")[0])}! Seus alunos fizeram <strong>${total} ${total === 1 ? "treino" : "treinos"}</strong> nesta semana. Bora ver como foi:</p>
 ${blocks || "<p>Nenhum aluno ativo no momento.</p>"}
 <p style="font-size:12px;color:#5b6577;margin:0 0 16px">Comparação de carga: maior carga da semana × última vez que o aluno fez o exercício. ${
-    content.ai ? "Sugestões geradas por IA: revise antes de aplicar." : "Sugestões geradas por regras simples."
+    content.ai
+      ? "Fase de testes: as sugestões marcadas como IA foram geradas por inteligência artificial (revise antes de aplicar) e aparecem ao lado das regras simples para comparação."
+      : "Sugestões geradas por regras simples."
   }</p>
 <p style="margin:16px 0 0"><a href="${esc(opts.reportUrl)}" style="background:#009C3B;color:#ffffff;padding:10px 16px;border-radius:12px;text-decoration:none;font-weight:700">Ver no BoraTreinar</a></p>
 </div>`;

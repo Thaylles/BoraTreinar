@@ -43,7 +43,7 @@ npm run dev                  # http://localhost:3000
 
 ### Banco de dados
 
-As migrações SQL ficam em `supabase/migrations/` e o seed do catálogo em `supabase/seed.sql`.
+As migrações SQL ficam em `supabase/migrations/`. O catálogo padrão é uma migração de dados gerada por `python3 scripts/catalogo.py` (as ilustrações, por `python3 scripts/gerar-ilustracoes.py`).
 
 ```bash
 # Com Supabase CLI ligado a um projeto remoto
@@ -74,7 +74,11 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 ## Deploy (Vercel)
 
 1. Crie um projeto no Supabase e aplique as migrações (`npx supabase db push`).
-2. Em **Supabase → Authentication → URL Configuration**, cadastre a URL de produção como *Site URL* e `https://SEU-DOMINIO/auth/callback` em *Redirect URLs*.
+2. Em **Supabase → Authentication → URL Configuration**, cadastre a URL de produção como *Site URL* e `https://SEU-DOMINIO/auth/confirm` em *Redirect URLs* (para previews: `https://*-SEU-USUARIO.vercel.app/auth/confirm`).
+   - Recomendado: em **Authentication → Email Templates**, troque o link de *Confirm signup* por
+     `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/personal` e o de *Reset password* por
+     `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/redefinir-senha`.
+     Assim o link funciona mesmo se aberto em outro aparelho/navegador.
 3. Importe o repositório na Vercel e configure as variáveis de ambiente acima.
 4. O `vercel.json` já agenda o relatório semanal: `0 1 * * 1` (UTC) = **domingo 22h em São Paulo** (Brasil sem horário de verão desde 2019).
 5. Defina `CRON_SECRET` na Vercel — ela envia esse valor automaticamente no header `Authorization` das chamadas de cron.
@@ -87,6 +91,14 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 | `npm run build` | build de produção |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | checagem de tipos |
+| `npm run test:db` | aplica as migrações num Postgres descartável (com stub do Supabase) e roda os testes SQL de RLS. Use `PGHOST`/`PGPORT`/`PGUSER` para apontar o servidor |
+
+## Como funciona o acesso
+
+- **Personal** cria a conta em `/cadastro` e confirma o e-mail.
+- **Aluno** só entra por `/convite/<token>`. O cadastro é feito no servidor com a service role e a conta já nasce confirmada; um gatilho no banco valida o convite (pendente, não expirado, não revogado), exige o aceite do termo e o WhatsApp, e cria o vínculo com o Personal.
+- **Compartilhar/Transferir**: o Personal responsável faz o pedido na página do aluno; o outro Personal aceita em *Pedidos*. Compartilhar mantém os dois; transferir revoga o acesso do anterior. O aluno é notificado.
+- Toda escrita sensível passa por funções `SECURITY DEFINER` no Postgres; as tabelas têm RLS e só permitem leitura do que cada perfil pode ver.
 
 ## Checklist de funcionalidades
 
@@ -97,24 +109,40 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 - [x] Clientes Supabase (browser/servidor) e middleware de sessão
 - [x] Manifest PWA básico
 - [x] `vercel.json` com cron do relatório
-- [ ] Deploy inicial na Vercel (aguardando projeto Supabase/Vercel)
+- [x] Projeto Supabase criado (`boratreinar`, região São Paulo)
+- [ ] Deploy inicial na Vercel (aguardando importação do repositório na Vercel)
 
 ### Etapa 2 — Autenticação, perfis e convites
-- [ ] Login/cadastro por e-mail e senha, recuperação de senha
-- [ ] Cadastro direto do Personal
-- [ ] Convite por link (expiração configurável, revogação) e cadastro do aluno com LGPD
-- [ ] Compartilhamento e transferência entre Personais (com aceite)
+- [x] Login/cadastro por e-mail e senha, recuperação de senha
+- [x] Cadastro direto do Personal (com confirmação de e-mail)
+- [x] Convite por link (expiração configurável, revogação) e cadastro do aluno com termo LGPD
+- [x] Compartilhamento e transferência entre Personais (com aceite), revogação e notificações
+- [x] Lista de alunos, página do aluno, arquivar/reativar
+- [x] RLS em todas as tabelas + 34 testes SQL (`npm run test:db`)
 
 ### Etapa 3 — Catálogo
-- [ ] Seed de equipamentos/exercícios com imagens livres
-- [ ] Cadastro de equipamentos pelo Personal (upload com compressão)
+- [x] Seed com 69 exercícios por grupo muscular, com **ilustrações próprias** (licença MIT) — `scripts/catalogo.py` e `scripts/gerar-ilustracoes.py`
+- [ ] Trocar ilustrações por fotos do Wikimedia Commons (bloqueado pela rede do ambiente de desenvolvimento; o campo `image_credit` já existe)
+- [x] Cadastro/edição/exclusão de exercícios pelo Personal, com upload comprimido (WebP ≤1024px) no Supabase Storage
+- [x] Aviso ao salvar sem foto; placeholder com ícone do grupo muscular
+- [x] Visibilidade: catálogo padrão para todos; exercícios de um Personal visíveis para ele, seus alunos e Personais que compartilham alunos com ele
 
 ### Etapa 4 — Fichas
-- [ ] Fichas por aluno (A/B/C), exercícios ordenados, duplicar, modelos
+- [x] Fichas por aluno (A/B/C) com nome, objetivo, observações e validade opcional
+- [x] Exercícios ordenados (subir/descer), séries (padrão 3), repetições-alvo (ex.: 10–12), carga sugerida, descanso e observações
+- [x] Duplicar ficha (mesmo aluno, outro aluno ou como modelo) e aplicar modelo a um aluno
+- [x] Fichas mostram quem criou; Personal compartilhado também monta fichas
+- [x] Aluno vê suas fichas (somente leitura)
 
 ### Etapa 5 — Execução
-- [ ] Execução com séries, carga, timer de descanso, Wake Lock, histórico
-- [ ] Registro manual pelo Personal
+- [x] Execução: 3 séries por padrão, adicionar/remover séries, carga pré-preenchida com a última vez, reps com o alvo, Feita/Não feita
+- [x] Timer de descanso automático (ajustável ±15s e por exercício), com som e vibração; tela ligada (Wake Lock)
+- [x] Última carga/reps e recorde em cada exercício; recorde pessoal (PR) detectado ao salvar
+- [x] Progresso salvo no aparelho durante o treino; treino finalizado sem internet fica na fila e sincroniza depois (idempotente)
+- [x] Registro manual pelo Personal ("registrado pelo instrutor")
+- [x] Histórico de treinos, detalhe do treino e histórico por exercício com gráfico de evolução de carga
+- [x] Lista de alunos com treinos na semana (seg–dom, fuso SP), último treino e status
+- [x] Migrações `fichas` e `sessoes_treino` aplicadas no Supabase de produção
 
 ### Etapa 6 — Peso corporal
 - [ ] Registro, privacidade e trava de pesagem

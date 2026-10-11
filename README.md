@@ -142,7 +142,7 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 - [x] Registro manual pelo Personal ("registrado pelo instrutor")
 - [x] Histórico de treinos, detalhe do treino e histórico por exercício com gráfico de evolução de carga
 - [x] Lista de alunos com treinos na semana (seg–dom, fuso SP), último treino e status
-- [ ] Migrações `fichas` e `sessoes_treino` aplicadas no Supabase de produção (pendente: `npx supabase db push`)
+- [x] Migrações `fichas` e `sessoes_treino` aplicadas no Supabase de produção
 
 ### Etapa 6 — Peso corporal
 - [ ] Registro, privacidade e trava de pesagem

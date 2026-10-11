@@ -375,6 +375,28 @@ export type Database = {
           },
         ];
       };
+      weekly_reports: {
+        Row: {
+          ai_used: boolean;
+          content: Json;
+          created_at: string;
+          emailed_at: string | null;
+          id: string;
+          personal_id: string;
+          updated_at: string;
+          week_start: string;
+        };
+        Insert: {
+          ai_used?: boolean;
+          content: Json;
+          emailed_at?: string | null;
+          personal_id: string;
+          updated_at?: string;
+          week_start: string;
+        };
+        Update: { ai_used?: boolean; content?: Json; emailed_at?: string | null; updated_at?: string };
+        Relationships: [];
+      };
       student_settings: {
         Row: {
           student_id: string;

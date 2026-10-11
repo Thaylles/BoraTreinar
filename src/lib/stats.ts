@@ -7,6 +7,7 @@ export type SummarySession = {
   started_at: string;
   date: string; // dia civil em São Paulo
   kind: "ficha" | "livre";
+  plan?: string | null; // nome da ficha (treino de ficha)
   duration: number; // segundos
   ex: SummaryExercise[];
 };

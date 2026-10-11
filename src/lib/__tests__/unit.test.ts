@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { formatPhoneBR, normalizePhoneBR } from "../phone.ts";
 import { whatsappLink } from "../whatsapp.ts";
+import { buildStudentReport, reportHtml, ruleSuggestions, sessionsLine } from "../report.ts";
 import { computeDashboard, periodFor, shiftPeriod, weightChange, type SummarySession } from "../stats.ts";
 import { addDays, addMonths, mondayOf, monthGrid, upcomingOccurrences, weekdayOf } from "../schedule.ts";
 
@@ -130,4 +131,62 @@ test("variação de peso usa a primeira e a última pesagem do período", () => 
   ];
   assert.deepEqual(weightChange(ws, p), { first: 80, last: 78.6, delta: -1.4, count: 2 });
   assert.equal(weightChange(ws, periodFor("mes", "2026-08-01")), null);
+});
+
+test("relatório do aluno: fichas e livres, tendência de carga e peso só com permissão", () => {
+  const sessions: SummarySession[] = [
+    { ...sess("2026-09-29", [["sup", 20], ["agc", 50], ["rem", 30]]), plan: "Treino A" },
+    { ...sess("2026-10-05", [["sup", 22, true], ["agc", 50], ["rem", 25]]), plan: "Treino A" },
+    { ...sess("2026-10-07", [["sup", 22]]), plan: "Treino B" },
+    { ...sess("2026-10-09", [["ros", 10]], "livre"), plan: null },
+  ];
+  const base = {
+    id: "s1",
+    name: "Ana <Souza>",
+    sessions,
+    names: { sup: "Supino", agc: "Agachamento", rem: "Remada", ros: "Rosca" },
+    period: periodFor("semana", "2026-10-11"),
+    today: "2026-10-11",
+  };
+  const weights = [
+    { measured_on: "2026-10-05", weight_kg: 70 },
+    { measured_on: "2026-10-11", weight_kg: 71.2 },
+  ];
+  const r = buildStudentReport({ ...base, weights });
+  assert.equal(r.sessions, 3);
+  assert.deepEqual(r.plans, [{ name: "Treino A", count: 1 }, { name: "Treino B", count: 1 }]);
+  assert.equal(r.free, 1);
+  assert.equal(sessionsLine(r), "3 treinos: Treino A, Treino B, treino livre");
+  const t = Object.fromEntries(r.exercises.map((e) => [e.name, e.trend]));
+  assert.deepEqual(t, { Supino: "up", Agachamento: "same", Remada: "down", Rosca: "new" });
+  assert.deepEqual(r.weight, { visible: true, change: { first: 70, last: 71.2, delta: 1.2 } });
+
+  const hidden = buildStudentReport({ ...base, weights: null });
+  assert.deepEqual(hidden.weight, { visible: false });
+
+  const sug = ruleSuggestions(r);
+  assert.ok(sug.length >= 3 && sug.length <= 4);
+  assert.ok(sug.some((x) => x.includes("estagnada em Agachamento")));
+  assert.ok(sug.some((x) => x.includes("caiu em Remada")));
+
+  const html = reportHtml({ week_start: "2026-10-05", week_end: "2026-10-11", students: [{ ...r, suggestions: sug }], ai: false }, {
+    personalName: "Dora Lima",
+    reportUrl: "https://x/personal/relatorios/1",
+  });
+  assert.ok(html.includes("Ana &lt;Souza&gt;"), "escapa o nome do aluno");
+  assert.ok(html.includes("05/10 a 11/10"));
+  assert.ok(html.includes("diminuiu"));
+  assert.ok(!buildStudentReport({ ...base, weights: null }).weight.visible && !reportHtml(
+    { week_start: "2026-10-05", week_end: "2026-10-11", students: [hidden], ai: false },
+    { personalName: "Dora", reportUrl: "https://x" },
+  ).includes("Peso:"), "sem permissão o peso não aparece no e-mail");
+});
+
+test("sugestões por regras para quem não treinou", () => {
+  const r = buildStudentReport({
+    id: "s2", name: "Bia", sessions: [], names: {}, period: periodFor("semana", "2026-10-11"), today: "2026-10-11", weights: null,
+  });
+  const sug = ruleSuggestions(r);
+  assert.equal(sug.length, 2);
+  assert.ok(sug[0].startsWith("Não treinou"));
 });

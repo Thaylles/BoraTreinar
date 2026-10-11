@@ -66,7 +66,7 @@ Veja `.env.example`. Resumo:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | cliente/servidor | chave pública (anon) |
 | `SUPABASE_SERVICE_ROLE_KEY` | **só servidor** | usada pelo cron do relatório |
 | `RESEND_API_KEY` / `EMAIL_FROM` | só servidor | envio de e-mails (relatório e lembrete das 7h; sem elas, só a notificação no app) |
-| `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | só servidor | sugestões por IA (opcional) |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | só servidor | sugestões do relatório por IA (opcional; sem chave usa regras simples) |
 | `CRON_SECRET` | só servidor | protege a rota do cron |
 
 Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.env.example`).
@@ -181,7 +181,12 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 - [x] Agregados no banco (`training_summary`, `training_overview`, *security invoker*: o RLS decide o que cada um vê), com testes SQL e de unidade
 
 ### Etapa 10 — Relatório de domingo
-- [ ] Geração, e-mail, histórico no app, sugestões por IA/regras
+- [x] Todo **domingo às 22h (SP)** o cron gera o relatório de cada Personal: e-mail (Resend) + notificação + histórico em **Relatórios**
+- [x] Por aluno: treinos da semana com as fichas feitas e os treinos livres, carga de cada exercício (aumentou/manteve/diminuiu), recordes, semanas seguidas e variação de peso (**só com permissão do aluno**)
+- [x] Sugestões de estratégia por **IA** (`ANTHROPIC_API_KEY`; dados pseudonimizados, sem nome) ou, sem chave/erro, por **regras simples**
+- [x] Inclui alunos compartilhados; idempotente (um relatório por semana, e-mail enviado uma vez)
+- [x] Botão "Gerar prévia desta semana agora" (sem e-mail)
+- [x] Tabela `weekly_reports` com RLS (Personal só lê os seus; só o servidor grava) + testes SQL e de unidade
 
 ### Etapa 11 — PWA e polimento
 - [ ] Service worker, modo offline no treino, polimento visual

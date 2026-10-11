@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Dumbbell, History, House, Inbox, Ticket, UserRound, Users } from "lucide-react";
+import { Bell, CalendarDays, ChartLine, Dumbbell, History, House, Inbox, Scale, Ticket, UserRound, Users } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-const ICONS = { history: History, dumbbell: Dumbbell, house: House, users: Users, ticket: Ticket, inbox: Inbox, user: UserRound, bell: Bell };
+const ICONS = { chart: ChartLine, calendar: CalendarDays, scale: Scale, history: History, dumbbell: Dumbbell, house: House, users: Users, ticket: Ticket, inbox: Inbox, user: UserRound, bell: Bell };
 export type NavIcon = keyof typeof ICONS;
 export type NavItem = { href: string; label: string; icon: NavIcon; badge?: number };
 
@@ -17,7 +17,7 @@ function isActive(pathname: string, href: string, root: string) {
 export function NavLinks({ items, root }: { items: NavItem[]; root: string }) {
   const pathname = usePathname();
   // Durante o treino a tela é só do treino (o timer ocupa o rodapé).
-  if (/\/(treinar|registrar|livre)(\/|$)/.test(pathname)) return null;
+  if (/\/(treinar|registrar)(\/|$)/.test(pathname)) return null;
   return (
     <nav
       aria-label="Navegação principal"

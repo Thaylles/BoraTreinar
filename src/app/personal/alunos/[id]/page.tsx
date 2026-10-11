@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { inputClass } from "@/components/ui/field";
 import { applyTemplate } from "../../fichas/actions";
 import { SessionList } from "@/components/workout/session-list";
+import { PersonalWeightSection } from "@/components/weight/personal-weight-section";
+import { StudentClassesSection } from "@/components/agenda/student-classes-section";
+import { WhatsAppButton } from "@/components/whatsapp-button";
 import { listSessions } from "@/lib/sessions-server";
 import { daysAgoLabel, daysAgoSP, startOfWeekSP } from "@/lib/week";
 import { Badge, Card } from "@/components/ui/card";
@@ -81,6 +84,8 @@ export default async function AlunoPage({
         </div>
       </div>
 
+      <WhatsAppButton phone={student.phone} className="mb-4 w-full" />
+
       {erro && <Alert className="mb-4">{erro}</Alert>}
 
       <section className="mb-6">
@@ -154,7 +159,12 @@ export default async function AlunoPage({
       </section>
 
       <section className="mb-6">
-        <h2 className="mb-1 font-display text-xl font-bold">Treinos</h2>
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <h2 className="font-display text-xl font-bold">Treinos</h2>
+          <Link href={`/personal/alunos/${id}/evolucao`} className="inline-flex items-center gap-1 rounded-xl bg-bandeira-50 px-3 py-1.5 text-sm font-bold text-bandeira-700 hover:brightness-95 dark:bg-bandeira-500/20 dark:text-bandeira-100">
+            📈 Ver evolução
+          </Link>
+        </div>
         <p className="mb-3 text-sm text-muted">
           <strong className="text-foreground">{thisWeek.length}</strong> nesta semana (seg–dom)
           {sessions[0] && ` · último ${daysAgoLabel(daysAgoSP(sessions[0].started_at))}`}
@@ -178,6 +188,10 @@ export default async function AlunoPage({
           <p className="text-sm text-muted">Nenhum treino registrado ainda.</p>
         )}
       </section>
+
+      <StudentClassesSection studentId={id} meId={me.id} />
+
+      <PersonalWeightSection studentId={id} />
 
       <Card className="mb-4 space-y-2 text-sm">
         <p className="flex items-center gap-2">

@@ -1,6 +1,7 @@
 import "server-only";
 import { loadPlan } from "@/lib/plans-server";
 import { loadExerciseHistory } from "@/lib/history-server";
+import { loadCatalogFor } from "@/lib/plans-server";
 import type { RunnerExercise } from "@/components/workout/workout-runner";
 
 /** Monta os exercícios da tela de execução a partir de uma ficha do aluno. */
@@ -30,4 +31,31 @@ export async function loadRunnerForPlan(planId: string, studentId: string) {
     history: history[i.equipment!.id] ?? { last: null, best: null },
   }));
   return { plan: loaded.plan, exercises };
+}
+
+export const FREE_MAX_EXERCISES = 20;
+
+/**
+ * Monta um treino livre a partir de IDs escolhidos pelo aluno.
+ * Só entram exercícios do catálogo que o aluno enxerga (o banco valida de novo ao salvar).
+ */
+export async function loadRunnerForFree(studentId: string, equipmentIds: string[]) {
+  const catalog = await loadCatalogFor(studentId);
+  const byId = new Map(catalog.map((c) => [c.id, c]));
+  const chosen = [...new Set(equipmentIds)]
+    .map((id) => byId.get(id))
+    .filter((c): c is NonNullable<typeof c> => !!c)
+    .slice(0, FREE_MAX_EXERCISES);
+  const history = await loadExerciseHistory(studentId, chosen.map((c) => c.id));
+  const exercises: RunnerExercise[] = chosen.map((c) => ({
+    equipment: c,
+    notes: null,
+    restSeconds: c.muscle_group === "cardio" ? 0 : 60,
+    targetSets: c.muscle_group === "cardio" ? 1 : 3,
+    repsMin: null,
+    repsMax: null,
+    suggestedLoad: c.is_bodyweight ? 0 : null,
+    history: history[c.id] ?? { last: null, best: null },
+  }));
+  return { exercises, ignored: equipmentIds.length - chosen.length };
 }

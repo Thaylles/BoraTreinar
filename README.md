@@ -65,8 +65,8 @@ Veja `.env.example`. Resumo:
 | `NEXT_PUBLIC_SUPABASE_URL` | cliente/servidor | URL do projeto Supabase |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | cliente/servidor | chave pública (anon) |
 | `SUPABASE_SERVICE_ROLE_KEY` | **só servidor** | usada pelo cron do relatório |
-| `RESEND_API_KEY` / `EMAIL_FROM` | só servidor | envio de e-mails |
-| `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | só servidor | sugestões por IA (opcional) |
+| `RESEND_API_KEY` / `EMAIL_FROM` | só servidor | envio de e-mails (relatório e lembrete das 7h; sem elas, só a notificação no app) |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | só servidor | sugestões do relatório por IA (opcional; sem chave usa regras simples) |
 | `CRON_SECRET` | só servidor | protege a rota do cron |
 
 Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.env.example`).
@@ -80,7 +80,10 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
      `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/redefinir-senha`.
      Assim o link funciona mesmo se aberto em outro aparelho/navegador.
 3. Importe o repositório na Vercel e configure as variáveis de ambiente acima.
-4. O `vercel.json` já agenda o relatório semanal: `0 1 * * 1` (UTC) = **domingo 22h em São Paulo** (Brasil sem horário de verão desde 2019).
+4. O `vercel.json` já agenda os crons (em UTC; Brasil sem horário de verão desde 2019):
+   - relatório semanal `0 1 * * 1` = **domingo 22h em São Paulo**;
+   - lembrete das aulas `0 10 * * *` = **todo dia às 7h em São Paulo**.
+   No plano Hobby da Vercel o cron pode disparar em qualquer minuto daquela hora; no Pro, no minuto exato.
 5. Defina `CRON_SECRET` na Vercel — ela envia esse valor automaticamente no header `Authorization` das chamadas de cron.
 
 ## Scripts
@@ -91,6 +94,7 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 | `npm run build` | build de produção |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | checagem de tipos |
+| `npm run test:unit` | testes de unidade das funções puras (telefone, WhatsApp, agenda, estatísticas do dashboard) |
 | `npm run test:db` | aplica as migrações num Postgres descartável (com stub do Supabase) e roda os testes SQL de RLS. Use `PGHOST`/`PGPORT`/`PGUSER` para apontar o servidor |
 
 ## Como funciona o acesso
@@ -125,6 +129,7 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 - [ ] Trocar ilustrações por fotos do Wikimedia Commons (bloqueado pela rede do ambiente de desenvolvimento; o campo `image_credit` já existe)
 - [x] Cadastro/edição/exclusão de exercícios pelo Personal, com upload comprimido (WebP ≤1024px) no Supabase Storage
 - [x] Aviso ao salvar sem foto; placeholder com ícone do grupo muscular
+- [x] Qualquer Personal pode trocar a foto de um exercício do catálogo padrão (vale para todos, com crédito de quem enviou) ou voltar à ilustração original
 - [x] Visibilidade: catálogo padrão para todos; exercícios de um Personal visíveis para ele, seus alunos e Personais que compartilham alunos com ele
 
 ### Etapa 4 — Fichas
@@ -145,20 +150,43 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 - [x] Migrações `fichas` e `sessoes_treino` aplicadas no Supabase de produção
 
 ### Etapa 6 — Peso corporal
-- [ ] Registro, privacidade e trava de pesagem
+- [x] Registro de peso com data (um por dia; registrar de novo no mesmo dia corrige), histórico e gráfico
+- [x] Privacidade: o Personal só vê o peso se o aluno permitir (padrão: não), garantido por RLS em todas as telas
+- [x] Frequência de pesagem semanal ou quinzenal
+- [x] Trava: com pesagem vencida o aluno não inicia treino (tela com o campo de peso); registro manual do Personal não é bloqueado; reforçada no banco
+- [x] Página do aluno (Personal) mostra a situação da pesagem e o peso apenas quando permitido
 
 ### Etapa 7 — Treino livre
-- [ ] Treino livre só com exercícios do catálogo
+- [x] Treino livre: o aluno monta o treino do dia escolhendo e ordenando exercícios do catálogo (sugere a última seleção)
+- [x] Só exercícios do catálogo visível ao aluno (padrão + criados pelos seus Personais); aluno não cria exercício — garantido no banco
+- [x] Mesma execução da ficha (séries, timer, histórico, trava de pesagem, offline) e aparece para os Personais como "livre"
 
 ### Etapa 8 — Agenda e WhatsApp
-- [ ] Aulas recorrentes com exceções
-- [ ] Botão "Chamar no WhatsApp"
+- [x] Aulas presenciais recorrentes (dias da semana, horário, duração, início) com cancelamento de datas avulsas e reativação
+- [x] Aluno é avisado de aula nova e de cancelamento; vê "Minhas aulas" e a próxima aula no início
+- [x] Aulas semanais em **um ou mais dias da semana** (mesmo horário ou um horário por dia), que repetem todo mês até o Personal remover, ou **aulas únicas** numa data
+- [x] **Calendário mensal** do Personal: alunos de cada dia, navegação entre meses, detalhe do dia (cancelar/reativar, WhatsApp, agendar aula naquele dia) e resumo dos alunos da semana
+- [x] **Lembrete às 7h (SP)**: notificação no app + e-mail ao Personal com os alunos do dia e o botão do WhatsApp de cada um (cron diário, idempotente)
+- [x] Botão "Chamar no WhatsApp" na lista e na página do aluno (e na agenda), com telefone normalizado (DDI 55) e a mensagem "Olá, tudo bem? Confirmado nosso treino hoje?"
+- [x] Testes de unidade (`npm run test:unit`) para telefone, link do WhatsApp e cálculo da agenda
 
 ### Etapa 9 — Dashboard
-- [ ] Visões semanal/mensal, PRs, volume, ranking
+- [x] Aba **Evolução** do aluno e página "Ver evolução" de cada aluno (Personal), com visões **semanal (seg–dom) e mensal** e navegação entre períodos
+- [x] Treinos, volume (séries feitas × reps × carga), séries e tempo, comparados com o período anterior
+- [x] Frequência por semana (últimas 8 semanas) em gráfico de barras
+- [x] Progressão de carga por exercício (subiu / estável / caiu / primeira vez) com setas e cores; ranking de onde mais aumentou carga
+- [x] Evoluções notáveis: recordes (PRs), semanas seguidas treinando e maior volume (com aviso de recorde de volume)
+- [x] Peso corporal no período, respeitando a permissão do aluno (RLS)
+- [x] Visão geral do Personal no início: ranking de frequência (semana/mês) e alunos sem treinar há 7+ dias
+- [x] Agregados no banco (`training_summary`, `training_overview`, *security invoker*: o RLS decide o que cada um vê), com testes SQL e de unidade
 
 ### Etapa 10 — Relatório de domingo
-- [ ] Geração, e-mail, histórico no app, sugestões por IA/regras
+- [x] Todo **domingo às 22h (SP)** o cron gera o relatório de cada Personal: e-mail (Resend) + notificação + histórico em **Relatórios**
+- [x] Por aluno: treinos da semana com as fichas feitas e os treinos livres, carga de cada exercício (aumentou/manteve/diminuiu), recordes, semanas seguidas e variação de peso (**só com permissão do aluno**)
+- [x] Sugestões de estratégia por **IA** (`ANTHROPIC_API_KEY`; dados pseudonimizados, sem nome) ou, sem chave/erro, por **regras simples**
+- [x] Inclui alunos compartilhados; idempotente (um relatório por semana, e-mail enviado uma vez)
+- [x] Botão "Gerar prévia desta semana agora" (sem e-mail)
+- [x] Tabela `weekly_reports` com RLS (Personal só lê os seus; só o servidor grava) + testes SQL e de unidade
 
 ### Etapa 11 — PWA e polimento
 - [ ] Service worker, modo offline no treino, polimento visual

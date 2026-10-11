@@ -91,3 +91,23 @@ function duplicateMessage(message: string) {
     ? "Você já tem um exercício com esse nome."
     : friendlyError(message);
 }
+
+/** Troca (ou remove, com path null) a foto de um exercício do catálogo padrão — vale para todos. */
+export async function setCatalogImage(equipmentId: string, imagePath: string | null): Promise<{ error: string } | void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sessão expirada. Entre novamente." };
+  const { data: current } = await supabase.from("equipment").select("image_path").eq("id", equipmentId).single();
+
+  const { error } = await supabase.rpc("set_equipment_image", { p_equipment: equipmentId, p_image_path: imagePath });
+  if (error) return { error: friendlyError(error.message) };
+
+  // A foto anterior só pode ser apagada do Storage se estiver na pasta deste Personal.
+  if (current?.image_path && current.image_path !== imagePath && current.image_path.startsWith(`${user.id}/`)) {
+    await supabase.storage.from(EQUIPMENT_BUCKET).remove([current.image_path]);
+  }
+  revalidatePath("/personal/exercicios");
+  revalidatePath(`/personal/exercicios/${equipmentId}`);
+}

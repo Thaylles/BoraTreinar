@@ -11,6 +11,7 @@ import { groupLabel } from "@/lib/catalog";
 import { createClient } from "@/lib/supabase/server";
 import { EquipmentForm } from "../equipment-form";
 import { deleteEquipment } from "../actions";
+import { CatalogPhoto } from "../catalog-photo";
 
 export const metadata: Metadata = { title: "Exercício" };
 
@@ -60,6 +61,8 @@ export default async function ExercicioPage({
           </div>
           {eq.description && <p className="mt-4 leading-relaxed">{eq.description}</p>}
           {eq.image_credit && <p className="mt-4 text-xs text-muted">Imagem: {eq.image_credit}</p>}
+
+          {eq.is_default && <CatalogPhoto equipmentId={eq.id} userId={profile.id} hasPhoto={!!eq.image_path} />}
 
           {mine && (
             <div className="mt-8 flex flex-wrap gap-3">

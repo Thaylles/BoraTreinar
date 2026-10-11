@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight, Dumbbell } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getWeighInStatus } from "@/lib/weight-server";
+import { loadAgenda } from "@/lib/agenda-server";
+import { dayLabel } from "@/lib/schedule";
 import { Alert } from "@/components/ui/alert";
 import { Card, PageTitle } from "@/components/ui/card";
 import { NotificationsList } from "@/components/notifications";
@@ -18,6 +21,8 @@ export default async function AlunoHome({
   const { profile } = await requireRole("aluno");
   const welcome = (await searchParams).bemvindo === "1";
   const supabase = await createClient();
+  const [weighIn, agenda] = await Promise.all([getWeighInStatus(profile.id), loadAgenda({ studentId: profile.id, days: 7 })]);
+  const nextClass = agenda.occurrences.find((o) => !o.cancelled);
   const { data: plans } = await supabase
     .from("workout_plans")
     .select("id, name, goal, items:workout_plan_items(count)")
@@ -33,6 +38,17 @@ export default async function AlunoHome({
         <Alert kind="success" className="mb-4">
           Conta criada! Você já está vinculado ao seu Personal. Bem-vindo ao BoraTreinar! 🇧🇷
         </Alert>
+      )}
+
+      {weighIn.overdue && (
+        <Link
+          href="/aluno/peso"
+          className="mb-4 flex items-center gap-3 rounded-2xl bg-ipe-500 p-4 font-semibold text-anil-900 shadow-sm"
+        >
+          <span className="text-2xl" aria-hidden>⚖️</span>
+          <span className="flex-1">Pesagem vencida. Registre seu peso para liberar os treinos.</span>
+          <ChevronRight className="size-5" aria-hidden />
+        </Link>
       )}
 
       {plans?.length ? (
@@ -69,6 +85,34 @@ export default async function AlunoHome({
           </div>
         </Card>
       )}
+
+      {nextClass && (
+        <Link
+          href="/aluno/aulas"
+          className="mb-4 flex items-center gap-3 rounded-3xl bg-anil-700 p-4 text-white shadow-md transition hover:brightness-110"
+        >
+          <span className="text-2xl" aria-hidden>📅</span>
+          <span className="flex-1">
+            <span className="block text-xs uppercase tracking-wide text-white/70">Próxima aula com seu Personal</span>
+            <span className="font-display text-lg font-bold">
+              {dayLabel(nextClass.date, agenda.today)} às {nextClass.time}
+            </span>
+          </span>
+          <ChevronRight className="size-5" aria-hidden />
+        </Link>
+      )}
+
+      <Link
+        href="/aluno/livre"
+        className="mb-8 flex items-center gap-3 rounded-3xl border-2 border-dashed border-bandeira-500/50 p-4 transition hover:bg-bandeira-50 dark:hover:bg-bandeira-500/10"
+      >
+        <span className="text-2xl" aria-hidden>🏋️</span>
+        <span className="flex-1">
+          <span className="block font-display text-lg font-bold">Treino livre</span>
+          <span className="text-sm text-muted">Monte o treino de hoje com exercícios do catálogo.</span>
+        </span>
+        <ChevronRight className="size-5 text-muted" aria-hidden />
+      </Link>
 
       <NotificationsList />
     </>

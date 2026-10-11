@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-type Point = { date: string; maxLoad: number; pr: boolean };
+export type TrendPoint = { date: string; value: number; highlight?: boolean };
+type Point = TrendPoint;
 
 // Cores validadas (contraste ≥ 3:1 sobre a superfície) para claro/escuro.
 const SERIES = { light: "#009C3B", dark: "#1DA857" };
 const PR = "#E6A800";
 
-function useDark() {
+export function useDark() {
   const [dark, setDark] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -21,42 +22,58 @@ function useDark() {
   return dark;
 }
 
-const shortDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit" });
+// Aceita instante ISO ou data civil "YYYY-MM-DD" (esta sem conversão de fuso).
+const shortDate = (d: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(d)
+    ? `${d.slice(8, 10)}/${d.slice(5, 7)}`
+    : new Date(d).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit" });
 
-/** Evolução da maior carga por treino. Recordes ganham marcador maior com anel amarelo. */
-export function LoadChart({ points }: { points: Point[] }) {
+/**
+ * Linha de evolução no tempo (uma série). Pontos com `highlight` (ex.: recordes)
+ * ganham marcador maior em amarelo; o tooltip identifica o destaque em texto.
+ */
+export function TrendChart({
+  points,
+  label,
+  highlightLabel = "recorde",
+  emptyText = "Registre pelo menos dois valores para ver o gráfico.",
+}: {
+  points: Point[];
+  label: string;
+  highlightLabel?: string;
+  emptyText?: string;
+}) {
   const dark = useDark();
   const color = dark ? SERIES.dark : SERIES.light;
   const surface = dark ? "#13203a" : "#ffffff";
   const ink = dark ? "#a5adbd" : "#5b6577";
 
   if (points.length < 2) {
-    return <p className="py-6 text-center text-sm text-muted">Registre pelo menos dois treinos para ver o gráfico de evolução.</p>;
+    return <p className="py-6 text-center text-sm text-muted">{emptyText}</p>;
   }
 
   return (
-    <div className="h-56 w-full" role="img" aria-label="Gráfico da maior carga por treino">
+    <div className="h-56 w-full" role="img" aria-label={`Gráfico: ${label}`}>
       <ResponsiveContainer>
-        <LineChart data={points} margin={{ top: 12, right: 12, bottom: 4, left: -12 }}>
+        <LineChart data={points} margin={{ top: 12, right: 12, bottom: 4, left: 0 }}>
           <CartesianGrid vertical={false} stroke={ink} strokeOpacity={0.15} />
           <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fill: ink, fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={24} />
-          <YAxis tick={{ fill: ink, fontSize: 11 }} axisLine={false} tickLine={false} width={44} unit="kg" domain={["dataMin - 5", "dataMax + 5"]} allowDecimals={false} />
+          <YAxis tick={{ fill: ink, fontSize: 11 }} axisLine={false} tickLine={false} width={52} unit="kg" domain={["dataMin - 5", "dataMax + 5"]} allowDecimals={false} />
           <Tooltip
             cursor={{ stroke: ink, strokeOpacity: 0.4, strokeDasharray: "3 3" }}
             contentStyle={{ background: surface, border: `1px solid ${ink}40`, borderRadius: 12, fontSize: 12 }}
             labelFormatter={(d) => shortDate(String(d))}
-            formatter={(v, _n, item) => [`${Number(v).toLocaleString("pt-BR")} kg${(item.payload as Point).pr ? " 🏆 recorde" : ""}`, "Maior carga"]}
+            formatter={(v, _n, item) => [`${Number(v).toLocaleString("pt-BR")} kg${(item.payload as Point).highlight ? ` 🏆 ${highlightLabel}` : ""}`, label]}
           />
           <Line
             type="monotone"
-            dataKey="maxLoad"
+            dataKey="value"
             stroke={color}
             strokeWidth={2}
             isAnimationActive={false}
             activeDot={{ r: 6, stroke: surface, strokeWidth: 2 }}
             dot={(props: { cx?: number; cy?: number; index?: number; payload?: unknown }) => {
-              const pr = (props.payload as Point | undefined)?.pr;
+              const pr = (props.payload as Point | undefined)?.highlight;
               return (
                 <circle
                   key={props.index}

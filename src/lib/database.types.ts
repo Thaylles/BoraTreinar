@@ -52,6 +52,8 @@ export type Database = {
           id: string;
           image_credit: string | null;
           image_path: string | null;
+          image_updated_at: string | null;
+          image_updated_by: string | null;
           image_url: string | null;
           is_bodyweight: boolean;
           is_default: boolean;
@@ -373,6 +375,109 @@ export type Database = {
           },
         ];
       };
+      weekly_reports: {
+        Row: {
+          ai_used: boolean;
+          content: Json;
+          created_at: string;
+          emailed_at: string | null;
+          id: string;
+          personal_id: string;
+          updated_at: string;
+          week_start: string;
+        };
+        Insert: {
+          ai_used?: boolean;
+          content: Json;
+          emailed_at?: string | null;
+          personal_id: string;
+          updated_at?: string;
+          week_start: string;
+        };
+        Update: { ai_used?: boolean; content?: Json; emailed_at?: string | null; updated_at?: string };
+        Relationships: [];
+      };
+      student_settings: {
+        Row: {
+          student_id: string;
+          updated_at: string;
+          weigh_in_frequency: Database["public"]["Enums"]["weigh_in_frequency"];
+          weight_visible_to_personal: boolean;
+        };
+        Insert: {
+          student_id: string;
+          weigh_in_frequency?: Database["public"]["Enums"]["weigh_in_frequency"];
+          weight_visible_to_personal?: boolean;
+        };
+        Update: {
+          weigh_in_frequency?: Database["public"]["Enums"]["weigh_in_frequency"];
+          weight_visible_to_personal?: boolean;
+        };
+        Relationships: [];
+      };
+      body_weights: {
+        Row: {
+          created_at: string;
+          id: string;
+          measured_on: string;
+          student_id: string;
+          weight_kg: number;
+        };
+        Insert: {
+          measured_on?: string;
+          student_id: string;
+          weight_kg: number;
+        };
+        Update: { weight_kg?: number };
+        Relationships: [];
+      };
+      class_schedules: {
+        Row: {
+          created_at: string;
+          duration_minutes: number;
+          ends_on: string | null;
+          id: string;
+          notes: string | null;
+          personal_id: string;
+          start_time: string;
+          starts_on: string;
+          student_id: string;
+          weekday: number;
+        };
+        Insert: {
+          duration_minutes?: number;
+          ends_on?: string | null;
+          notes?: string | null;
+          personal_id: string;
+          start_time: string;
+          starts_on?: string;
+          student_id: string;
+          weekday: number;
+        };
+        Update: { start_time?: string; duration_minutes?: number; ends_on?: string | null; notes?: string | null };
+        Relationships: [
+          {
+            foreignKeyName: "class_schedules_personal_id_fkey";
+            columns: ["personal_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "class_schedules_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      class_exceptions: {
+        Row: { created_at: string; id: string; on_date: string; reason: string | null; schedule_id: string };
+        Insert: { on_date: string; reason?: string | null; schedule_id: string };
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -420,6 +525,38 @@ export type Database = {
         Args: { p_personal: string; p_student: string };
         Returns: undefined;
       };
+      daily_class_reminders: {
+        Args: { p_date: string };
+        Returns: {
+          personal_id: string;
+          personal_name: string;
+          personal_email: string;
+          classes: Json;
+          notified: boolean;
+        }[];
+      };
+      training_summary: {
+        Args: { p_student: string };
+        Returns: Json;
+      };
+      training_overview: {
+        Args: { p_since: string };
+        Returns: Json;
+      };
+      set_equipment_image: {
+        Args: { p_equipment: string; p_image_path: string | null };
+        Returns: undefined;
+      };
+      weigh_in_status: {
+        Args: { p_student: string };
+        Returns: {
+          frequency: Database["public"]["Enums"]["weigh_in_frequency"];
+          last_measured_on: string | null;
+          due_on: string | null;
+          overdue: boolean;
+        }[];
+      };
+      can_view_weight: { Args: { p_student: string }; Returns: boolean };
       save_workout_session: {
         Args: { p: Json };
         Returns: Json;
@@ -455,6 +592,7 @@ export type Database = {
     Enums: {
       link_role: "responsavel" | "compartilhado";
       session_kind: "ficha" | "livre";
+      weigh_in_frequency: "semanal" | "quinzenal";
       muscle_group:
         | "peito"
         | "costas"

@@ -11,7 +11,10 @@ export default async function AlunoLayout({ children }: { children: React.ReactN
       root="/aluno"
       items={[
         { href: "/aluno", label: "Início", icon: "house" },
+        { href: "/aluno/evolucao", label: "Evolução", icon: "chart" },
         { href: "/aluno/historico", label: "Histórico", icon: "history" },
+        { href: "/aluno/peso", label: "Peso", icon: "scale" },
+        { href: "/aluno/aulas", label: "Aulas", icon: "calendar" },
         { href: "/aluno/personais", label: "Personais", icon: "user" },
       ]}
     >

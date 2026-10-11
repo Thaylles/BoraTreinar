@@ -34,7 +34,7 @@ export async function requireRole(role: Enums<"user_role">) {
 }
 
 export const homeFor = (role: Enums<"user_role">) =>
-  role === "personal" ? "/personal" : "/aluno";
+  role === "admin" ? "/admin" : role === "personal" ? "/personal" : "/aluno";
 
 /** Aceita apenas caminhos internos para evitar open redirect. */
 export function safeNext(next: unknown): string | null {

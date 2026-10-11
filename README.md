@@ -201,6 +201,14 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 - [x] **Exportar ficha** em **PDF** (ficha + folha de registro para imprimir e preencher à mão: carga, reps e ok por série em 5 dias) e **CSV** (uma linha por série, abre no Excel), para Personal e aluno
 - [x] **LGPD**: o aluno baixa os próprios dados (JSON) e exclui a conta em *Personais → Privacidade e meus dados* (apaga tudo em cascata, remove dos relatórios e avisa os Personais)
 
+### Área do administrador
+- [x] Papel **admin** (ninguém escolhe no cadastro nem altera o próprio papel; a promoção é feita no banco: `update public.profiles set role = 'admin' where email = '...'`)
+- [x] Painel com números do site (Personais, alunos, treinos, fichas, convites, aulas, relatórios) e cadastros recentes
+- [x] Personais: lista com busca, detalhe com alunos (último treino de cada), edição do cadastro, **bloqueio de edição de exercícios** e **exclusão** (alunos são avisados e mantêm o histórico)
+- [x] Alunos: lista com os Personais de cada um, detalhe e edição do cadastro (nome, e-mail de login, WhatsApp, nascimento)
+- [x] Exercícios: **travar** exercícios específicos (padrão ou de Personais) — nenhum Personal edita, exclui ou troca a foto
+- [x] Travas garantidas no banco (policies + `set_equipment_image`) e testadas (`14_admin.test.sql`)
+
 ## Licença
 
 [MIT](LICENSE)

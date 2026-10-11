@@ -8,6 +8,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
+import { DemoVideos } from "@/components/demo-videos";
 
 const recursos = [
   {
@@ -89,6 +90,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ c
         <p className="mt-4 text-sm text-muted">
           É aluno? Peça o link de convite ao seu Personal.
         </p>
+      </section>
+
+      <section id="como-funciona" className="mx-auto max-w-3xl px-4 pb-16">
+        <h2 className="text-center font-display text-3xl font-extrabold text-anil-700 dark:text-foreground">Veja como funciona</h2>
+        <p className="mx-auto mb-8 mt-1 max-w-md text-center text-sm text-muted">Vídeos curtos e narrados. Ative o som para ouvir a explicação. 🔊</p>
+        <DemoVideos />
       </section>
 
       <section className="mx-auto grid max-w-5xl gap-4 px-4 pb-16 sm:grid-cols-2 lg:grid-cols-3">

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarDays, ClipboardList, Dumbbell, FileBarChart, Inbox, Ticket, UserPlus, Users } from "lucide-react";
+import { CalendarDays, ChevronRight, ClipboardList, Dumbbell, FileBarChart, Inbox, Ticket, UserPlus, Users } from "lucide-react";
 import { Card, PageTitle } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { NotificationsList } from "@/components/notifications";
@@ -82,6 +82,18 @@ export default async function PersonalHome({ searchParams }: { searchParams: Pro
       </div>
 
       <PersonalOverview personalId={profile.id} kind={kind} />
+
+      <Link
+        href="/como-usar"
+        className="mb-6 flex items-center gap-3 rounded-3xl border border-border bg-surface p-4 transition hover:border-bandeira-500"
+      >
+        <span className="text-2xl" aria-hidden>🎬</span>
+        <span className="flex-1">
+          <span className="block font-display text-lg font-bold">Como usar o app</span>
+          <span className="text-sm text-muted">Vídeos curtos e narrados mostrando o passo a passo.</span>
+        </span>
+        <ChevronRight className="size-5 text-muted" aria-hidden />
+      </Link>
 
       <NotificationsList />
     </>

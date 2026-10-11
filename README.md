@@ -145,7 +145,11 @@ Nenhum segredo vai para o repositório: `.env*` está no `.gitignore` (exceto `.
 - [x] Migrações `fichas` e `sessoes_treino` aplicadas no Supabase de produção
 
 ### Etapa 6 — Peso corporal
-- [ ] Registro, privacidade e trava de pesagem
+- [x] Registro de peso com data (um por dia; registrar de novo no mesmo dia corrige), histórico e gráfico
+- [x] Privacidade: o Personal só vê o peso se o aluno permitir (padrão: não), garantido por RLS em todas as telas
+- [x] Frequência de pesagem semanal ou quinzenal
+- [x] Trava: com pesagem vencida o aluno não inicia treino (tela com o campo de peso); registro manual do Personal não é bloqueado; reforçada no banco
+- [x] Página do aluno (Personal) mostra a situação da pesagem e o peso apenas quando permitido
 
 ### Etapa 7 — Treino livre
 - [ ] Treino livre só com exercícios do catálogo

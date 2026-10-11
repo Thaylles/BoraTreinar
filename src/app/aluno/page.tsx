@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight, Dumbbell } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getWeighInStatus } from "@/lib/weight-server";
 import { Alert } from "@/components/ui/alert";
 import { Card, PageTitle } from "@/components/ui/card";
 import { NotificationsList } from "@/components/notifications";
@@ -18,6 +19,7 @@ export default async function AlunoHome({
   const { profile } = await requireRole("aluno");
   const welcome = (await searchParams).bemvindo === "1";
   const supabase = await createClient();
+  const weighIn = await getWeighInStatus(profile.id);
   const { data: plans } = await supabase
     .from("workout_plans")
     .select("id, name, goal, items:workout_plan_items(count)")
@@ -33,6 +35,17 @@ export default async function AlunoHome({
         <Alert kind="success" className="mb-4">
           Conta criada! Você já está vinculado ao seu Personal. Bem-vindo ao BoraTreinar! 🇧🇷
         </Alert>
+      )}
+
+      {weighIn.overdue && (
+        <Link
+          href="/aluno/peso"
+          className="mb-4 flex items-center gap-3 rounded-2xl bg-ipe-500 p-4 font-semibold text-anil-900 shadow-sm"
+        >
+          <span className="text-2xl" aria-hidden>⚖️</span>
+          <span className="flex-1">Pesagem vencida. Registre seu peso para liberar os treinos.</span>
+          <ChevronRight className="size-5" aria-hidden />
+        </Link>
       )}
 
       {plans?.length ? (

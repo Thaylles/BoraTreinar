@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { inputClass } from "@/components/ui/field";
 import { applyTemplate } from "../../fichas/actions";
 import { SessionList } from "@/components/workout/session-list";
+import { PersonalWeightSection } from "@/components/weight/personal-weight-section";
 import { listSessions } from "@/lib/sessions-server";
 import { daysAgoLabel, daysAgoSP, startOfWeekSP } from "@/lib/week";
 import { Badge, Card } from "@/components/ui/card";
@@ -178,6 +179,8 @@ export default async function AlunoPage({
           <p className="text-sm text-muted">Nenhum treino registrado ainda.</p>
         )}
       </section>
+
+      <PersonalWeightSection studentId={id} />
 
       <Card className="mb-4 space-y-2 text-sm">
         <p className="flex items-center gap-2">

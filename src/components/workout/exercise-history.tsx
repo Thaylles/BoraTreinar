@@ -6,7 +6,7 @@ import { groupLabel } from "@/lib/catalog";
 import { formatDate } from "@/lib/format";
 import { formatKg } from "@/lib/plans";
 import type { loadExerciseTimeline } from "@/lib/sessions-server";
-import { LoadChart } from "./load-chart";
+import { TrendChart } from "@/components/trend-chart";
 
 type Data = Awaited<ReturnType<typeof loadExerciseTimeline>>;
 
@@ -43,7 +43,11 @@ export function ExerciseHistory({ data, sessionHref }: { data: Data; sessionHref
 
       <section className="mb-6 rounded-3xl border border-border bg-surface p-4">
         <h2 className="mb-2 font-display text-lg font-bold">Maior carga por treino</h2>
-        <LoadChart points={entries.map((e) => ({ date: e.date, maxLoad: e.maxLoad, pr: e.pr }))} />
+        <TrendChart
+          label="Maior carga"
+          emptyText="Registre pelo menos dois treinos para ver o gráfico de evolução."
+          points={entries.map((e) => ({ date: e.date, value: e.maxLoad, highlight: e.pr }))}
+        />
       </section>
 
       <h2 className="mb-2 font-display text-lg font-bold">Histórico completo</h2>

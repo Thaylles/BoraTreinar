@@ -373,6 +373,40 @@ export type Database = {
           },
         ];
       };
+      student_settings: {
+        Row: {
+          student_id: string;
+          updated_at: string;
+          weigh_in_frequency: Database["public"]["Enums"]["weigh_in_frequency"];
+          weight_visible_to_personal: boolean;
+        };
+        Insert: {
+          student_id: string;
+          weigh_in_frequency?: Database["public"]["Enums"]["weigh_in_frequency"];
+          weight_visible_to_personal?: boolean;
+        };
+        Update: {
+          weigh_in_frequency?: Database["public"]["Enums"]["weigh_in_frequency"];
+          weight_visible_to_personal?: boolean;
+        };
+        Relationships: [];
+      };
+      body_weights: {
+        Row: {
+          created_at: string;
+          id: string;
+          measured_on: string;
+          student_id: string;
+          weight_kg: number;
+        };
+        Insert: {
+          measured_on?: string;
+          student_id: string;
+          weight_kg: number;
+        };
+        Update: { weight_kg?: number };
+        Relationships: [];
+      };
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -420,6 +454,16 @@ export type Database = {
         Args: { p_personal: string; p_student: string };
         Returns: undefined;
       };
+      weigh_in_status: {
+        Args: { p_student: string };
+        Returns: {
+          frequency: Database["public"]["Enums"]["weigh_in_frequency"];
+          last_measured_on: string | null;
+          due_on: string | null;
+          overdue: boolean;
+        }[];
+      };
+      can_view_weight: { Args: { p_student: string }; Returns: boolean };
       save_workout_session: {
         Args: { p: Json };
         Returns: Json;
@@ -455,6 +499,7 @@ export type Database = {
     Enums: {
       link_role: "responsavel" | "compartilhado";
       session_kind: "ficha" | "livre";
+      weigh_in_frequency: "semanal" | "quinzenal";
       muscle_group:
         | "peito"
         | "costas"

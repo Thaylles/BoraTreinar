@@ -73,3 +73,38 @@ export async function toggleOccurrence(fd: FormData) {
   }
   revalidatePath("/personal", "layout");
 }
+
+/** Remarca uma aula: só esta data ("unica") ou esta e as próximas ("serie"). */
+export async function rescheduleClass(_: ActionState, fd: FormData): Promise<ActionState> {
+  const scheduleId = String(fd.get("schedule_id") ?? "");
+  const date = String(fd.get("date") ?? "");
+  const time = String(fd.get("start_time") ?? "");
+  const isDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d);
+  if (!scheduleId || !isDate(date)) return { error: "Aula inválida." };
+  if (!/^\d{2}:\d{2}$/.test(time)) return { error: "Informe o novo horário." };
+
+  const supabase = await createClient();
+  if (fd.get("mode") === "serie") {
+    const weekday = Number(fd.get("weekday"));
+    if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) return { error: "Escolha o novo dia da semana." };
+    const { error } = await supabase.rpc("reschedule_class_series", {
+      p_schedule: scheduleId,
+      p_from: date,
+      p_weekday: weekday,
+      p_time: time,
+    });
+    if (error) return { error: friendlyError(error.message) };
+  } else {
+    const newDate = String(fd.get("new_date") ?? "");
+    if (!isDate(newDate)) return { error: "Informe a nova data." };
+    const { error } = await supabase.rpc("reschedule_class_once", {
+      p_schedule: scheduleId,
+      p_date: date,
+      p_new_date: newDate,
+      p_new_time: time,
+    });
+    if (error) return { error: friendlyError(error.message) };
+  }
+  revalidatePath("/personal", "layout");
+  return { ok: "Aula remarcada! O aluno foi avisado. 🔄" };
+}

@@ -16,6 +16,8 @@ export type Occurrence<S extends ScheduleLike> = {
   schedule: S;
   cancelled: boolean;
   reason: string | null;
+  /** Cancelada porque foi remarcada para outro dia/horário. */
+  rescheduled: boolean;
 };
 
 /** Soma dias a uma data civil "YYYY-MM-DD" (sem fuso). */
@@ -36,11 +38,11 @@ export function weekdayOf(date: string): number {
  */
 export function upcomingOccurrences<S extends ScheduleLike>(
   schedules: S[],
-  exceptions: { schedule_id: string; on_date: string; reason: string | null }[],
+  exceptions: { schedule_id: string; on_date: string; reason: string | null; rescheduled_to?: string | null }[],
   from: string,
   days: number,
 ): Occurrence<S>[] {
-  const cancelled = new Map(exceptions.map((e) => [`${e.schedule_id}|${e.on_date}`, e.reason]));
+  const cancelled = new Map(exceptions.map((e) => [`${e.schedule_id}|${e.on_date}`, e]));
   const out: Occurrence<S>[] = [];
   for (let i = 0; i < days; i++) {
     const date = addDays(from, i);
@@ -53,7 +55,8 @@ export function upcomingOccurrences<S extends ScheduleLike>(
         time: s.start_time.slice(0, 5),
         schedule: s,
         cancelled: cancelled.has(key),
-        reason: cancelled.get(key) ?? null,
+        reason: cancelled.get(key)?.reason ?? null,
+        rescheduled: !!cancelled.get(key)?.rescheduled_to,
       });
     }
   }

@@ -48,6 +48,14 @@ test("ocorrências da agenda respeitam dia, vigência e cancelamentos", () => {
     ["2026-10-12 07:00 X", "2026-10-19 07:00 ok", "2026-10-21 18:30 ok"],
   );
   assert.equal(occ[0].reason, "Feriado");
+  assert.equal(occ[0].rescheduled, false);
+  const moved = upcomingOccurrences(
+    s,
+    [{ schedule_id: "a", on_date: "2026-10-12", reason: "Remarcada para 14/10 às 18:00", rescheduled_to: "c" }],
+    "2026-10-11",
+    7,
+  );
+  assert.equal(moved[0].cancelled && moved[0].rescheduled, true);
 });
 
 test("grade do calendário mensal começa na segunda e termina no domingo", () => {

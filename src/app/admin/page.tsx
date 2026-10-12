@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Activity, CalendarDays, ClipboardList, Dumbbell, FileBarChart, Lock, Ticket, UserRound, Users } from "lucide-react";
 import { Card, PageTitle } from "@/components/ui/card";
 import { requireAdmin } from "@/lib/admin-server";
+import { TestEmailCard } from "@/components/admin/test-email";
 import { formatDate } from "@/lib/format";
 import { startOfWeekSP } from "@/lib/week";
 
@@ -67,6 +68,8 @@ export default async function AdminHome() {
           );
         })}
       </div>
+
+      <TestEmailCard />
 
       <h2 className="mb-2 font-display text-xl font-bold">Cadastros recentes</h2>
       <ul className="space-y-2">

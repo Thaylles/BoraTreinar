@@ -1,5 +1,6 @@
 import { CalendarX2, RotateCcw } from "lucide-react";
 import { ConfirmSubmit } from "@/components/confirm-submit";
+import { RescheduleButton } from "@/components/agenda/reschedule-button";
 import { WhatsAppButton } from "@/components/whatsapp-button";
 import { dayLabel, type Occurrence, type ScheduleLike } from "@/lib/schedule";
 import { toggleOccurrence } from "@/app/personal/agenda/actions";
@@ -11,7 +12,7 @@ type S = ScheduleLike & {
   personal: { full_name: string } | null;
 };
 
-/** Próximas aulas agrupadas por dia. O Personal dono da aula pode cancelar/reativar uma data. */
+/** Próximas aulas agrupadas por dia. O Personal dono da aula pode remarcar, cancelar ou reativar uma data. */
 export function OccurrenceList({
   occurrences,
   today,
@@ -56,19 +57,40 @@ export function OccurrenceList({
                       <p className="text-xs text-muted">
                         {o.schedule.duration_minutes} min
                         {o.schedule.ends_on === o.schedule.starts_on && " · aula única"}
-                        {o.cancelled && ` · cancelada${o.reason ? `: ${o.reason}` : ""}`}
+                        {o.cancelled &&
+                          (o.rescheduled
+                            ? ` · ${o.reason?.toLowerCase() ?? "remarcada"}`
+                            : ` · cancelada${o.reason ? `: ${o.reason}` : ""}`)}
                       </p>
                     </div>
                     {showStudent && !o.cancelled && <WhatsAppButton phone={o.schedule.student?.phone} compact />}
+                    {canManage && !o.cancelled && o.date >= today && (
+                      <RescheduleButton
+                        scheduleId={o.schedule.id}
+                        date={o.date}
+                        time={o.time}
+                        weekday={o.schedule.weekday}
+                        recurring={o.schedule.ends_on !== o.schedule.starts_on}
+                        today={today}
+                        studentName={o.schedule.student?.full_name}
+                      />
+                    )}
                     {canManage && (
                       <form action={toggleOccurrence}>
                         <input type="hidden" name="schedule_id" value={o.schedule.id} />
                         <input type="hidden" name="date" value={o.date} />
                         <input type="hidden" name="cancel" value={o.cancelled ? "0" : "1"} />
                         {o.cancelled ? (
-                          <button className="rounded-xl p-2 text-muted hover:bg-border/50" aria-label="Reativar aula" title="Reativar aula">
-                            <RotateCcw className="size-5" aria-hidden />
-                          </button>
+                          <ConfirmSubmit
+                            message={
+                              o.rescheduled
+                                ? `Desfazer a remarcação? A aula volta para ${o.date.slice(8, 10)}/${o.date.slice(5, 7)} às ${o.time} e o aluno será avisado.`
+                                : `Reativar a aula de ${o.date.slice(8, 10)}/${o.date.slice(5, 7)} às ${o.time}?`
+                            }
+                            className="rounded-xl p-2 text-muted hover:bg-border/50"
+                          >
+                            <RotateCcw className="size-5" aria-label={o.rescheduled ? "Desfazer remarcação" : "Reativar aula"} />
+                          </ConfirmSubmit>
                         ) : (
                           <ConfirmSubmit
                             message={`Cancelar a aula de ${o.date.slice(8, 10)}/${o.date.slice(5, 7)} às ${o.time}? O aluno será avisado.`}

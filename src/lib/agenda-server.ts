@@ -20,7 +20,7 @@ export async function loadAgenda(opts: { studentId?: string; personalId?: string
   const today = spDateKey();
   const from = opts.from ?? today;
   const { data: exceptions } = ids.length
-    ? await supabase.from("class_exceptions").select("schedule_id, on_date, reason").in("schedule_id", ids).gte("on_date", from)
+    ? await supabase.from("class_exceptions").select("schedule_id, on_date, reason, rescheduled_to").in("schedule_id", ids).gte("on_date", from)
     : { data: [] };
   const occurrences = upcomingOccurrences(schedules ?? [], exceptions ?? [], from, opts.days ?? 14);
   return { schedules: schedules ?? [], occurrences, today };

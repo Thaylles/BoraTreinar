@@ -507,7 +507,14 @@ export type Database = {
         ];
       };
       class_exceptions: {
-        Row: { created_at: string; id: string; on_date: string; reason: string | null; schedule_id: string };
+        Row: {
+          created_at: string;
+          id: string;
+          on_date: string;
+          reason: string | null;
+          rescheduled_to: string | null;
+          schedule_id: string;
+        };
         Insert: { on_date: string; reason?: string | null; schedule_id: string };
         Update: never;
         Relationships: [];
@@ -607,6 +614,14 @@ export type Database = {
       };
       inactivity_nudges: { Args: Record<string, never>; Returns: number };
       accept_invite: { Args: { p_token: string }; Returns: string };
+      reschedule_class_once: {
+        Args: { p_schedule: string; p_date: string; p_new_date: string; p_new_time: string };
+        Returns: string;
+      };
+      reschedule_class_series: {
+        Args: { p_schedule: string; p_from: string; p_weekday: number; p_time: string };
+        Returns: string;
+      };
       rate_workout_session: {
         Args: { p_session: string; p_effort: number; p_pain: boolean; p_feedback: string | null };
         Returns: undefined;

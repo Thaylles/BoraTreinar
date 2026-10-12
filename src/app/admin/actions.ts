@@ -6,6 +6,8 @@ import { requireAdmin } from "@/lib/admin-server";
 import { friendlyError, type ActionState } from "@/lib/errors";
 import { normalizePhoneBR } from "@/lib/phone";
 import { EQUIPMENT_BUCKET, isMuscleGroup } from "@/lib/catalog";
+import { escapeHtml, sendEmailDetailed } from "@/lib/email";
+import { appUrl } from "@/lib/env";
 
 const isUuid = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
 
@@ -227,4 +229,20 @@ export async function adminDeletePersonal(
   if (error) return { error: friendlyError(error.message) };
   revalidatePath("/admin", "layout");
   redirect("/admin/personais?excluido=1");
+}
+
+/** Envia um e-mail de teste para o próprio admin e devolve o resultado (ou o motivo da falha). */
+export async function adminSendTestEmail(): Promise<ActionState> {
+  const { profile: me } = await requireAdmin();
+  const when = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const html = `<div style="font-family:Arial,sans-serif;color:#10213f">
+    <h2 style="color:#009C3B">Funcionou! ✅</h2>
+    <p>Este é um e-mail de teste do BoraTreinar, enviado em ${escapeHtml(when)}.</p>
+    <p>Se você está lendo isto, o lembrete das 7h e o relatório de domingo também vão chegar.</p>
+    <p><a href="${appUrl}/admin">Abrir o painel do admin</a></p>
+  </div>`;
+  const r = await sendEmailDetailed(me.email, "Teste de e-mail — BoraTreinar", html);
+  if (!r.ok) return { error: r.error ?? "Falha no envio." };
+  const via = r.via === "gmail" ? "pelo Gmail" : "pelo Resend";
+  return { ok: `E-mail enviado ${via} para ${me.email}. Confira a caixa de entrada (e o spam).` };
 }

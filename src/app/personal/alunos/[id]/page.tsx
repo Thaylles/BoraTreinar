@@ -19,6 +19,7 @@ import { formatPhoneBR } from "@/lib/phone";
 import { createClient } from "@/lib/supabase/server";
 import { cancelTransfer, revokeShare, setArchived } from "../../actions";
 import { TransferForm } from "./transfer-form";
+import { Avatar } from "@/components/avatar";
 
 export const metadata: Metadata = { title: "Aluno" };
 
@@ -72,9 +73,7 @@ export default async function AlunoPage({
       </Link>
 
       <div className="mb-6 flex items-center gap-4">
-        <span className="flex size-16 shrink-0 items-center justify-center rounded-full bg-bandeira-500 font-display text-3xl font-bold text-white">
-          {student.full_name.charAt(0).toUpperCase()}
-        </span>
+        <Avatar path={student.avatar_path} name={student.full_name} size={64} />
         <div className="min-w-0">
           <h1 className="font-display text-2xl font-extrabold leading-tight">{student.full_name}</h1>
           <div className="mt-1 flex flex-wrap gap-2">

@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
-import { Camera, ImagePlus, Loader2, Trash2 } from "lucide-react";
+import { useState, useTransition } from "react";
+import { ImagePlus, Loader2, Trash2 } from "lucide-react";
+import { PhotoSourceButtons } from "@/components/photo-source-buttons";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/image";
 import { EQUIPMENT_BUCKET, MUSCLE_GROUPS, equipmentImageSrc, type Equipment } from "@/lib/catalog";
@@ -13,7 +14,6 @@ import { saveEquipment } from "./actions";
 type Props = { userId: string; initial?: Equipment };
 
 export function EquipmentForm({ userId, initial }: Props) {
-  const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(initial ? equipmentImageSrc(initial) : null);
   const [removed, setRemoved] = useState(false);
@@ -93,7 +93,6 @@ export function EquipmentForm({ userId, initial }: Props) {
                 setFile(null);
                 setRemoved(true);
                 setPreview(null);
-                if (fileRef.current) fileRef.current.value = "";
               }}
               className="absolute right-2 top-2 rounded-full bg-surface/90 p-2 text-pitanga-600 shadow"
               aria-label="Remover foto"
@@ -102,28 +101,13 @@ export function EquipmentForm({ userId, initial }: Props) {
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border text-muted transition hover:border-bandeira-500 hover:text-bandeira-600"
-          >
+          <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border text-muted">
             <ImagePlus className="size-10" aria-hidden />
-            <span className="text-sm font-semibold">Tirar foto ou escolher imagem</span>
-          </button>
+            <span className="text-sm font-semibold">Tire uma foto ou escolha da galeria</span>
+            <PhotoSourceButtons onPick={pickFile} size="sm" />
+          </div>
         )}
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
-        />
-        {preview && !removed && (
-          <Button type="button" variant="ghost" size="sm" onClick={() => fileRef.current?.click()}>
-            <Camera className="size-4" aria-hidden /> Trocar foto
-          </Button>
-        )}
+        {preview && !removed && <PhotoSourceButtons onPick={pickFile} size="sm" />}
       </div>
 
       <Field label="Nome" name="name" required minLength={2} maxLength={80} defaultValue={initial?.name} placeholder="Ex.: Remada máquina articulada" />
@@ -158,9 +142,7 @@ export function EquipmentForm({ userId, initial }: Props) {
           <p className="font-semibold">Que tal adicionar uma foto? 📸</p>
           <p>Com a foto, o aluno identifica o equipamento na academia muito mais rápido.</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button type="button" size="sm" onClick={() => fileRef.current?.click()}>
-              <Camera className="size-4" aria-hidden /> Adicionar foto
-            </Button>
+            <PhotoSourceButtons onPick={pickFile} size="sm" />
             <Button
               type="button"
               size="sm"

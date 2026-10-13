@@ -200,6 +200,7 @@ export type Database = {
       };
       profiles: {
         Row: {
+          avatar_path: string | null;
           birth_date: string | null;
           catalog_blocked: boolean;
           created_at: string;
@@ -221,6 +222,7 @@ export type Database = {
           terms_accepted_at?: string | null;
         };
         Update: {
+          avatar_path?: string | null;
           birth_date?: string | null;
           full_name?: string;
           phone?: string | null;
@@ -506,6 +508,69 @@ export type Database = {
           },
         ];
       };
+      payment_packages: {
+        Row: {
+          classes_per_week: number | null;
+          created_at: string;
+          id: string;
+          kind: "por_aula" | "mensal";
+          name: string;
+          personal_id: string;
+          price: number;
+        };
+        Insert: { classes_per_week?: number | null; kind: "por_aula" | "mensal"; name: string; price: number };
+        Update: { classes_per_week?: number | null; kind?: "por_aula" | "mensal"; name?: string; price?: number };
+        Relationships: [];
+      };
+      student_billing: {
+        Row: {
+          amount: number;
+          due_day: number;
+          kind: "por_aula" | "mensal";
+          label: string;
+          package_id: string | null;
+          personal_id: string;
+          starts_on: string;
+          student_id: string;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      payments: {
+        Row: {
+          amount: number;
+          classes: number | null;
+          created_at: string;
+          description: string;
+          due_on: string;
+          id: string;
+          last_reminder_on: string | null;
+          month: string;
+          paid_at: string | null;
+          personal_id: string;
+          student_id: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: "payments_personal_id_fkey";
+            columns: ["personal_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payments_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       class_exceptions: {
         Row: {
           created_at: string;
@@ -614,6 +679,22 @@ export type Database = {
       };
       inactivity_nudges: { Args: Record<string, never>; Returns: number };
       accept_invite: { Args: { p_token: string }; Returns: string };
+      ensure_month_charges: { Args: { p_month: string }; Returns: number };
+      set_student_billing: {
+        Args: {
+          p_student: string;
+          p_package: string | null;
+          p_label: string | null;
+          p_kind: string | null;
+          p_amount: number | null;
+          p_due_day: number;
+        };
+        Returns: undefined;
+      };
+      remove_student_billing: { Args: { p_student: string }; Returns: undefined };
+      set_payment_paid: { Args: { p_payment: string; p_paid: boolean }; Returns: undefined };
+      set_payment_amount: { Args: { p_payment: string; p_amount: number }; Returns: undefined };
+      payment_reminders: { Args: { p_date: string }; Returns: number };
       reschedule_class_once: {
         Args: { p_schedule: string; p_date: string; p_new_date: string; p_new_time: string };
         Returns: string;

@@ -3,9 +3,11 @@ import { LogOut } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { NavLinks, type NavItem } from "./nav-links";
 import { firstName } from "@/lib/format";
+import { Avatar } from "@/components/avatar";
 
 export function AppShell({
   name,
+  avatarPath = null,
   roleLabel,
   root,
   items,
@@ -13,6 +15,8 @@ export function AppShell({
   children,
 }: {
   name: string;
+  /** Foto de perfil (bucket avatars). */
+  avatarPath?: string | null;
   roleLabel: string;
   root: string;
   items: NavItem[];
@@ -35,10 +39,18 @@ export function AppShell({
             <Logo size={28} />
           </Link>
           <div className="ml-auto flex items-center gap-3">
-            <div className="text-right leading-tight">
-              <p className="text-sm font-semibold">{firstName(name)}</p>
-              <p className="text-xs text-muted">{roleLabel}</p>
-            </div>
+            <Link
+              href={`${root}/perfil`}
+              className="flex items-center gap-2 rounded-full py-0.5 pl-3 pr-0.5 hover:bg-ipe-100 dark:hover:bg-surface"
+              aria-label="Meu perfil"
+              title="Meu perfil"
+            >
+              <span className="text-right leading-tight">
+                <span className="block text-sm font-semibold">{firstName(name)}</span>
+                <span className="block text-xs text-muted">{roleLabel}</span>
+              </span>
+              <Avatar path={avatarPath} name={name} size={36} />
+            </Link>
             <form action="/sair" method="post">
               <button
                 type="submit"

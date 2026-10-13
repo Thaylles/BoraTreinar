@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/cn";
 import { WhatsAppButton } from "@/components/whatsapp-button";
 import { daysAgoLabel, daysAgoSP, startOfWeekSP } from "@/lib/week";
+import { Avatar } from "@/components/avatar";
 
 export const metadata: Metadata = { title: "Alunos" };
 
@@ -22,7 +23,7 @@ export default async function AlunosPage({
 
   let query = supabase
     .from("personal_students")
-    .select("role, archived_at, student:profiles!personal_students_student_id_fkey(id, full_name, phone)")
+    .select("role, archived_at, student:profiles!personal_students_student_id_fkey(id, full_name, phone, avatar_path)")
     .eq("personal_id", profile.id)
     .eq("status", "ativo");
   query = showArchived ? query.not("archived_at", "is", null) : query.is("archived_at", null);
@@ -85,9 +86,7 @@ export default async function AlunosPage({
             <li key={student!.id} className="flex items-center gap-2">
               <Link href={`/personal/alunos/${student!.id}`} className="min-w-0 flex-1">
                 <Card className="flex items-center gap-3 p-4 transition hover:border-bandeira-500">
-                  <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-bandeira-50 font-display text-lg font-bold text-bandeira-700 dark:bg-bandeira-500/15 dark:text-bandeira-100">
-                    {student!.full_name.charAt(0).toUpperCase()}
-                  </span>
+                  <Avatar path={student!.avatar_path} name={student!.full_name} size={44} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold">{student!.full_name}</p>
                     <StudentStatus {...statsFor(student!.id)} />

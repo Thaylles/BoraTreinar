@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/alert";
 import { requireRole } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+import { Avatar } from "@/components/avatar";
 
 export const metadata: Metadata = { title: "Meus Personais" };
 
@@ -14,7 +15,7 @@ export default async function PersonaisPage({ searchParams }: { searchParams: Pr
   const supabase = await createClient();
   const { data: links } = await supabase
     .from("personal_students")
-    .select("role, created_at, personal:profiles!personal_students_personal_id_fkey(id, full_name, email)")
+    .select("role, created_at, personal:profiles!personal_students_personal_id_fkey(id, full_name, email, avatar_path)")
     .eq("student_id", profile.id)
     .eq("status", "ativo")
     .order("role");
@@ -31,9 +32,7 @@ export default async function PersonaisPage({ searchParams }: { searchParams: Pr
         {links?.map((l) => (
           <li key={l.personal?.id}>
             <Card className="flex items-center gap-4">
-              <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-anil-700 font-display text-xl font-bold text-white">
-                {l.personal?.full_name.charAt(0).toUpperCase()}
-              </span>
+              <Avatar path={l.personal?.avatar_path} name={l.personal?.full_name ?? "?"} size={48} />
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">{l.personal?.full_name}</p>
                 <p className="flex items-center gap-1 truncate text-sm text-muted">

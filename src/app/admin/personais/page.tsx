@@ -7,6 +7,7 @@ import { inputClass } from "@/components/ui/field";
 import { requireAdmin } from "@/lib/admin-server";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { Avatar } from "@/components/avatar";
 
 export const metadata: Metadata = { title: "Personais · Admin" };
 
@@ -14,7 +15,7 @@ export default async function AdminPersonaisPage({ searchParams }: { searchParam
   const { db } = await requireAdmin();
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
-  let query = db.from("profiles").select("id, full_name, email, phone, created_at, catalog_blocked").eq("role", "personal").order("full_name").limit(500);
+  let query = db.from("profiles").select("id, full_name, email, phone, created_at, catalog_blocked, avatar_path").eq("role", "personal").order("full_name").limit(500);
   if (q) query = query.or(`full_name.ilike.%${q.replace(/[%,()]/g, "")}%,email.ilike.%${q.replace(/[%,()]/g, "")}%`);
   if (sp.filtro === "bloqueados") query = query.eq("catalog_blocked", true);
   const { data: personals } = await query;
@@ -60,9 +61,7 @@ export default async function AdminPersonaisPage({ searchParams }: { searchParam
           {personals.map((p) => (
             <li key={p.id}>
               <Link href={`/admin/personais/${p.id}`} className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3 transition hover:border-bandeira-500">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-anil-700 font-display font-bold text-white">
-                  {p.full_name.charAt(0).toUpperCase()}
-                </span>
+                <Avatar path={p.avatar_path} name={p.full_name} size={40} />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1 truncate font-semibold">
                     {p.full_name}

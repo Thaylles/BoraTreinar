@@ -6,6 +6,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <AppShell
       name={profile.full_name}
+      avatarPath={profile.avatar_path}
       roleLabel="Administrador"
       isAdmin
       root="/admin"

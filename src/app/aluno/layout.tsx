@@ -7,6 +7,7 @@ export default async function AlunoLayout({ children }: { children: React.ReactN
   return (
     <AppShell
       name={profile.full_name}
+      avatarPath={profile.avatar_path}
       roleLabel={profile.role === "admin" ? "Admin · modo aluno" : "Aluno"}
       root="/aluno"
       isAdmin={profile.role === "admin"}

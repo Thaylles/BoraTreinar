@@ -1,6 +1,6 @@
 const VIDEOS = [
-  { src: "/demo/aluno", poster: "/demo/aluno.jpg", title: "Para alunos", text: "Ficha no celular, carga sugerida, descanso cronometrado e evolução." },
-  { src: "/demo/personal", poster: "/demo/personal.jpg", title: "Para personais", text: "Alunos, fichas com técnicas, agenda, avisos e evolução de cada um." },
+  { src: "/demo/aluno", poster: "/demo/aluno.jpg", title: "Para alunos", text: "Ficha no celular, carga sugerida, descanso cronometrado, evolução e busca de Personais." },
+  { src: "/demo/personal", poster: "/demo/personal.jpg", title: "Para personais", text: "Alunos, fichas com técnicas, agenda, evolução e o Financeiro (pacotes, pagamentos e cobranças)." },
 ];
 
 /** Vídeos de demonstração narrados (formato celular). */

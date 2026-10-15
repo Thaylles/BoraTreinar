@@ -10,6 +10,7 @@ import { PushToggle } from "@/components/pwa/push-toggle";
 import { createClient } from "@/lib/supabase/server";
 import { firstName } from "@/lib/format";
 import { PersonalOverview } from "@/components/dashboard/personal-overview";
+import { AchievementsCard } from "@/components/achievements/achievements-card";
 
 export const metadata: Metadata = { title: "Início" };
 
@@ -18,7 +19,7 @@ export default async function PersonalHome({ searchParams }: { searchParams: Pro
   const kind = (await searchParams).visao === "mes" ? "mes" : "semana";
   const supabase = await createClient();
   const nowIso = new Date().toISOString();
-  const [students, invites, requests] = await Promise.all([
+  const [students, invites, requests, achievements] = await Promise.all([
     supabase
       .from("personal_students")
       .select("id", { count: "exact", head: true })
@@ -36,6 +37,7 @@ export default async function PersonalHome({ searchParams }: { searchParams: Pro
       .select("id", { count: "exact", head: true })
       .eq("to_personal_id", profile.id)
       .eq("status", "pendente"),
+    supabase.rpc("my_achievements", { p_audience: "personal" }),
   ]);
 
   const stats = [
@@ -80,6 +82,20 @@ export default async function PersonalHome({ searchParams }: { searchParams: Pro
           <Dumbbell className="size-5" aria-hidden /> Exercícios
         </LinkButton>
       </div>
+
+      <AchievementsCard rows={achievements.data ?? []} href="/personal/conquistas" />
+
+      <Link
+        href="/aluno"
+        className="mb-6 flex items-center gap-3 rounded-3xl bg-gradient-to-br from-bandeira-500 to-bandeira-700 p-4 text-white shadow-md transition hover:brightness-110"
+      >
+        <span className="text-3xl" aria-hidden>🏋️</span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-display text-lg font-bold">Meu treino</span>
+          <span className="block text-sm text-white/85">Bora treinar também? Use seus modelos ou o treino livre, com histórico, evolução e conquistas.</span>
+        </span>
+        <ChevronRight className="size-5" aria-hidden />
+      </Link>
 
       <PersonalOverview personalId={profile.id} kind={kind} />
 

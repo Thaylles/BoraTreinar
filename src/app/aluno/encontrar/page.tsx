@@ -4,7 +4,7 @@ import { ArrowLeft, Sparkles, UserSearch } from "lucide-react";
 import { EmptyState, PageTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/avatar";
 import { WhatsAppButton } from "@/components/whatsapp-button";
-import { requireRole } from "@/lib/auth";
+import { requireStudent } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { brl, pricePerClass } from "@/lib/finance";
 import { firstName } from "@/lib/format";
@@ -12,7 +12,7 @@ import { firstName } from "@/lib/format";
 export const metadata: Metadata = { title: "Encontrar um Personal" };
 
 export default async function EncontrarPersonalPage() {
-  const { profile } = await requireRole("aluno");
+  const { profile } = await requireStudent();
   const supabase = await createClient();
   const { data } = await supabase.rpc("personal_directory");
   const personals = (data ?? []).filter((p) => p.id !== profile.id);

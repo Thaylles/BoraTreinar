@@ -109,7 +109,7 @@ select pg_temp.assert(pg_temp.fails($$select public.create_invite(7)$$), 'aluno 
 
 select pg_temp.as_user('ana@p.com');
 select pg_temp.assert((select count(*) from public.profiles where role = 'aluno') = 1, 'Ana vê só o Diego');
-select pg_temp.assert((select count(*) from public.notifications where link is distinct from '/aluno/conquistas') = 1, 'Ana foi notificada do novo aluno');
+select pg_temp.assert((select count(*) from public.notifications where coalesce(link, '') not like '%/conquistas') = 1, 'Ana foi notificada do novo aluno');
 
 -- ── Compartilhamento ──────────────────────────────────────────
 select pg_temp.as_user('ana@p.com');
@@ -169,7 +169,7 @@ select pg_temp.as_user('caio@p.com');
 select pg_temp.assert(public.is_responsible_personal((select student_id from t_tr2)), 'Caio é o novo responsável');
 
 select pg_temp.as_user('diego@a.com');
-select pg_temp.assert((select count(*) from public.notifications where link is distinct from '/aluno/conquistas') = 3, 'Diego notificado (compart., revogação, transferência)');
+select pg_temp.assert((select count(*) from public.notifications where coalesce(link, '') not like '%/conquistas') = 3, 'Diego notificado (compart., revogação, transferência)');
 select pg_temp.assert(pg_temp.fails($$insert into public.notifications (user_id, title) values (auth.uid(), 'x')$$),
   'aluno não cria notificação');
 

@@ -5,7 +5,7 @@ import { brl, paymentStatus } from "@/lib/finance";
 import { MONTHS } from "@/lib/schedule";
 import { Badge, EmptyState, PageTitle } from "@/components/ui/card";
 import { OccurrenceList } from "@/components/agenda/occurrence-list";
-import { requireRole } from "@/lib/auth";
+import { requireStudent } from "@/lib/auth";
 import { loadAgenda } from "@/lib/agenda-server";
 
 export const metadata: Metadata = { title: "Minhas aulas" };
@@ -18,7 +18,7 @@ const STATUS = {
 } as const;
 
 export default async function AlunoAulasPage() {
-  const { profile } = await requireRole("aluno");
+  const { profile } = await requireStudent();
   const supabase = await createClient();
   const [{ occurrences, today }, { data: payments }] = await Promise.all([
     loadAgenda({ studentId: profile.id, days: 21 }),

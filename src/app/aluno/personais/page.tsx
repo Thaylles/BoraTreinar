@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ChevronRight, Mail, ShieldCheck } from "lucide-react";
 import { Badge, Card, PageTitle } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
-import { requireRole } from "@/lib/auth";
+import { requireStudent } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/avatar";
@@ -13,7 +13,7 @@ import { LinkButton } from "@/components/ui/button";
 export const metadata: Metadata = { title: "Meus Personais" };
 
 export default async function PersonaisPage({ searchParams }: { searchParams: Promise<{ vinculado?: string }> }) {
-  const [{ profile }, { vinculado }] = await Promise.all([requireRole("aluno"), searchParams]);
+  const [{ profile }, { vinculado }] = await Promise.all([requireStudent(), searchParams]);
   const supabase = await createClient();
   const { data: links } = await supabase
     .from("personal_students")

@@ -1,6 +1,7 @@
 -- ════════════════════════════════════════════════════════════════
--- Conquistas (estilo troféus): 100 visíveis + 100 secretas.
--- Cada conquista = métrica do aluno ≥ limite. As métricas são calculadas pelo
+-- Conquistas (estilo troféus): 100 visíveis + 100 secretas para quem treina,
+-- e 30 exclusivas de Personal (alunos, fichas, registros, agenda, financeiro).
+-- Cada conquista = métrica ≥ limite. As métricas são calculadas pelo
 -- histórico (private.achievement_metrics) e conferidas ao salvar treino, peso,
 -- avaliação, foto, vínculo e meta (gatilhos adiados para o fim da transação).
 -- ════════════════════════════════════════════════════════════════
@@ -15,7 +16,9 @@ create table public.achievements (
   hidden boolean not null default false,
   metric text not null,
   threshold numeric not null check (threshold > 0),
-  sort int not null
+  sort int not null,
+  -- 'aluno': de quem treina (alunos, e Personais no "Meu treino"); 'personal': só de Personal.
+  audience text not null default 'aluno' check (audience in ('aluno', 'personal'))
 );
 
 create table public.student_achievements (
@@ -147,12 +150,39 @@ language sql stable security definer set search_path = '' as $$
     'personals_count', (select count(*) from public.personal_students where student_id = p_student and status = 'ativo'),
     'avatar', (select case when avatar_path is not null then 1 else 0 end from public.profiles where id = p_student),
     'visible_unlocked', (select count(*) from public.student_achievements sa join public.achievements a using (code)
-                          where sa.student_id = p_student and not a.hidden)
+                          where sa.student_id = p_student and not a.hidden and a.audience = 'aluno')
+  );
+$$;
+
+/** Métricas do Personal (como treinador; o próprio treino conta nas métricas de aluno). */
+create function private.personal_metrics(p uuid) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  with st as (
+    select student_id from public.personal_students where personal_id = p and status = 'ativo' and student_id <> p
+  )
+  select jsonb_build_object(
+    'p_students', (select count(*) from st),
+    'p_invites', (select count(*) from public.invites where personal_id = p),
+    'p_links_accepted', (select count(*) from public.link_requests where personal_id = p and status = 'aceito'),
+    'p_listed', (select case when directory_listed then 1 else 0 end from public.profiles where id = p),
+    'p_plans', (select count(*) from public.workout_plans where created_by = p and not is_template and student_id <> p),
+    'p_templates', (select count(*) from public.workout_plans where created_by = p and is_template),
+    'p_equipment', (select count(*) from public.equipment where created_by = p and not is_default),
+    'p_logged', (select count(*) from public.workout_sessions where logged_by = p and student_id <> p),
+    'p_classes', (select count(*) from public.class_schedules where personal_id = p and student_id <> p),
+    'p_student_sessions', (select count(*) from public.workout_sessions s join st using (student_id)),
+    'p_student_prs', (select count(*) from public.session_sets ss
+                        join public.workout_sessions s on s.id = ss.session_id join st using (student_id)
+                       where ss.is_pr and ss.done),
+    'p_packages', (select count(*) from public.payment_packages where personal_id = p),
+    'p_paid', (select count(*) from public.payments where personal_id = p and paid_at is not null),
+    'p_revenue_month', coalesce((select max(t) from (select sum(amount) t from public.payments
+                                   where personal_id = p and paid_at is not null group by month) x), 0)
   );
 $$;
 
 /**
- * Confere e libera as conquistas do aluno. Avisa com uma notificação (ou um resumo,
+ * Confere e libera as conquistas (de aluno e, para Personal, também as de Personal). Avisa com uma notificação (ou um resumo,
  * se forem muitas de uma vez). Retorna os códigos liberados agora.
  */
 create function private.check_achievements(p_student uuid) returns text[]
@@ -161,18 +191,24 @@ declare
   m jsonb;
   v_new text[] := '{}';
   v_round text[];
+  v_coach boolean;
   a record;
 begin
-  if not exists (select 1 from public.profiles where id = p_student and role in ('aluno', 'admin')) then
+  select role in ('personal', 'admin') into v_coach from public.profiles where id = p_student;
+  if v_coach is null then
     return v_new;
   end if;
   -- Duas rodadas: a segunda pega conquistas que dependem de outras (ex.: platinar).
   for i in 1..2 loop
     m := private.achievement_metrics(p_student);
+    if v_coach then
+      m := m || private.personal_metrics(p_student);
+    end if;
     with ins as (
       insert into public.student_achievements (student_id, code)
       select p_student, ac.code from public.achievements ac
-       where coalesce((m->>ac.metric)::numeric, 0) >= ac.threshold
+       where (ac.audience = 'aluno' or v_coach)
+         and coalesce((m->>ac.metric)::numeric, 0) >= ac.threshold
          and not exists (select 1 from public.student_achievements sa where sa.student_id = p_student and sa.code = ac.code)
       on conflict do nothing
       returning code
@@ -186,22 +222,25 @@ begin
     for a in select * from public.achievements where code = any (v_new) order by sort loop
       perform public.notify(p_student,
         case when a.hidden then '🔓 Conquista secreta: ' else '🏆 Conquista: ' end || a.emoji || ' ' || a.title,
-        a.description, '/aluno/conquistas');
+        a.description, case when a.audience = 'personal' then '/personal/conquistas' else '/aluno/conquistas' end);
     end loop;
   elsif cardinality(v_new) > 3 then
     perform public.notify(p_student, '🏆 ' || cardinality(v_new) || ' conquistas desbloqueadas!',
-      'Abra suas conquistas para ver tudo o que você já liberou.', '/aluno/conquistas');
+      'Abra suas conquistas para ver tudo o que você já liberou.',
+      case when v_coach then '/personal/conquistas' else '/aluno/conquistas' end);
   end if;
   return v_new;
 end;
 $$;
-revoke execute on function private.achievement_metrics(uuid), private.check_achievements(uuid) from public, anon, authenticated;
+revoke execute on function private.achievement_metrics(uuid), private.personal_metrics(uuid), private.check_achievements(uuid)
+  from public, anon, authenticated;
 
 /**
  * Conquistas do aluno logado (ou de um aluno acompanhado, para o Personal). Confere antes
  * as novas. Secretas ainda não liberadas vêm sem título nem descrição.
+ * p_audience = 'personal': as conquistas de Personal da própria conta.
  */
-create function public.my_achievements(p_student uuid default null)
+create function public.my_achievements(p_student uuid default null, p_audience text default 'aluno')
 returns table (code text, title text, description text, emoji text, category text, tier text, hidden boolean,
                unlocked_at timestamptz, progress numeric, threshold numeric, sort int)
 language plpgsql security definer set search_path = '' as $$
@@ -212,10 +251,15 @@ begin
   if v_student is null or (v_student <> auth.uid() and not public.is_linked_personal(v_student)) then
     raise exception 'Sem acesso' using errcode = '42501';
   end if;
+  if p_audience is null or p_audience not in ('aluno', 'personal')
+     or (p_audience = 'personal' and (v_student <> auth.uid() or not public.current_role_is('personal'))) then
+    raise exception 'Sem acesso' using errcode = '42501';
+  end if;
   if v_student = auth.uid() then
     perform private.check_achievements(v_student);
   end if;
-  m := private.achievement_metrics(v_student);
+  m := case when p_audience = 'personal' then private.personal_metrics(v_student)
+            else private.achievement_metrics(v_student) end;
   return query
     select a.code,
            case when a.hidden and sa.unlocked_at is null then null else a.title end,
@@ -229,28 +273,42 @@ begin
            a.sort
       from public.achievements a
       left join public.student_achievements sa on sa.code = a.code and sa.student_id = v_student
+     where a.audience = p_audience
      order by a.sort;
 end;
 $$;
-revoke execute on function public.my_achievements(uuid) from public, anon;
-grant execute on function public.my_achievements(uuid) to authenticated;
+revoke execute on function public.my_achievements(uuid, text) from public, anon;
+grant execute on function public.my_achievements(uuid, text) to authenticated;
 
 -- ─── Gatilhos (no fim da transação, depois de gravar as séries) ──
 create function private.achievements_trigger() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
-  v_student uuid;
+  v_ids uuid[];
+  v_id uuid;
 begin
+  -- Quem pode ter ganhado algo com esta linha (cada tabela tem colunas diferentes).
   if tg_table_name = 'profiles' then
-    v_student := new.id;
+    v_ids := array[new.id];
+  elsif tg_table_name = 'workout_sessions' then
+    v_ids := array[new.student_id, new.logged_by]
+      || array(select personal_id from public.personal_students where student_id = new.student_id and status = 'ativo');
+  elsif tg_table_name in ('workout_plans', 'equipment') then
+    v_ids := array[new.created_by];
+  elsif tg_table_name = 'personal_students' then
+    v_ids := array[new.student_id, new.personal_id];
+  elsif tg_table_name in ('invites', 'class_schedules', 'payment_packages', 'payments', 'link_requests') then
+    v_ids := array[new.personal_id];
   else
-    v_student := new.student_id;
+    v_ids := array[new.student_id];
   end if;
-  begin
-    perform private.check_achievements(v_student);
-  exception when others then
-    raise warning 'conquistas: %', sqlerrm; -- nunca atrapalha salvar o treino
-  end;
+  for v_id in select distinct x from unnest(v_ids) x where x is not null loop
+    begin
+      perform private.check_achievements(v_id);
+    exception when others then
+      raise warning 'conquistas: %', sqlerrm; -- nunca atrapalha salvar o treino
+    end;
+  end loop;
   return null;
 end;
 $$;
@@ -264,208 +322,252 @@ create constraint trigger achievements_on_settings after insert or update on pub
   deferrable initially deferred for each row execute function private.achievements_trigger();
 create constraint trigger achievements_on_link after insert on public.personal_students
   deferrable initially deferred for each row execute function private.achievements_trigger();
-create constraint trigger achievements_on_avatar after update of avatar_path on public.profiles
+create constraint trigger achievements_on_profile after update of avatar_path, directory_listed on public.profiles
+  deferrable initially deferred for each row execute function private.achievements_trigger();
+create constraint trigger achievements_on_plan after insert on public.workout_plans
+  deferrable initially deferred for each row execute function private.achievements_trigger();
+create constraint trigger achievements_on_equipment after insert on public.equipment
+  deferrable initially deferred for each row execute function private.achievements_trigger();
+create constraint trigger achievements_on_invite after insert on public.invites
+  deferrable initially deferred for each row execute function private.achievements_trigger();
+create constraint trigger achievements_on_class after insert on public.class_schedules
+  deferrable initially deferred for each row execute function private.achievements_trigger();
+create constraint trigger achievements_on_package after insert on public.payment_packages
+  deferrable initially deferred for each row execute function private.achievements_trigger();
+create constraint trigger achievements_on_payment after insert or update of paid_at on public.payments
+  deferrable initially deferred for each row execute function private.achievements_trigger();
+create constraint trigger achievements_on_link_request after update of status on public.link_requests
   deferrable initially deferred for each row execute function private.achievements_trigger();
 
 -- ─── Catálogo ──────────────────────────────────────────────────
-insert into public.achievements (code, title, description, emoji, category, tier, hidden, metric, threshold, sort) values
-  ('ta-pago', 'Tá pago!', 'Registre seu primeiro treino.', '✅', 'Frequência', 'bronze', false, 'sessions', 1, 1),
-  ('saindo-da-jaula', 'Saindo da jaula', 'Complete 5 treinos.', '🦁', 'Frequência', 'bronze', false, 'sessions', 5, 2),
-  ('rato-de-academia', 'Rato de academia', 'Complete 10 treinos.', '🐭', 'Frequência', 'bronze', false, 'sessions', 10, 3),
-  ('cliente-vip', 'Cliente VIP', 'Complete 25 treinos.', '🎟️', 'Frequência', 'prata', false, 'sessions', 25, 4),
-  ('hora-do-show', 'Hora do Show', 'Complete 50 treinos.', '🎤', 'Frequência', 'prata', false, 'sessions', 50, 5),
-  ('centenario', 'Centenário', 'Complete 100 treinos.', '💯', 'Frequência', 'ouro', false, 'sessions', 100, 6),
-  ('biiiirl', 'Biiiirl!', 'Complete 200 treinos.', '🗣️', 'Frequência', 'ouro', false, 'sessions', 200, 7),
-  ('um-ano-de-shape', 'Um ano de shape', 'Complete 365 treinos.', '📅', 'Frequência', 'platina', false, 'sessions', 365, 8),
-  ('lenda-da-maromba', 'Lenda da maromba', 'Complete 500 treinos.', '🏛️', 'Frequência', 'platina', false, 'sessions', 500, 9),
-  ('nao-e-fogo-de-palha', 'Não é fogo de palha', 'Treine 2 semanas seguidas.', '🔥', 'Constância', 'bronze', false, 'week_streak', 2, 10),
-  ('um-mes-sem-falhar', 'Um mês sem falhar', 'Treine 4 semanas seguidas.', '📆', 'Constância', 'prata', false, 'week_streak', 4, 11),
-  ('disciplina-motivacao', 'Disciplina > motivação', 'Treine 8 semanas seguidas.', '🧠', 'Constância', 'prata', false, 'week_streak', 8, 12),
-  ('trimestre-de-ferro', 'Trimestre de ferro', 'Treine 12 semanas seguidas.', '⛓️', 'Constância', 'ouro', false, 'week_streak', 12, 13),
-  ('meio-ano-de-foco', 'Meio ano de foco', 'Treine 26 semanas seguidas.', '🧭', 'Constância', 'ouro', false, 'week_streak', 26, 14),
-  ('inimigo-do-fim', 'Inimigo do fim', 'Treine 52 semanas seguidas.', '🏁', 'Constância', 'platina', false, 'week_streak', 52, 15),
-  ('semana-cheia', 'Semana cheia', 'Faça 3 treinos na mesma semana.', '🗓️', 'Constância', 'bronze', false, 'week_max', 3, 16),
-  ('cinco-na-semana', 'Cinco na semana', 'Faça 5 treinos na mesma semana.', '🖐️', 'Constância', 'prata', false, 'week_max', 5, 17),
-  ('mora-na-academia', 'Mora na academia', 'Faça 6 treinos na mesma semana.', '🏠', 'Constância', 'ouro', false, 'week_max', 6, 18),
-  ('trinca', 'Trinca', 'Treine 3 dias seguidos.', '3️⃣', 'Constância', 'bronze', false, 'day_streak', 3, 19),
-  ('semana-perfeita', 'Semana perfeita', 'Treine 7 dias seguidos.', '7️⃣', 'Constância', 'ouro', false, 'day_streak', 7, 20),
-  ('meta-batida', 'Meta batida', 'Bata sua meta semanal uma vez.', '🎯', 'Constância', 'bronze', false, 'goal_weeks', 1, 21),
-  ('meta-e-meta', 'Meta é meta', 'Bata a meta semanal em 4 semanas.', '📌', 'Constância', 'prata', false, 'goal_weeks', 4, 22),
-  ('cumpridor-de-metas', 'Cumpridor de metas', 'Bata a meta semanal em 12 semanas.', '📈', 'Constância', 'ouro', false, 'goal_weeks', 12, 23),
-  ('mes-intenso', 'Mês intenso', 'Faça 12 treinos no mesmo mês.', '🌙', 'Constância', 'prata', false, 'month_max', 12, 24),
-  ('mes-monstro', 'Mês monstro', 'Faça 20 treinos no mesmo mês.', '👹', 'Constância', 'ouro', false, 'month_max', 20, 25),
-  ('10-toneladas', '10 toneladas', 'Some 10 mil kg de volume (carga × repetições).', '🏗️', 'Volume', 'bronze', false, 'volume_total', 10000, 26),
-  ('guindaste-humano', 'Guindaste humano', 'Some 50 mil kg de volume.', '🏗️', 'Volume', 'prata', false, 'volume_total', 50000, 27),
-  ('100-toneladas', '100 toneladas', 'Some 100 mil kg de volume.', '🚛', 'Volume', 'ouro', false, 'volume_total', 100000, 28),
-  ('meio-milhao', 'Meio milhão', 'Some 500 mil kg de volume.', '🚀', 'Volume', 'platina', false, 'volume_total', 500000, 29),
-  ('treino-pesado', 'Treino pesado', 'Faça 5 mil kg de volume num só treino.', '🧱', 'Volume', 'bronze', false, 'volume_session_max', 5000, 30),
-  ('dia-de-caminhao', 'Dia de caminhão', 'Faça 10 mil kg de volume num só treino.', '🚚', 'Volume', 'prata', false, 'volume_session_max', 10000, 31),
-  ('carregou-o-mundo', 'Carregou o mundo', 'Faça 20 mil kg de volume num só treino.', '🌍', 'Volume', 'ouro', false, 'volume_session_max', 20000, 32),
-  ('100-series', '100 séries', 'Complete 100 séries.', '🔢', 'Volume', 'bronze', false, 'sets_total', 100, 33),
-  ('500-series', '500 séries', 'Complete 500 séries.', '📊', 'Volume', 'prata', false, 'sets_total', 500, 34),
-  ('mil-series', 'Mil séries', 'Complete 1.000 séries.', '🏅', 'Volume', 'ouro', false, 'sets_total', 1000, 35),
-  ('mil-repeticoes', 'Mil repetições', 'Some 1.000 repetições.', '🔁', 'Volume', 'bronze', false, 'reps_total', 1000, 36),
-  ('dez-mil-reps', 'Dez mil reps', 'Some 10.000 repetições.', '♾️', 'Volume', 'ouro', false, 'reps_total', 10000, 37),
-  ('supino-de-respeito', 'Supino de respeito', 'Faça supino reto com barra com 40 kg.', '🏋️', 'Força', 'bronze', false, 'max_supino', 40, 38),
-  ('peito-de-aco', 'Peito de aço', 'Faça supino reto com barra com 60 kg.', '🛡️', 'Força', 'prata', false, 'max_supino', 60, 39),
-  ('supino-de-gente-grande', 'Supino de gente grande', 'Faça supino reto com barra com 80 kg.', '💪', 'Força', 'ouro', false, 'max_supino', 80, 40),
-  ('clube-dos-100', 'Clube dos 100', 'Faça supino reto com barra com 100 kg.', '🎖️', 'Força', 'platina', false, 'max_supino', 100, 41),
-  ('agachou-levantou', 'Agachou, levantou', 'Agache com 60 kg (livre, hack ou smith).', '🦵', 'Força', 'bronze', false, 'max_agachamento', 60, 42),
-  ('agacha-que-cresce', 'Agacha que cresce', 'Agache com 100 kg.', '🌱', 'Força', 'prata', false, 'max_agachamento', 100, 43),
-  ('pernas-de-pilastra', 'Pernas de pilastra', 'Agache com 140 kg.', '🏛️', 'Força', 'ouro', false, 'max_agachamento', 140, 44),
-  ('leg-press-iniciado', 'Leg press iniciado', 'Faça leg press 45° com 100 kg.', '🦿', 'Força', 'bronze', false, 'max_legpress', 100, 45),
-  ('leg-press-raiz', 'Leg press raiz', 'Faça leg press 45° com 200 kg.', '🪵', 'Força', 'prata', false, 'max_legpress', 200, 46),
-  ('leg-do-bambam', 'Leg do Bambam', 'Faça leg press 45° com 300 kg.', '🐂', 'Força', 'ouro', false, 'max_legpress', 300, 47),
-  ('terra-firme', 'Terra firme', 'Faça levantamento terra com 60 kg.', '🌎', 'Força', 'bronze', false, 'max_terra', 60, 48),
-  ('puxador-de-chao', 'Puxador de chão', 'Faça levantamento terra com 100 kg.', '⛏️', 'Força', 'prata', false, 'max_terra', 100, 49),
-  ('arrancou-a-raiz', 'Arrancou a raiz', 'Faça levantamento terra com 140 kg.', '🌳', 'Força', 'ouro', false, 'max_terra', 140, 50),
-  ('rosca-de-respeito', 'Rosca de respeito', 'Faça rosca direta com barra com 20 kg.', '💪', 'Força', 'bronze', false, 'max_rosca', 20, 51),
-  ('muque', 'Muque', 'Faça rosca direta com barra com 30 kg.', '🦾', 'Força', 'prata', false, 'max_rosca', 30, 52),
-  ('tres-digitos', 'Três dígitos', 'Levante 100 kg em qualquer exercício.', '💯', 'Força', 'prata', false, 'max_load', 100, 53),
-  ('segunda-e-dia-de-peito', 'Segunda é dia de peito', 'Complete 50 séries de peito.', '🫀', 'Grupos musculares', 'bronze', false, 'g_peito', 50, 54),
-  ('peitoral-de-vitrine', 'Peitoral de vitrine', 'Complete 200 séries de peito.', '🪟', 'Grupos musculares', 'prata', false, 'g_peito', 200, 55),
-  ('costas-largas', 'Costas largas', 'Complete 50 séries de costas.', '🦅', 'Grupos musculares', 'bronze', false, 'g_costas', 50, 56),
-  ('asa-de-morcego', 'Asa de morcego', 'Complete 200 séries de costas.', '🦇', 'Grupos musculares', 'prata', false, 'g_costas', 200, 57),
-  ('ombro-3d', 'Ombro 3D', 'Complete 50 séries de ombros.', '🎳', 'Grupos musculares', 'bronze', false, 'g_ombros', 50, 58),
-  ('trapezio-descendente', 'Trapézio descendente', 'Complete 200 séries de ombros.', '⛰️', 'Grupos musculares', 'prata', false, 'g_ombros', 200, 59),
-  ('braco-de-respeito', 'Braço de respeito', 'Complete 50 séries de bíceps e tríceps.', '💪', 'Grupos musculares', 'bronze', false, 'g_bracos', 50, 60),
-  ('bracao', 'Bração', 'Complete 200 séries de bíceps e tríceps.', '🦾', 'Grupos musculares', 'prata', false, 'g_bracos', 200, 61),
-  ('dia-de-perna-ninguem-pula', 'Dia de perna ninguém pula', 'Complete 50 séries de quadríceps e posterior.', '🦵', 'Grupos musculares', 'bronze', false, 'g_pernas', 50, 62),
-  ('coxa-de-jogador', 'Coxa de jogador', 'Complete 200 séries de quadríceps e posterior.', '⚽', 'Grupos musculares', 'prata', false, 'g_pernas', 200, 63),
-  ('gluteo-de-aco', 'Glúteo de aço', 'Complete 50 séries de glúteos.', '🍑', 'Grupos musculares', 'bronze', false, 'g_gluteos', 50, 64),
-  ('bumbum-na-nuca', 'Bumbum na nuca', 'Complete 200 séries de glúteos.', '🚀', 'Grupos musculares', 'prata', false, 'g_gluteos', 200, 65),
-  ('panturrilha-de-touro', 'Panturrilha de touro', 'Complete 50 séries de panturrilha.', '🐃', 'Grupos musculares', 'bronze', false, 'g_panturrilha', 50, 66),
-  ('tanquinho-em-obras', 'Tanquinho em obras', 'Complete 50 séries de abdômen.', '🚧', 'Grupos musculares', 'bronze', false, 'g_abdomen', 50, 67),
-  ('tanquinho-pronto', 'Tanquinho pronto', 'Complete 200 séries de abdômen.', '🍫', 'Grupos musculares', 'prata', false, 'g_abdomen', 200, 68),
-  ('pegada-de-ferro', 'Pegada de ferro', 'Complete 30 séries de antebraço.', '✊', 'Grupos musculares', 'bronze', false, 'g_antebraco', 30, 69),
-  ('abre-e-fecha', 'Abre e fecha', 'Complete 30 séries de adutores.', '🦋', 'Grupos musculares', 'bronze', false, 'g_adutores', 30, 70),
-  ('turista-da-academia', 'Turista da academia', 'Use 10 aparelhos/exercícios diferentes.', '🧳', 'Grupos musculares', 'bronze', false, 'distinct_equipment', 10, 71),
-  ('conhece-todos-os-aparelhos', 'Conhece todos os aparelhos', 'Use 25 exercícios diferentes.', '🗺️', 'Grupos musculares', 'prata', false, 'distinct_equipment', 25, 72),
-  ('enciclopedia-da-maromba', 'Enciclopédia da maromba', 'Use 40 exercícios diferentes.', '📚', 'Grupos musculares', 'ouro', false, 'distinct_equipment', 40, 73),
-  ('full-body', 'Full body', 'Trabalhe 5 grupos musculares num só treino.', '🧍', 'Grupos musculares', 'bronze', false, 'max_groups_session', 5, 74),
-  ('nao-pula-o-leg-day', 'Não pula o leg day', 'Faça 10 treinos com pernas.', '❤️', 'Grupos musculares', 'prata', false, 'leg_days', 10, 75),
-  ('cardio-mata-ganho-mito', 'Cardio mata ganho? Mito!', 'Faça cardio pela primeira vez.', '💦', 'Cardio', 'bronze', false, 'cardio_sessions', 1, 76),
-  ('cardio-em-dia', 'Cardio em dia', 'Faça cardio em 10 treinos.', '🏃', 'Cardio', 'bronze', false, 'cardio_sessions', 10, 77),
-  ('pulmao-de-aco', 'Pulmão de aço', 'Faça cardio em 30 treinos.', '🫁', 'Cardio', 'prata', false, 'cardio_sessions', 30, 78),
-  ('maratonista-de-esteira', 'Maratonista de esteira', 'Faça cardio em 100 treinos.', '🏅', 'Cardio', 'ouro', false, 'cardio_sessions', 100, 79),
-  ('novo-recorde', 'Novo recorde!', 'Bata seu primeiro recorde pessoal.', '🏆', 'Recordes', 'bronze', false, 'prs_total', 1, 80),
-  ('quebrando-limites', 'Quebrando limites', 'Bata 10 recordes pessoais.', '📈', 'Recordes', 'bronze', false, 'prs_total', 10, 81),
-  ('farmador-de-aura', 'Farmador de aura', 'Bata 50 recordes pessoais.', '✨', 'Recordes', 'prata', false, 'prs_total', 50, 82),
-  ('aura-infinita', 'Aura infinita', 'Bata 100 recordes pessoais.', '🌟', 'Recordes', 'ouro', false, 'prs_total', 100, 83),
-  ('dia-inspirado', 'Dia inspirado', 'Bata 3 recordes num só treino.', '💡', 'Recordes', 'prata', false, 'prs_session_max', 3, 84),
-  ('o-pai-ta-on', 'O pai tá on', 'Bata 5 recordes num só treino.', '😎', 'Recordes', 'ouro', false, 'prs_session_max', 5, 85),
-  ('subiu-na-balanca', 'Subiu na balança', 'Registre seu peso pela primeira vez.', '⚖️', 'Peso', 'bronze', false, 'weighins', 1, 86),
-  ('balanca-e-minha-amiga', 'Balança é minha amiga', 'Registre seu peso 10 vezes.', '📏', 'Peso', 'prata', false, 'weighins', 10, 87),
-  ('primeiros-2-kg', 'Primeiros 2 kg', 'Perca 2 kg desde a primeira pesagem.', '📉', 'Peso', 'bronze', false, 'weight_lost', 2, 88),
-  ('projeto-verao', 'Projeto verão', 'Perca 5 kg desde a primeira pesagem.', '🔻', 'Peso', 'prata', false, 'weight_lost', 5, 89),
-  ('menos-10', 'Menos 10', 'Perca 10 kg desde a primeira pesagem.', '🏆', 'Peso', 'ouro', false, 'weight_lost', 10, 90),
-  ('feedback-e-tudo', 'Feedback é tudo', 'Avalie um treino (esforço e dor).', '📝', 'Rotina', 'bronze', false, 'rated', 1, 91),
-  ('diario-de-treino', 'Diário de treino', 'Avalie 20 treinos.', '📓', 'Rotina', 'prata', false, 'rated', 20, 92),
-  ('tenho-personal', 'Tenho Personal', 'Tenha um Personal acompanhando você.', '🤝', 'Rotina', 'bronze', false, 'has_personal', 1, 93),
-  ('foto-de-shape', 'Foto de shape', 'Coloque uma foto de perfil.', '📸', 'Rotina', 'bronze', false, 'avatar', 1, 94),
-  ('segue-a-ficha', 'Segue a ficha', 'Faça 10 treinos pela ficha.', '📋', 'Rotina', 'bronze', false, 'plan_sessions', 10, 95),
-  ('sem-deixar-serie-pra-tras', 'Sem deixar série pra trás', 'Complete 10 treinos com todas as séries feitas.', '🧹', 'Rotina', 'prata', false, 'full_sessions', 10, 96),
-  ('treino-livre-alma-livre', 'Treino livre, alma livre', 'Faça 5 treinos livres.', '🕊️', 'Rotina', 'bronze', false, 'free_sessions', 5, 97),
-  ('voltei', 'Voltei!', 'Volte a treinar depois de 14 dias parado.', '🔙', 'Rotina', 'bronze', false, 'comebacks', 1, 98),
-  ('dois-turnos', 'Dois turnos', 'Treine duas vezes no mesmo dia.', '🌗', 'Rotina', 'prata', false, 'double_days', 1, 99),
-  ('queimacao', 'Queimação', 'Faça 10 séries com 20 repetições ou mais.', '🔥', 'Rotina', 'bronze', false, 'high_rep_sets', 10, 100),
-  ('madrugador', 'Madrugador', 'Treinou antes das 6h.', '🌅', 'Horários', 'bronze', true, 'early', 1, 101),
-  ('o-galo-que-lute', 'O galo que lute', 'Treinou antes das 6h em 10 dias.', '🐓', 'Horários', 'prata', true, 'early', 10, 102),
-  ('rotina-sigma', 'Rotina sigma', 'Treinou antes das 6h em 25 dias.', '🗿', 'Horários', 'ouro', true, 'early', 25, 103),
-  ('coruja-da-maromba', 'Coruja da maromba', 'Treinou depois das 22h.', '🦉', 'Horários', 'bronze', true, 'night', 1, 104),
-  ('vampiro-do-ferro', 'Vampiro do ferro', 'Treinou depois das 22h em 10 dias.', '🧛', 'Horários', 'prata', true, 'night', 10, 105),
-  ('insonia-produtiva', 'Insônia produtiva', 'Treinou entre meia-noite e 4h.', '🌃', 'Horários', 'prata', true, 'midnight', 1, 106),
-  ('o-loco-meu', 'Ô loco, meu!', 'Treinou num domingo.', '📺', 'Horários', 'bronze', true, 'sunday', 1, 107),
-  ('ta-pegando-fogo-bicho', 'Tá pegando fogo, bicho!', 'Treinou em 10 domingos.', '🔥', 'Horários', 'prata', true, 'sunday', 10, 108),
-  ('sextou', 'Sextou!', 'Trocou o bar pela academia numa sexta à noite.', '🍻', 'Horários', 'bronze', true, 'friday_night', 1, 109),
-  ('sextou-com-s-de-supino', 'Sextou com S de supino', 'Treinou em 10 sextas à noite.', '🍺', 'Horários', 'prata', true, 'friday_night', 10, 110),
-  ('segunda-sem-preguica', 'Segunda sem preguiça', 'Treinou em 4 segundas-feiras.', '☕', 'Horários', 'bronze', true, 'monday', 4, 111),
-  ('sabadou', 'Sabadou', 'Treinou em 5 sábados.', '🎉', 'Horários', 'bronze', true, 'saturday', 5, 112),
-  ('papai-noel-marombeiro', 'Papai Noel marombeiro', 'Treinou no Natal.', '🎅', 'Horários', 'ouro', true, 'xmas', 1, 113),
-  ('ano-novo-shape-novo', 'Ano novo, shape novo', 'Treinou no dia 1º de janeiro.', '🎆', 'Horários', 'ouro', true, 'newyear', 1, 114),
-  ('parabens-pra-voce', 'Parabéns pra você', 'Treinou no dia do seu aniversário.', '🎂', 'Horários', 'ouro', true, 'birthday', 1, 115),
-  ('e-verao-o-ano-inteiro', 'É verão o ano inteiro', 'Treinou em todos os 12 meses do ano.', '☀️', 'Horários', 'ouro', true, 'months_distinct', 12, 116),
-  ('ja-acabou-jessica', 'Já acabou, Jéssica?', 'Fez um treino com menos de 25 minutos.', '⏱️', 'Duração', 'bronze', true, 'short_sessions', 1, 117),
-  ('speedrun', 'Speedrun', 'Fez 5 treinos com menos de 25 minutos.', '🏎️', 'Duração', 'prata', true, 'short_sessions', 5, 118),
-  ('mora-aqui', 'Mora aqui?', 'Treinou por mais de 2 horas.', '🛏️', 'Duração', 'prata', true, 'long_sessions', 1, 119),
-  ('inimigo-do-relogio', 'Inimigo do relógio', 'Treinou mais de 2 horas em 5 dias.', '⏰', 'Duração', 'ouro', true, 'long_sessions', 5, 120),
-  ('sem-vida-social', 'Sem vida social', 'Treinou duas vezes no mesmo dia em 5 dias.', '📵', 'Duração', 'ouro', true, 'double_days', 5, 121),
-  ('67', '67', 'Fez 6 e depois 7 repetições seguidas no mesmo exercício (ou levantou 67 kg).', '🤲', 'Memes', 'bronze', true, 'set_67', 1, 122),
-  ('pump-de-respeito', 'Pump de respeito', 'Passou de 8 mil kg de volume num só treino.', '🎈', 'Memes', 'prata', true, 'volume_session_max', 8001, 123),
-  ('bora-fio-do-bill', 'Bora, Fio do Bill', 'Treinou 5 dias seguidos.', '🫡', 'Memes', 'prata', true, 'day_streak', 5, 124),
-  ('saindo-da-jaula-o-monstro', 'Saindo da jaula, o monstro!', 'Levantou 150 kg em algum exercício.', '🦍', 'Memes', 'ouro', true, 'max_load', 150, 125),
-  ('ajuda-o-maluco-que-ta-doente', 'Ajuda o maluco que tá doente', 'Avisou o Personal que sentiu dor. Saúde em primeiro lugar!', '🩹', 'Memes', 'bronze', true, 'pain', 1, 126),
-  ('nao-vai-dar-nao', 'Não vai dar não', 'Marcou esforço máximo num treino… e deu!', '😤', 'Memes', 'bronze', true, 'effort5', 1, 127),
-  ('treino-de-frango', 'Treino de frango', 'Marcou 3 treinos como levinhos.', '🐣', 'Memes', 'bronze', true, 'effort1', 3, 128),
-  ('serie-fantasma', 'Série fantasma', 'Deixou 10 séries por fazer.', '👻', 'Memes', 'bronze', true, 'undone_sets', 10, 129),
-  ('perna-de-sabia', 'Perna de sabiá', 'Fez 10 treinos seguidos sem pernas. Bora pro leg day!', '🐦', 'Memes', 'bronze', true, 'no_leg_streak', 10, 130),
-  ('monstro-nao-descansa', 'Monstro não descansa', 'Fez 7 treinos numa só semana.', '🦖', 'Memes', 'ouro', true, 'week_max', 7, 131),
-  ('aura-1000', 'Aura +1000', 'Bateu 200 recordes pessoais.', '👑', 'Memes', 'platina', true, 'prs_total', 200, 132),
-  ('rodizio-de-aparelhos', 'Rodízio de aparelhos', 'Usou 10 exercícios diferentes num só treino.', '🎡', 'Memes', 'prata', true, 'max_equipment_session', 10, 133),
-  ('constancia-de-monstro', 'Constância de monstro', 'Bateu a meta semanal em 26 semanas.', '🦾', 'Memes', 'ouro', true, 'goal_weeks', 26, 134),
-  ('queima-queima', 'Queima, queima!', 'Fez 50 séries com 20 repetições ou mais.', '🥵', 'Memes', 'prata', true, 'high_rep_sets', 50, 135),
-  ('carregou-a-academia-nas-costas', 'Carregou a academia nas costas', 'Fez 15 mil kg de volume num só treino.', '🏋️‍♂️', 'Memes', 'ouro', true, 'volume_session_max', 15000, 136),
-  ('ex-frango', 'Ex-frango', 'Somou 5.000 repetições.', '🐔', 'Memes', 'prata', true, 'reps_total', 5000, 137),
-  ('shape-inexplicavel', 'Shape inexplicável', 'Completou 2.000 séries.', '🗿', 'Memes', 'platina', true, 'sets_total', 2000, 138),
-  ('dois-coaches', 'Dois coaches', 'Tem 2 Personais acompanhando você.', '👥', 'Memes', 'prata', true, 'personals_count', 2, 139),
-  ('testou-o-1rm', 'Testou o 1RM', 'Fez uma série de 1 repetição com carga (teste de força).', '🧪', 'Memes', 'bronze', true, 'single_rep_sets', 1, 140),
-  ('fenix', 'Fênix', 'Voltou a treinar depois de 14 dias parado, 3 vezes.', '🐦‍🔥', 'Memes', 'prata', true, 'comebacks', 3, 141),
-  ('platinou-o-boratreinar', 'Platinou o BoraTreinar', 'Desbloqueou todas as 100 conquistas visíveis.', '💎', 'Memes', 'platina', true, 'visible_unlocked', 100, 142),
-  ('imortal', 'Imortal', 'Completou 1.000 treinos.', '🧬', 'Lendas', 'platina', true, 'sessions', 1000, 143),
-  ('dois-anos-sem-falhar', 'Dois anos sem falhar', 'Treinou 104 semanas seguidas.', '🗓️', 'Lendas', 'platina', true, 'week_streak', 104, 144),
-  ('duas-semanas-direto', 'Duas semanas direto', 'Treinou 14 dias seguidos.', '🔗', 'Lendas', 'ouro', true, 'day_streak', 14, 145),
-  ('sem-descanso-vai-com-calma', 'Sem descanso (vai com calma!)', 'Treinou 30 dias seguidos.', '🫠', 'Lendas', 'platina', true, 'day_streak', 30, 146),
-  ('um-milhao-de-quilos', 'Um milhão de quilos', 'Somou 1 milhão de kg de volume.', '🏔️', 'Lendas', 'platina', true, 'volume_total', 1000000, 147),
-  ('mes-lendario', 'Mês lendário', 'Fez 25 treinos no mesmo mês.', '🌕', 'Lendas', 'platina', true, 'month_max', 25, 148),
-  ('meta-e-vida', 'Meta é vida', 'Bateu a meta semanal em 52 semanas.', '🏵️', 'Lendas', 'platina', true, 'goal_weeks', 52, 149),
-  ('natural', 'Natural', 'Completou 150 treinos na base do treino, comida e sono.', '🌿', 'Memes', 'ouro', true, 'sessions', 150, 150),
-  ('dez-semanas-de-ouro', 'Dez semanas de ouro', 'Bateu a meta semanal em 10 semanas.', '🥇', 'Lendas', 'prata', true, 'goal_weeks', 10, 151),
-  ('supino-de-elite', 'Supino de elite', 'Supino reto com barra com 120 kg.', '🏆', 'Força extrema', 'platina', true, 'max_supino', 120, 152),
-  ('agachamento-de-elite', 'Agachamento de elite', 'Agachou com 180 kg.', '🗻', 'Força extrema', 'platina', true, 'max_agachamento', 180, 153),
-  ('leg-press-do-thor', 'Leg press do Thor', 'Leg press 45° com 400 kg.', '⚡', 'Força extrema', 'platina', true, 'max_legpress', 400, 154),
-  ('terra-de-elite', 'Terra de elite', 'Levantamento terra com 200 kg.', '🌋', 'Força extrema', 'platina', true, 'max_terra', 200, 155),
-  ('biceps-de-popeye', 'Bíceps de Popeye', 'Rosca direta com barra com 40 kg.', '🥬', 'Força extrema', 'ouro', true, 'max_rosca', 40, 156),
-  ('duzentao', 'Duzentão', 'Levantou 200 kg em algum exercício.', '🏋️', 'Força extrema', 'ouro', true, 'max_load', 200, 157),
-  ('supino-de-meio-seculo', 'Supino de meio século', 'Supino reto com barra com 50 kg.', '5️⃣', 'Força extrema', 'bronze', true, 'max_supino', 50, 158),
-  ('leg-press-250', 'Leg press 250', 'Leg press 45° com 250 kg.', '🦵', 'Força extrema', 'prata', true, 'max_legpress', 250, 159),
-  ('cem-flexoes', 'Cem flexões', 'Somou 100 flexões de braço.', '🤸', 'Peso do corpo', 'prata', true, 'reps_flexao', 100, 160),
-  ('mil-flexoes', 'Mil flexões', 'Somou 1.000 flexões de braço.', '🪖', 'Peso do corpo', 'ouro', true, 'reps_flexao', 1000, 161),
-  ('barra-fixa-nivel-1', 'Barra fixa nível 1', 'Somou 50 repetições na barra fixa.', '🧗', 'Peso do corpo', 'prata', true, 'reps_barra', 50, 162),
-  ('homem-aranha', 'Homem-Aranha', 'Somou 300 repetições na barra fixa.', '🕷️', 'Peso do corpo', 'ouro', true, 'reps_barra', 300, 163),
-  ('primeira-flexao', 'Primeira flexão', 'Registrou flexões de braço.', '🙌', 'Peso do corpo', 'bronze', true, 'reps_flexao', 1, 164),
-  ('pendurado', 'Pendurado', 'Registrou barra fixa.', '🐒', 'Peso do corpo', 'bronze', true, 'reps_barra', 1, 165),
-  ('peitoral-blindado', 'Peitoral blindado', 'Completou 1.000 séries de peito.', '🛡️', 'Grupos extremos', 'platina', true, 'g_peito', 1000, 166),
-  ('costas-de-armario', 'Costas de armário', 'Completou 1.000 séries de costas.', '🚪', 'Grupos extremos', 'platina', true, 'g_costas', 1000, 167),
-  ('ombros-de-cabide', 'Ombros de cabide', 'Completou 1.000 séries de ombros.', '🧥', 'Grupos extremos', 'platina', true, 'g_ombros', 1000, 168),
-  ('braco-que-nao-cabe-na-manga', 'Braço que não cabe na manga', 'Completou 1.000 séries de braços.', '👕', 'Grupos extremos', 'platina', true, 'g_bracos', 1000, 169),
-  ('perna-de-jogador-da-nba', 'Perna de jogador da NBA', 'Completou 1.000 séries de pernas.', '🏀', 'Grupos extremos', 'platina', true, 'g_pernas', 1000, 170),
-  ('gluteo-olimpico', 'Glúteo olímpico', 'Completou 500 séries de glúteos.', '🥇', 'Grupos extremos', 'ouro', true, 'g_gluteos', 500, 171),
-  ('abdomen-trincado', 'Abdômen trincado', 'Completou 500 séries de abdômen.', '🧊', 'Grupos extremos', 'ouro', true, 'g_abdomen', 500, 172),
-  ('panturrilha-de-aco', 'Panturrilha de aço', 'Completou 300 séries de panturrilha.', '⚙️', 'Grupos extremos', 'ouro', true, 'g_panturrilha', 300, 173),
-  ('antebraco-de-marinheiro', 'Antebraço de marinheiro', 'Completou 150 séries de antebraço.', '⚓', 'Grupos extremos', 'prata', true, 'g_antebraco', 150, 174),
-  ('adutor-de-respeito', 'Adutor de respeito', 'Completou 150 séries de adutores.', '🦩', 'Grupos extremos', 'prata', true, 'g_adutores', 150, 175),
-  ('leg-day-viciado', 'Leg day viciado', 'Fez 100 treinos com pernas.', '💘', 'Grupos extremos', 'ouro', true, 'leg_days', 100, 176),
-  ('catalogo-zerado', 'Catálogo zerado', 'Usou 60 exercícios diferentes.', '🗂️', 'Grupos extremos', 'platina', true, 'distinct_equipment', 60, 177),
-  ('corpo-todo-todo-dia', 'Corpo todo, todo dia', 'Trabalhou 7 grupos musculares num só treino.', '🧩', 'Grupos extremos', 'ouro', true, 'max_groups_session', 7, 178),
-  ('coracao-de-atleta', 'Coração de atleta', 'Fez cardio em 250 treinos.', '❤️‍🔥', 'Cardio extremo', 'platina', true, 'cardio_sessions', 250, 179),
-  ('esteira-e-vida', 'Esteira é vida', 'Fez cardio em 50 treinos.', '🏃‍♀️', 'Cardio extremo', 'ouro', true, 'cardio_sessions', 50, 180),
-  ('cardio-virou-habito', 'Cardio virou hábito', 'Fez cardio em 5 treinos.', '🚴', 'Cardio extremo', 'bronze', true, 'cardio_sessions', 5, 181),
-  ('chuva-de-recordes', 'Chuva de recordes', 'Bateu 8 recordes num só treino.', '🌧️', 'Recordes extremos', 'platina', true, 'prs_session_max', 8, 182),
-  ('fake-natty', 'Fake Natty', 'Bateu 75 recordes pessoais. Tá evoluindo tão rápido que já estão desconfiando!', '🧐', 'Memes', 'prata', true, 'prs_total', 75, 183),
-  ('maquina-de-pr', 'Máquina de PR', 'Bateu 150 recordes pessoais.', '🤖', 'Recordes extremos', 'ouro', true, 'prs_total', 150, 184),
-  ('dia-de-gloria', 'Dia de glória', 'Bateu 4 recordes num só treino.', '🌈', 'Recordes extremos', 'prata', true, 'prs_session_max', 4, 185),
-  ('menos-20', 'Menos 20', 'Perdeu 20 kg desde a primeira pesagem.', '🎉', 'Peso extremo', 'platina', true, 'weight_lost', 20, 186),
-  ('menos-15', 'Menos 15', 'Perdeu 15 kg desde a primeira pesagem.', '🥳', 'Peso extremo', 'ouro', true, 'weight_lost', 15, 187),
-  ('um-ano-de-balanca', 'Um ano de balança', 'Registrou o peso 52 vezes.', '📆', 'Peso extremo', 'ouro', true, 'weighins', 52, 188),
-  ('sai-de-casa-comi-pra-caralho', 'Saí de casa, comi pra caralho', 'Ganhou 3 kg desde a primeira pesagem. Bulking raiz!', '🍗', 'Memes', 'bronze', true, 'weight_gained', 3, 189),
-  ('critico-de-academia', 'Crítico de academia', 'Avaliou 100 treinos.', '🧐', 'Rotina extrema', 'ouro', true, 'rated', 100, 190),
-  ('ficha-e-lei', 'Ficha é lei', 'Fez 100 treinos pela ficha.', '📕', 'Rotina extrema', 'ouro', true, 'plan_sessions', 100, 191),
-  ('espirito-livre', 'Espírito livre', 'Fez 50 treinos livres.', '🦅', 'Rotina extrema', 'ouro', true, 'free_sessions', 50, 192),
-  ('perfeccionista', 'Perfeccionista', 'Completou 100 treinos com todas as séries feitas.', '💎', 'Rotina extrema', 'ouro', true, 'full_sessions', 100, 193),
-  ('registrado-pelo-personal', 'Registrado pelo Personal', 'Teve um treino registrado pelo seu Personal.', '🧑‍🏫', 'Rotina extrema', 'bronze', true, 'instructor_sessions', 1, 194),
-  ('aluno-exemplar', 'Aluno exemplar', 'Teve 20 treinos registrados pelo Personal.', '🍎', 'Rotina extrema', 'prata', true, 'instructor_sessions', 20, 195),
-  ('esforco-maximo-sempre', 'Esforço máximo, sempre', 'Marcou esforço máximo em 10 treinos.', '🥵', 'Rotina extrema', 'ouro', true, 'effort5', 10, 196),
-  ('ego-lifting', 'Ego lifting', 'Fez 10 séries de 1 repetição com carga. Cuidado com o ego!', '🧪', 'Rotina extrema', 'prata', true, 'single_rep_sets', 10, 197),
-  ('queimacao-infinita', 'Queimação infinita', 'Fez 200 séries com 20 repetições ou mais.', '🌋', 'Rotina extrema', 'ouro', true, 'high_rep_sets', 200, 198),
-  ('cinquenta-mil-reps', 'Cinquenta mil reps', 'Somou 50.000 repetições.', '🌀', 'Rotina extrema', 'platina', true, 'reps_total', 50000, 199),
-  ('mestre-dos-dois-turnos', 'Mestre dos dois turnos', 'Treinou duas vezes no mesmo dia em 20 dias.', '🌓', 'Rotina extrema', 'platina', true, 'double_days', 20, 200);
+insert into public.achievements (code, title, description, emoji, category, tier, hidden, metric, threshold, sort, audience) values
+  ('ta-pago', 'Tá pago!', 'Registre seu primeiro treino.', '✅', 'Frequência', 'bronze', false, 'sessions', 1, 1, 'aluno'),
+  ('saindo-da-jaula', 'Saindo da jaula', 'Complete 5 treinos.', '🦁', 'Frequência', 'bronze', false, 'sessions', 5, 2, 'aluno'),
+  ('rato-de-academia', 'Rato de academia', 'Complete 10 treinos.', '🐭', 'Frequência', 'bronze', false, 'sessions', 10, 3, 'aluno'),
+  ('cliente-vip', 'Cliente VIP', 'Complete 25 treinos.', '🎟️', 'Frequência', 'prata', false, 'sessions', 25, 4, 'aluno'),
+  ('hora-do-show', 'Hora do Show', 'Complete 50 treinos.', '🎤', 'Frequência', 'prata', false, 'sessions', 50, 5, 'aluno'),
+  ('centenario', 'Centenário', 'Complete 100 treinos.', '💯', 'Frequência', 'ouro', false, 'sessions', 100, 6, 'aluno'),
+  ('biiiirl', 'Biiiirl!', 'Complete 200 treinos.', '🗣️', 'Frequência', 'ouro', false, 'sessions', 200, 7, 'aluno'),
+  ('um-ano-de-shape', 'Um ano de shape', 'Complete 365 treinos.', '📅', 'Frequência', 'platina', false, 'sessions', 365, 8, 'aluno'),
+  ('lenda-da-maromba', 'Lenda da maromba', 'Complete 500 treinos.', '🏛️', 'Frequência', 'platina', false, 'sessions', 500, 9, 'aluno'),
+  ('nao-e-fogo-de-palha', 'Não é fogo de palha', 'Treine 2 semanas seguidas.', '🔥', 'Constância', 'bronze', false, 'week_streak', 2, 10, 'aluno'),
+  ('um-mes-sem-falhar', 'Um mês sem falhar', 'Treine 4 semanas seguidas.', '📆', 'Constância', 'prata', false, 'week_streak', 4, 11, 'aluno'),
+  ('disciplina-motivacao', 'Disciplina > motivação', 'Treine 8 semanas seguidas.', '🧠', 'Constância', 'prata', false, 'week_streak', 8, 12, 'aluno'),
+  ('trimestre-de-ferro', 'Trimestre de ferro', 'Treine 12 semanas seguidas.', '⛓️', 'Constância', 'ouro', false, 'week_streak', 12, 13, 'aluno'),
+  ('meio-ano-de-foco', 'Meio ano de foco', 'Treine 26 semanas seguidas.', '🧭', 'Constância', 'ouro', false, 'week_streak', 26, 14, 'aluno'),
+  ('inimigo-do-fim', 'Inimigo do fim', 'Treine 52 semanas seguidas.', '🏁', 'Constância', 'platina', false, 'week_streak', 52, 15, 'aluno'),
+  ('semana-cheia', 'Semana cheia', 'Faça 3 treinos na mesma semana.', '🗓️', 'Constância', 'bronze', false, 'week_max', 3, 16, 'aluno'),
+  ('cinco-na-semana', 'Cinco na semana', 'Faça 5 treinos na mesma semana.', '🖐️', 'Constância', 'prata', false, 'week_max', 5, 17, 'aluno'),
+  ('mora-na-academia', 'Mora na academia', 'Faça 6 treinos na mesma semana.', '🏠', 'Constância', 'ouro', false, 'week_max', 6, 18, 'aluno'),
+  ('trinca', 'Trinca', 'Treine 3 dias seguidos.', '3️⃣', 'Constância', 'bronze', false, 'day_streak', 3, 19, 'aluno'),
+  ('semana-perfeita', 'Semana perfeita', 'Treine 7 dias seguidos.', '7️⃣', 'Constância', 'ouro', false, 'day_streak', 7, 20, 'aluno'),
+  ('meta-batida', 'Meta batida', 'Bata sua meta semanal uma vez.', '🎯', 'Constância', 'bronze', false, 'goal_weeks', 1, 21, 'aluno'),
+  ('meta-e-meta', 'Meta é meta', 'Bata a meta semanal em 4 semanas.', '📌', 'Constância', 'prata', false, 'goal_weeks', 4, 22, 'aluno'),
+  ('cumpridor-de-metas', 'Cumpridor de metas', 'Bata a meta semanal em 12 semanas.', '📈', 'Constância', 'ouro', false, 'goal_weeks', 12, 23, 'aluno'),
+  ('mes-intenso', 'Mês intenso', 'Faça 12 treinos no mesmo mês.', '🌙', 'Constância', 'prata', false, 'month_max', 12, 24, 'aluno'),
+  ('mes-monstro', 'Mês monstro', 'Faça 20 treinos no mesmo mês.', '👹', 'Constância', 'ouro', false, 'month_max', 20, 25, 'aluno'),
+  ('10-toneladas', '10 toneladas', 'Some 10 mil kg de volume (carga × repetições).', '🏗️', 'Volume', 'bronze', false, 'volume_total', 10000, 26, 'aluno'),
+  ('guindaste-humano', 'Guindaste humano', 'Some 50 mil kg de volume.', '🏗️', 'Volume', 'prata', false, 'volume_total', 50000, 27, 'aluno'),
+  ('100-toneladas', '100 toneladas', 'Some 100 mil kg de volume.', '🚛', 'Volume', 'ouro', false, 'volume_total', 100000, 28, 'aluno'),
+  ('meio-milhao', 'Meio milhão', 'Some 500 mil kg de volume.', '🚀', 'Volume', 'platina', false, 'volume_total', 500000, 29, 'aluno'),
+  ('treino-pesado', 'Treino pesado', 'Faça 5 mil kg de volume num só treino.', '🧱', 'Volume', 'bronze', false, 'volume_session_max', 5000, 30, 'aluno'),
+  ('dia-de-caminhao', 'Dia de caminhão', 'Faça 10 mil kg de volume num só treino.', '🚚', 'Volume', 'prata', false, 'volume_session_max', 10000, 31, 'aluno'),
+  ('carregou-o-mundo', 'Carregou o mundo', 'Faça 20 mil kg de volume num só treino.', '🌍', 'Volume', 'ouro', false, 'volume_session_max', 20000, 32, 'aluno'),
+  ('100-series', '100 séries', 'Complete 100 séries.', '🔢', 'Volume', 'bronze', false, 'sets_total', 100, 33, 'aluno'),
+  ('500-series', '500 séries', 'Complete 500 séries.', '📊', 'Volume', 'prata', false, 'sets_total', 500, 34, 'aluno'),
+  ('mil-series', 'Mil séries', 'Complete 1.000 séries.', '🏅', 'Volume', 'ouro', false, 'sets_total', 1000, 35, 'aluno'),
+  ('mil-repeticoes', 'Mil repetições', 'Some 1.000 repetições.', '🔁', 'Volume', 'bronze', false, 'reps_total', 1000, 36, 'aluno'),
+  ('dez-mil-reps', 'Dez mil reps', 'Some 10.000 repetições.', '♾️', 'Volume', 'ouro', false, 'reps_total', 10000, 37, 'aluno'),
+  ('supino-de-respeito', 'Supino de respeito', 'Faça supino reto com barra com 40 kg.', '🏋️', 'Força', 'bronze', false, 'max_supino', 40, 38, 'aluno'),
+  ('peito-de-aco', 'Peito de aço', 'Faça supino reto com barra com 60 kg.', '🛡️', 'Força', 'prata', false, 'max_supino', 60, 39, 'aluno'),
+  ('supino-de-gente-grande', 'Supino de gente grande', 'Faça supino reto com barra com 80 kg.', '💪', 'Força', 'ouro', false, 'max_supino', 80, 40, 'aluno'),
+  ('clube-dos-100', 'Clube dos 100', 'Faça supino reto com barra com 100 kg.', '🎖️', 'Força', 'platina', false, 'max_supino', 100, 41, 'aluno'),
+  ('agachou-levantou', 'Agachou, levantou', 'Agache com 60 kg (livre, hack ou smith).', '🦵', 'Força', 'bronze', false, 'max_agachamento', 60, 42, 'aluno'),
+  ('agacha-que-cresce', 'Agacha que cresce', 'Agache com 100 kg.', '🌱', 'Força', 'prata', false, 'max_agachamento', 100, 43, 'aluno'),
+  ('pernas-de-pilastra', 'Pernas de pilastra', 'Agache com 140 kg.', '🏛️', 'Força', 'ouro', false, 'max_agachamento', 140, 44, 'aluno'),
+  ('leg-press-iniciado', 'Leg press iniciado', 'Faça leg press 45° com 100 kg.', '🦿', 'Força', 'bronze', false, 'max_legpress', 100, 45, 'aluno'),
+  ('leg-press-raiz', 'Leg press raiz', 'Faça leg press 45° com 200 kg.', '🪵', 'Força', 'prata', false, 'max_legpress', 200, 46, 'aluno'),
+  ('leg-do-bambam', 'Leg do Bambam', 'Faça leg press 45° com 300 kg.', '🐂', 'Força', 'ouro', false, 'max_legpress', 300, 47, 'aluno'),
+  ('terra-firme', 'Terra firme', 'Faça levantamento terra com 60 kg.', '🌎', 'Força', 'bronze', false, 'max_terra', 60, 48, 'aluno'),
+  ('puxador-de-chao', 'Puxador de chão', 'Faça levantamento terra com 100 kg.', '⛏️', 'Força', 'prata', false, 'max_terra', 100, 49, 'aluno'),
+  ('arrancou-a-raiz', 'Arrancou a raiz', 'Faça levantamento terra com 140 kg.', '🌳', 'Força', 'ouro', false, 'max_terra', 140, 50, 'aluno'),
+  ('rosca-de-respeito', 'Rosca de respeito', 'Faça rosca direta com barra com 20 kg.', '💪', 'Força', 'bronze', false, 'max_rosca', 20, 51, 'aluno'),
+  ('muque', 'Muque', 'Faça rosca direta com barra com 30 kg.', '🦾', 'Força', 'prata', false, 'max_rosca', 30, 52, 'aluno'),
+  ('tres-digitos', 'Três dígitos', 'Levante 100 kg em qualquer exercício.', '💯', 'Força', 'prata', false, 'max_load', 100, 53, 'aluno'),
+  ('segunda-e-dia-de-peito', 'Segunda é dia de peito', 'Complete 50 séries de peito.', '🫀', 'Grupos musculares', 'bronze', false, 'g_peito', 50, 54, 'aluno'),
+  ('peitoral-de-vitrine', 'Peitoral de vitrine', 'Complete 200 séries de peito.', '🪟', 'Grupos musculares', 'prata', false, 'g_peito', 200, 55, 'aluno'),
+  ('costas-largas', 'Costas largas', 'Complete 50 séries de costas.', '🦅', 'Grupos musculares', 'bronze', false, 'g_costas', 50, 56, 'aluno'),
+  ('asa-de-morcego', 'Asa de morcego', 'Complete 200 séries de costas.', '🦇', 'Grupos musculares', 'prata', false, 'g_costas', 200, 57, 'aluno'),
+  ('ombro-3d', 'Ombro 3D', 'Complete 50 séries de ombros.', '🎳', 'Grupos musculares', 'bronze', false, 'g_ombros', 50, 58, 'aluno'),
+  ('trapezio-descendente', 'Trapézio descendente', 'Complete 200 séries de ombros.', '⛰️', 'Grupos musculares', 'prata', false, 'g_ombros', 200, 59, 'aluno'),
+  ('braco-de-respeito', 'Braço de respeito', 'Complete 50 séries de bíceps e tríceps.', '💪', 'Grupos musculares', 'bronze', false, 'g_bracos', 50, 60, 'aluno'),
+  ('bracao', 'Bração', 'Complete 200 séries de bíceps e tríceps.', '🦾', 'Grupos musculares', 'prata', false, 'g_bracos', 200, 61, 'aluno'),
+  ('dia-de-perna-ninguem-pula', 'Dia de perna ninguém pula', 'Complete 50 séries de quadríceps e posterior.', '🦵', 'Grupos musculares', 'bronze', false, 'g_pernas', 50, 62, 'aluno'),
+  ('coxa-de-jogador', 'Coxa de jogador', 'Complete 200 séries de quadríceps e posterior.', '⚽', 'Grupos musculares', 'prata', false, 'g_pernas', 200, 63, 'aluno'),
+  ('gluteo-de-aco', 'Glúteo de aço', 'Complete 50 séries de glúteos.', '🍑', 'Grupos musculares', 'bronze', false, 'g_gluteos', 50, 64, 'aluno'),
+  ('bumbum-na-nuca', 'Bumbum na nuca', 'Complete 200 séries de glúteos.', '🚀', 'Grupos musculares', 'prata', false, 'g_gluteos', 200, 65, 'aluno'),
+  ('panturrilha-de-touro', 'Panturrilha de touro', 'Complete 50 séries de panturrilha.', '🐃', 'Grupos musculares', 'bronze', false, 'g_panturrilha', 50, 66, 'aluno'),
+  ('tanquinho-em-obras', 'Tanquinho em obras', 'Complete 50 séries de abdômen.', '🚧', 'Grupos musculares', 'bronze', false, 'g_abdomen', 50, 67, 'aluno'),
+  ('tanquinho-pronto', 'Tanquinho pronto', 'Complete 200 séries de abdômen.', '🍫', 'Grupos musculares', 'prata', false, 'g_abdomen', 200, 68, 'aluno'),
+  ('pegada-de-ferro', 'Pegada de ferro', 'Complete 30 séries de antebraço.', '✊', 'Grupos musculares', 'bronze', false, 'g_antebraco', 30, 69, 'aluno'),
+  ('abre-e-fecha', 'Abre e fecha', 'Complete 30 séries de adutores.', '🦋', 'Grupos musculares', 'bronze', false, 'g_adutores', 30, 70, 'aluno'),
+  ('turista-da-academia', 'Turista da academia', 'Use 10 aparelhos/exercícios diferentes.', '🧳', 'Grupos musculares', 'bronze', false, 'distinct_equipment', 10, 71, 'aluno'),
+  ('conhece-todos-os-aparelhos', 'Conhece todos os aparelhos', 'Use 25 exercícios diferentes.', '🗺️', 'Grupos musculares', 'prata', false, 'distinct_equipment', 25, 72, 'aluno'),
+  ('enciclopedia-da-maromba', 'Enciclopédia da maromba', 'Use 40 exercícios diferentes.', '📚', 'Grupos musculares', 'ouro', false, 'distinct_equipment', 40, 73, 'aluno'),
+  ('full-body', 'Full body', 'Trabalhe 5 grupos musculares num só treino.', '🧍', 'Grupos musculares', 'bronze', false, 'max_groups_session', 5, 74, 'aluno'),
+  ('leg-day-lover', 'Leg day lover', 'Faça 10 treinos com pernas.', '❤️', 'Grupos musculares', 'prata', false, 'leg_days', 10, 75, 'aluno'),
+  ('primeiro-suor', 'Primeiro suor', 'Faça cardio pela primeira vez.', '💦', 'Cardio', 'bronze', false, 'cardio_sessions', 1, 76, 'aluno'),
+  ('cardio-em-dia', 'Cardio em dia', 'Faça cardio em 10 treinos.', '🏃', 'Cardio', 'bronze', false, 'cardio_sessions', 10, 77, 'aluno'),
+  ('pulmao-de-aco', 'Pulmão de aço', 'Faça cardio em 30 treinos.', '🫁', 'Cardio', 'prata', false, 'cardio_sessions', 30, 78, 'aluno'),
+  ('maratonista-de-esteira', 'Maratonista de esteira', 'Faça cardio em 100 treinos.', '🏅', 'Cardio', 'ouro', false, 'cardio_sessions', 100, 79, 'aluno'),
+  ('novo-recorde', 'Novo recorde!', 'Bata seu primeiro recorde pessoal.', '🏆', 'Recordes', 'bronze', false, 'prs_total', 1, 80, 'aluno'),
+  ('quebrando-limites', 'Quebrando limites', 'Bata 10 recordes pessoais.', '📈', 'Recordes', 'bronze', false, 'prs_total', 10, 81, 'aluno'),
+  ('farmador-de-aura', 'Farmador de aura', 'Bata 50 recordes pessoais.', '✨', 'Recordes', 'prata', false, 'prs_total', 50, 82, 'aluno'),
+  ('aura-infinita', 'Aura infinita', 'Bata 100 recordes pessoais.', '🌟', 'Recordes', 'ouro', false, 'prs_total', 100, 83, 'aluno'),
+  ('dia-inspirado', 'Dia inspirado', 'Bata 3 recordes num só treino.', '💡', 'Recordes', 'prata', false, 'prs_session_max', 3, 84, 'aluno'),
+  ('o-pai-ta-on', 'O pai tá on', 'Bata 5 recordes num só treino.', '😎', 'Recordes', 'ouro', false, 'prs_session_max', 5, 85, 'aluno'),
+  ('subiu-na-balanca', 'Subiu na balança', 'Registre seu peso pela primeira vez.', '⚖️', 'Peso', 'bronze', false, 'weighins', 1, 86, 'aluno'),
+  ('balanca-e-minha-amiga', 'Balança é minha amiga', 'Registre seu peso 10 vezes.', '📏', 'Peso', 'prata', false, 'weighins', 10, 87, 'aluno'),
+  ('primeiros-2-kg', 'Primeiros 2 kg', 'Perca 2 kg desde a primeira pesagem.', '📉', 'Peso', 'bronze', false, 'weight_lost', 2, 88, 'aluno'),
+  ('menos-5', 'Menos 5', 'Perca 5 kg desde a primeira pesagem.', '🔻', 'Peso', 'prata', false, 'weight_lost', 5, 89, 'aluno'),
+  ('menos-10', 'Menos 10', 'Perca 10 kg desde a primeira pesagem.', '🏆', 'Peso', 'ouro', false, 'weight_lost', 10, 90, 'aluno'),
+  ('feedback-e-tudo', 'Feedback é tudo', 'Avalie um treino (esforço e dor).', '📝', 'Rotina', 'bronze', false, 'rated', 1, 91, 'aluno'),
+  ('diario-de-treino', 'Diário de treino', 'Avalie 20 treinos.', '📓', 'Rotina', 'prata', false, 'rated', 20, 92, 'aluno'),
+  ('tenho-personal', 'Tenho Personal', 'Tenha um Personal acompanhando você.', '🤝', 'Rotina', 'bronze', false, 'has_personal', 1, 93, 'aluno'),
+  ('rostinho-bonito', 'Rostinho bonito', 'Coloque uma foto de perfil.', '📸', 'Rotina', 'bronze', false, 'avatar', 1, 94, 'aluno'),
+  ('segue-a-ficha', 'Segue a ficha', 'Faça 10 treinos pela ficha.', '📋', 'Rotina', 'bronze', false, 'plan_sessions', 10, 95, 'aluno'),
+  ('sem-deixar-serie-pra-tras', 'Sem deixar série pra trás', 'Complete 10 treinos com todas as séries feitas.', '🧹', 'Rotina', 'prata', false, 'full_sessions', 10, 96, 'aluno'),
+  ('treino-livre-alma-livre', 'Treino livre, alma livre', 'Faça 5 treinos livres.', '🕊️', 'Rotina', 'bronze', false, 'free_sessions', 5, 97, 'aluno'),
+  ('voltei', 'Voltei!', 'Volte a treinar depois de 14 dias parado.', '🔙', 'Rotina', 'bronze', false, 'comebacks', 1, 98, 'aluno'),
+  ('dois-turnos', 'Dois turnos', 'Treine duas vezes no mesmo dia.', '🌗', 'Rotina', 'prata', false, 'double_days', 1, 99, 'aluno'),
+  ('queimacao', 'Queimação', 'Faça 10 séries com 20 repetições ou mais.', '🔥', 'Rotina', 'bronze', false, 'high_rep_sets', 10, 100, 'aluno'),
+  ('madrugador', 'Madrugador', 'Treinou antes das 6h.', '🌅', 'Horários', 'bronze', true, 'early', 1, 101, 'aluno'),
+  ('o-galo-que-lute', 'O galo que lute', 'Treinou antes das 6h em 10 dias.', '🐓', 'Horários', 'prata', true, 'early', 10, 102, 'aluno'),
+  ('rotina-sigma', 'Rotina sigma', 'Treinou antes das 6h em 25 dias.', '🗿', 'Horários', 'ouro', true, 'early', 25, 103, 'aluno'),
+  ('coruja-da-maromba', 'Coruja da maromba', 'Treinou depois das 22h.', '🦉', 'Horários', 'bronze', true, 'night', 1, 104, 'aluno'),
+  ('vampiro-do-ferro', 'Vampiro do ferro', 'Treinou depois das 22h em 10 dias.', '🧛', 'Horários', 'prata', true, 'night', 10, 105, 'aluno'),
+  ('insonia-produtiva', 'Insônia produtiva', 'Treinou entre meia-noite e 4h.', '🌃', 'Horários', 'prata', true, 'midnight', 1, 106, 'aluno'),
+  ('o-loco-meu', 'Ô loco, meu!', 'Treinou num domingo.', '📺', 'Horários', 'bronze', true, 'sunday', 1, 107, 'aluno'),
+  ('ta-pegando-fogo-bicho', 'Tá pegando fogo, bicho!', 'Treinou em 10 domingos.', '🔥', 'Horários', 'prata', true, 'sunday', 10, 108, 'aluno'),
+  ('sextou', 'Sextou!', 'Trocou o bar pela academia numa sexta à noite.', '🍻', 'Horários', 'bronze', true, 'friday_night', 1, 109, 'aluno'),
+  ('sextou-com-s-de-supino', 'Sextou com S de supino', 'Treinou em 10 sextas à noite.', '🍺', 'Horários', 'prata', true, 'friday_night', 10, 110, 'aluno'),
+  ('segunda-sem-preguica', 'Segunda sem preguiça', 'Treinou em 4 segundas-feiras.', '☕', 'Horários', 'bronze', true, 'monday', 4, 111, 'aluno'),
+  ('sabadou', 'Sabadou', 'Treinou em 5 sábados.', '🎉', 'Horários', 'bronze', true, 'saturday', 5, 112, 'aluno'),
+  ('papai-noel-marombeiro', 'Papai Noel marombeiro', 'Treinou no Natal.', '🎅', 'Horários', 'ouro', true, 'xmas', 1, 113, 'aluno'),
+  ('ano-novo-shape-novo', 'Ano novo, shape novo', 'Treinou no dia 1º de janeiro.', '🎆', 'Horários', 'ouro', true, 'newyear', 1, 114, 'aluno'),
+  ('parabens-pra-voce', 'Parabéns pra você', 'Treinou no dia do seu aniversário.', '🎂', 'Horários', 'ouro', true, 'birthday', 1, 115, 'aluno'),
+  ('e-verao-o-ano-inteiro', 'É verão o ano inteiro', 'Treinou em todos os 12 meses do ano.', '☀️', 'Horários', 'ouro', true, 'months_distinct', 12, 116, 'aluno'),
+  ('ja-acabou-jessica', 'Já acabou, Jéssica?', 'Fez um treino com menos de 25 minutos.', '⏱️', 'Duração', 'bronze', true, 'short_sessions', 1, 117, 'aluno'),
+  ('speedrun', 'Speedrun', 'Fez 5 treinos com menos de 25 minutos.', '🏎️', 'Duração', 'prata', true, 'short_sessions', 5, 118, 'aluno'),
+  ('mora-aqui', 'Mora aqui?', 'Treinou por mais de 2 horas.', '🛏️', 'Duração', 'prata', true, 'long_sessions', 1, 119, 'aluno'),
+  ('inimigo-do-relogio', 'Inimigo do relógio', 'Treinou mais de 2 horas em 5 dias.', '⏰', 'Duração', 'ouro', true, 'long_sessions', 5, 120, 'aluno'),
+  ('sem-vida-social', 'Sem vida social', 'Treinou duas vezes no mesmo dia em 5 dias.', '📵', 'Duração', 'ouro', true, 'double_days', 5, 121, 'aluno'),
+  ('67', '67', 'Fez 6 e depois 7 repetições seguidas no mesmo exercício (ou levantou 67 kg).', '🤲', 'Memes', 'bronze', true, 'set_67', 1, 122, 'aluno'),
+  ('e-mais-de-8-mil', 'É mais de 8 mil!', 'Passou de 8 mil kg de volume num só treino.', '🐉', 'Memes', 'prata', true, 'volume_session_max', 8001, 123, 'aluno'),
+  ('bora-fio-do-bill', 'Bora, Fio do Bill', 'Treinou 5 dias seguidos.', '🫡', 'Memes', 'prata', true, 'day_streak', 5, 124, 'aluno'),
+  ('saindo-da-jaula-o-monstro', 'Saindo da jaula, o monstro!', 'Levantou 150 kg em algum exercício.', '🦍', 'Memes', 'ouro', true, 'max_load', 150, 125, 'aluno'),
+  ('ajuda-o-maluco-que-ta-doente', 'Ajuda o maluco que tá doente', 'Avisou o Personal que sentiu dor. Saúde em primeiro lugar!', '🩹', 'Memes', 'bronze', true, 'pain', 1, 126, 'aluno'),
+  ('nao-vai-dar-nao', 'Não vai dar não', 'Marcou esforço máximo num treino… e deu!', '😤', 'Memes', 'bronze', true, 'effort5', 1, 127, 'aluno'),
+  ('treino-de-frango', 'Treino de frango', 'Marcou 3 treinos como levinhos.', '🐣', 'Memes', 'bronze', true, 'effort1', 3, 128, 'aluno'),
+  ('serie-fantasma', 'Série fantasma', 'Deixou 10 séries por fazer.', '👻', 'Memes', 'bronze', true, 'undone_sets', 10, 129, 'aluno'),
+  ('perna-de-sabia', 'Perna de sabiá', 'Fez 10 treinos seguidos sem pernas. Bora pro leg day!', '🐦', 'Memes', 'bronze', true, 'no_leg_streak', 10, 130, 'aluno'),
+  ('monstro-nao-descansa', 'Monstro não descansa', 'Fez 7 treinos numa só semana.', '🦖', 'Memes', 'ouro', true, 'week_max', 7, 131, 'aluno'),
+  ('aura-1000', 'Aura +1000', 'Bateu 200 recordes pessoais.', '👑', 'Memes', 'platina', true, 'prs_total', 200, 132, 'aluno'),
+  ('rodizio-de-aparelhos', 'Rodízio de aparelhos', 'Usou 10 exercícios diferentes num só treino.', '🎡', 'Memes', 'prata', true, 'max_equipment_session', 10, 133, 'aluno'),
+  ('para-nossa-alegria', 'Para nossa alegria', 'Bateu a meta semanal em 26 semanas.', '🎶', 'Memes', 'ouro', true, 'goal_weeks', 26, 134, 'aluno'),
+  ('ai-que-delicia-cara', 'Ai, que delícia, cara', 'Fez 50 séries com 20 repetições ou mais.', '😋', 'Memes', 'prata', true, 'high_rep_sets', 50, 135, 'aluno'),
+  ('taca-lhe-pau-marcos', 'Taca-lhe pau, Marcos!', 'Fez 15 mil kg de volume num só treino.', '🏎️', 'Memes', 'ouro', true, 'volume_session_max', 15000, 136, 'aluno'),
+  ('ex-frango', 'Ex-frango', 'Somou 5.000 repetições.', '🐔', 'Memes', 'prata', true, 'reps_total', 5000, 137, 'aluno'),
+  ('shape-inexplicavel', 'Shape inexplicável', 'Completou 2.000 séries.', '🗿', 'Memes', 'platina', true, 'sets_total', 2000, 138, 'aluno'),
+  ('chama-no-zap', 'Chama no zap', 'Tem 2 Personais acompanhando você.', '📱', 'Memes', 'prata', true, 'personals_count', 2, 139, 'aluno'),
+  ('rapaz', 'Rapaz…', 'Fez uma série de 1 repetição com carga (teste de força).', '😳', 'Memes', 'bronze', true, 'single_rep_sets', 1, 140, 'aluno'),
+  ('fenix', 'Fênix', 'Voltou a treinar depois de 14 dias parado, 3 vezes.', '🐦‍🔥', 'Memes', 'prata', true, 'comebacks', 3, 141, 'aluno'),
+  ('platinou-o-boratreinar', 'Platinou o BoraTreinar', 'Desbloqueou todas as 100 conquistas visíveis.', '💎', 'Memes', 'platina', true, 'visible_unlocked', 100, 142, 'aluno'),
+  ('imortal', 'Imortal', 'Completou 1.000 treinos.', '🧬', 'Lendas', 'platina', true, 'sessions', 1000, 143, 'aluno'),
+  ('dois-anos-sem-falhar', 'Dois anos sem falhar', 'Treinou 104 semanas seguidas.', '🗓️', 'Lendas', 'platina', true, 'week_streak', 104, 144, 'aluno'),
+  ('duas-semanas-direto', 'Duas semanas direto', 'Treinou 14 dias seguidos.', '🔗', 'Lendas', 'ouro', true, 'day_streak', 14, 145, 'aluno'),
+  ('sem-descanso-vai-com-calma', 'Sem descanso (vai com calma!)', 'Treinou 30 dias seguidos.', '🫠', 'Lendas', 'platina', true, 'day_streak', 30, 146, 'aluno'),
+  ('um-milhao-de-quilos', 'Um milhão de quilos', 'Somou 1 milhão de kg de volume.', '🏔️', 'Lendas', 'platina', true, 'volume_total', 1000000, 147, 'aluno'),
+  ('mes-lendario', 'Mês lendário', 'Fez 25 treinos no mesmo mês.', '🌕', 'Lendas', 'platina', true, 'month_max', 25, 148, 'aluno'),
+  ('meta-e-vida', 'Meta é vida', 'Bateu a meta semanal em 52 semanas.', '🏵️', 'Lendas', 'platina', true, 'goal_weeks', 52, 149, 'aluno'),
+  ('natural', 'Natural', 'Completou 150 treinos na base do treino, comida e sono.', '🌿', 'Memes', 'ouro', true, 'sessions', 150, 150, 'aluno'),
+  ('dez-semanas-de-ouro', 'Dez semanas de ouro', 'Bateu a meta semanal em 10 semanas.', '🥇', 'Lendas', 'prata', true, 'goal_weeks', 10, 151, 'aluno'),
+  ('supino-de-elite', 'Supino de elite', 'Supino reto com barra com 120 kg.', '🏆', 'Força extrema', 'platina', true, 'max_supino', 120, 152, 'aluno'),
+  ('agachamento-de-elite', 'Agachamento de elite', 'Agachou com 180 kg.', '🗻', 'Força extrema', 'platina', true, 'max_agachamento', 180, 153, 'aluno'),
+  ('leg-press-do-thor', 'Leg press do Thor', 'Leg press 45° com 400 kg.', '⚡', 'Força extrema', 'platina', true, 'max_legpress', 400, 154, 'aluno'),
+  ('terra-de-elite', 'Terra de elite', 'Levantamento terra com 200 kg.', '🌋', 'Força extrema', 'platina', true, 'max_terra', 200, 155, 'aluno'),
+  ('biceps-de-popeye', 'Bíceps de Popeye', 'Rosca direta com barra com 40 kg.', '🥬', 'Força extrema', 'ouro', true, 'max_rosca', 40, 156, 'aluno'),
+  ('duzentao', 'Duzentão', 'Levantou 200 kg em algum exercício.', '🏋️', 'Força extrema', 'ouro', true, 'max_load', 200, 157, 'aluno'),
+  ('supino-de-meio-seculo', 'Supino de meio século', 'Supino reto com barra com 50 kg.', '5️⃣', 'Força extrema', 'bronze', true, 'max_supino', 50, 158, 'aluno'),
+  ('leg-press-250', 'Leg press 250', 'Leg press 45° com 250 kg.', '🦵', 'Força extrema', 'prata', true, 'max_legpress', 250, 159, 'aluno'),
+  ('cem-flexoes', 'Cem flexões', 'Somou 100 flexões de braço.', '🤸', 'Peso do corpo', 'prata', true, 'reps_flexao', 100, 160, 'aluno'),
+  ('mil-flexoes', 'Mil flexões', 'Somou 1.000 flexões de braço.', '🪖', 'Peso do corpo', 'ouro', true, 'reps_flexao', 1000, 161, 'aluno'),
+  ('barra-fixa-nivel-1', 'Barra fixa nível 1', 'Somou 50 repetições na barra fixa.', '🧗', 'Peso do corpo', 'prata', true, 'reps_barra', 50, 162, 'aluno'),
+  ('homem-aranha', 'Homem-Aranha', 'Somou 300 repetições na barra fixa.', '🕷️', 'Peso do corpo', 'ouro', true, 'reps_barra', 300, 163, 'aluno'),
+  ('primeira-flexao', 'Primeira flexão', 'Registrou flexões de braço.', '🙌', 'Peso do corpo', 'bronze', true, 'reps_flexao', 1, 164, 'aluno'),
+  ('pendurado', 'Pendurado', 'Registrou barra fixa.', '🐒', 'Peso do corpo', 'bronze', true, 'reps_barra', 1, 165, 'aluno'),
+  ('peitoral-blindado', 'Peitoral blindado', 'Completou 1.000 séries de peito.', '🛡️', 'Grupos extremos', 'platina', true, 'g_peito', 1000, 166, 'aluno'),
+  ('costas-de-armario', 'Costas de armário', 'Completou 1.000 séries de costas.', '🚪', 'Grupos extremos', 'platina', true, 'g_costas', 1000, 167, 'aluno'),
+  ('ombros-de-cabide', 'Ombros de cabide', 'Completou 1.000 séries de ombros.', '🧥', 'Grupos extremos', 'platina', true, 'g_ombros', 1000, 168, 'aluno'),
+  ('braco-que-nao-cabe-na-manga', 'Braço que não cabe na manga', 'Completou 1.000 séries de braços.', '👕', 'Grupos extremos', 'platina', true, 'g_bracos', 1000, 169, 'aluno'),
+  ('perna-de-jogador-da-nba', 'Perna de jogador da NBA', 'Completou 1.000 séries de pernas.', '🏀', 'Grupos extremos', 'platina', true, 'g_pernas', 1000, 170, 'aluno'),
+  ('gluteo-olimpico', 'Glúteo olímpico', 'Completou 500 séries de glúteos.', '🥇', 'Grupos extremos', 'ouro', true, 'g_gluteos', 500, 171, 'aluno'),
+  ('abdomen-trincado', 'Abdômen trincado', 'Completou 500 séries de abdômen.', '🧊', 'Grupos extremos', 'ouro', true, 'g_abdomen', 500, 172, 'aluno'),
+  ('panturrilha-de-aco', 'Panturrilha de aço', 'Completou 300 séries de panturrilha.', '⚙️', 'Grupos extremos', 'ouro', true, 'g_panturrilha', 300, 173, 'aluno'),
+  ('antebraco-de-marinheiro', 'Antebraço de marinheiro', 'Completou 150 séries de antebraço.', '⚓', 'Grupos extremos', 'prata', true, 'g_antebraco', 150, 174, 'aluno'),
+  ('adutor-de-respeito', 'Adutor de respeito', 'Completou 150 séries de adutores.', '🦩', 'Grupos extremos', 'prata', true, 'g_adutores', 150, 175, 'aluno'),
+  ('leg-day-viciado', 'Leg day viciado', 'Fez 100 treinos com pernas.', '💘', 'Grupos extremos', 'ouro', true, 'leg_days', 100, 176, 'aluno'),
+  ('catalogo-zerado', 'Catálogo zerado', 'Usou 60 exercícios diferentes.', '🗂️', 'Grupos extremos', 'platina', true, 'distinct_equipment', 60, 177, 'aluno'),
+  ('corpo-todo-todo-dia', 'Corpo todo, todo dia', 'Trabalhou 7 grupos musculares num só treino.', '🧩', 'Grupos extremos', 'ouro', true, 'max_groups_session', 7, 178, 'aluno'),
+  ('coracao-de-atleta', 'Coração de atleta', 'Fez cardio em 250 treinos.', '❤️‍🔥', 'Cardio extremo', 'platina', true, 'cardio_sessions', 250, 179, 'aluno'),
+  ('esteira-e-vida', 'Esteira é vida', 'Fez cardio em 50 treinos.', '🏃‍♀️', 'Cardio extremo', 'ouro', true, 'cardio_sessions', 50, 180, 'aluno'),
+  ('cardio-virou-habito', 'Cardio virou hábito', 'Fez cardio em 5 treinos.', '🚴', 'Cardio extremo', 'bronze', true, 'cardio_sessions', 5, 181, 'aluno'),
+  ('chuva-de-recordes', 'Chuva de recordes', 'Bateu 8 recordes num só treino.', '🌧️', 'Recordes extremos', 'platina', true, 'prs_session_max', 8, 182, 'aluno'),
+  ('fake-natty', 'Fake Natty', 'Bateu 75 recordes pessoais. Tá evoluindo tão rápido que já estão desconfiando!', '🧐', 'Memes', 'prata', true, 'prs_total', 75, 183, 'aluno'),
+  ('maquina-de-pr', 'Máquina de PR', 'Bateu 150 recordes pessoais.', '🤖', 'Recordes extremos', 'ouro', true, 'prs_total', 150, 184, 'aluno'),
+  ('dia-de-gloria', 'Dia de glória', 'Bateu 4 recordes num só treino.', '🌈', 'Recordes extremos', 'prata', true, 'prs_session_max', 4, 185, 'aluno'),
+  ('menos-20', 'Menos 20', 'Perdeu 20 kg desde a primeira pesagem.', '🎉', 'Peso extremo', 'platina', true, 'weight_lost', 20, 186, 'aluno'),
+  ('menos-15', 'Menos 15', 'Perdeu 15 kg desde a primeira pesagem.', '🥳', 'Peso extremo', 'ouro', true, 'weight_lost', 15, 187, 'aluno'),
+  ('um-ano-de-balanca', 'Um ano de balança', 'Registrou o peso 52 vezes.', '📆', 'Peso extremo', 'ouro', true, 'weighins', 52, 188, 'aluno'),
+  ('sai-de-casa-comi-pra-caralho', 'Saí de casa, comi pra caralho', 'Ganhou 3 kg desde a primeira pesagem. Bulking raiz!', '🍗', 'Memes', 'bronze', true, 'weight_gained', 3, 189, 'aluno'),
+  ('critico-de-academia', 'Crítico de academia', 'Avaliou 100 treinos.', '🧐', 'Rotina extrema', 'ouro', true, 'rated', 100, 190, 'aluno'),
+  ('ficha-e-lei', 'Ficha é lei', 'Fez 100 treinos pela ficha.', '📕', 'Rotina extrema', 'ouro', true, 'plan_sessions', 100, 191, 'aluno'),
+  ('espirito-livre', 'Espírito livre', 'Fez 50 treinos livres.', '🦅', 'Rotina extrema', 'ouro', true, 'free_sessions', 50, 192, 'aluno'),
+  ('perfeccionista', 'Perfeccionista', 'Completou 100 treinos com todas as séries feitas.', '💎', 'Rotina extrema', 'ouro', true, 'full_sessions', 100, 193, 'aluno'),
+  ('registrado-pelo-personal', 'Registrado pelo Personal', 'Teve um treino registrado pelo seu Personal.', '🧑‍🏫', 'Rotina extrema', 'bronze', true, 'instructor_sessions', 1, 194, 'aluno'),
+  ('aluno-exemplar', 'Aluno exemplar', 'Teve 20 treinos registrados pelo Personal.', '🍎', 'Rotina extrema', 'prata', true, 'instructor_sessions', 20, 195, 'aluno'),
+  ('esforco-maximo-sempre', 'Esforço máximo, sempre', 'Marcou esforço máximo em 10 treinos.', '🥵', 'Rotina extrema', 'ouro', true, 'effort5', 10, 196, 'aluno'),
+  ('teste-de-forca-em-serie', 'Teste de força em série', 'Fez 10 séries de 1 repetição com carga.', '🧪', 'Rotina extrema', 'prata', true, 'single_rep_sets', 10, 197, 'aluno'),
+  ('queimacao-infinita', 'Queimação infinita', 'Fez 200 séries com 20 repetições ou mais.', '🌋', 'Rotina extrema', 'ouro', true, 'high_rep_sets', 200, 198, 'aluno'),
+  ('cinquenta-mil-reps', 'Cinquenta mil reps', 'Somou 50.000 repetições.', '🌀', 'Rotina extrema', 'platina', true, 'reps_total', 50000, 199, 'aluno'),
+  ('mestre-dos-dois-turnos', 'Mestre dos dois turnos', 'Treinou duas vezes no mesmo dia em 20 dias.', '🌓', 'Rotina extrema', 'platina', true, 'double_days', 20, 200, 'aluno'),
+  ('primeiro-aluno', 'Primeiro aluno', 'Tenha seu primeiro aluno no BoraTreinar.', '🧑‍🎓', 'Alunos', 'bronze', false, 'p_students', 1, 201, 'personal'),
+  ('turma-formada', 'Turma formada', 'Acompanhe 5 alunos ao mesmo tempo.', '👥', 'Alunos', 'bronze', false, 'p_students', 5, 202, 'personal'),
+  ('professor-de-verdade', 'Professor de verdade', 'Acompanhe 10 alunos ao mesmo tempo.', '🧑‍🏫', 'Alunos', 'prata', false, 'p_students', 10, 203, 'personal'),
+  ('academia-lotada', 'Academia lotada', 'Acompanhe 25 alunos ao mesmo tempo.', '🏟️', 'Alunos', 'ouro', false, 'p_students', 25, 204, 'personal'),
+  ('lenda-das-academias', 'Lenda das academias', 'Acompanhe 50 alunos ao mesmo tempo.', '👑', 'Alunos', 'platina', false, 'p_students', 50, 205, 'personal'),
+  ('convite-enviado', 'Convite enviado', 'Gere seu primeiro link de convite.', '✉️', 'Alunos', 'bronze', false, 'p_invites', 1, 206, 'personal'),
+  ('divulgador', 'Divulgador', 'Gere 10 links de convite.', '📣', 'Alunos', 'prata', false, 'p_invites', 10, 207, 'personal'),
+  ('aluno-conquistado', 'Aluno conquistado', 'Um aluno aceitou seu pedido para acompanhá-lo.', '🤝', 'Alunos', 'bronze', false, 'p_links_accepted', 1, 208, 'personal'),
+  ('vitrine-ligada', 'Vitrine ligada', 'Ative "Aparecer para novos alunos" no seu perfil.', '🪟', 'Alunos', 'bronze', false, 'p_listed', 1, 209, 'personal'),
+  ('primeira-ficha', 'Primeira ficha', 'Monte a primeira ficha para um aluno.', '📋', 'Fichas', 'bronze', false, 'p_plans', 1, 210, 'personal'),
+  ('montador-de-fichas', 'Montador de fichas', 'Monte 10 fichas para alunos.', '🛠️', 'Fichas', 'prata', false, 'p_plans', 10, 211, 'personal'),
+  ('arquiteto-do-shape', 'Arquiteto do shape', 'Monte 50 fichas para alunos.', '📐', 'Fichas', 'ouro', false, 'p_plans', 50, 212, 'personal'),
+  ('fabrica-de-fichas', 'Fábrica de fichas', 'Monte 100 fichas para alunos.', '🏭', 'Fichas', 'platina', false, 'p_plans', 100, 213, 'personal'),
+  ('modelo-pronto', 'Modelo pronto', 'Crie seu primeiro modelo de treino.', '🧩', 'Fichas', 'bronze', false, 'p_templates', 1, 214, 'personal'),
+  ('biblioteca-de-treinos', 'Biblioteca de treinos', 'Crie 10 modelos de treino.', '📚', 'Fichas', 'prata', false, 'p_templates', 10, 215, 'personal'),
+  ('inventor-de-exercicio', 'Inventor de exercício', 'Cadastre um exercício novo.', '💡', 'Fichas', 'bronze', false, 'p_equipment', 1, 216, 'personal'),
+  ('prancheta-na-mao', 'Prancheta na mão', 'Registre o treino de um aluno.', '📝', 'Registro de treinos', 'bronze', false, 'p_logged', 1, 217, 'personal'),
+  ('escriba-da-maromba', 'Escriba da maromba', 'Registre 25 treinos de alunos.', '🖊️', 'Registro de treinos', 'prata', false, 'p_logged', 25, 218, 'personal'),
+  ('secretario-do-shape', 'Secretário do shape', 'Registre 100 treinos de alunos.', '🗂️', 'Registro de treinos', 'ouro', false, 'p_logged', 100, 219, 'personal'),
+  ('agenda-aberta', 'Agenda aberta', 'Agende sua primeira aula.', '📅', 'Agenda', 'bronze', false, 'p_classes', 1, 220, 'personal'),
+  ('agenda-cheia', 'Agenda cheia', 'Agende 20 aulas.', '🗓️', 'Agenda', 'prata', false, 'p_classes', 20, 221, 'personal'),
+  ('turma-ativa', 'Turma ativa', 'Seus alunos somam 50 treinos.', '🔥', 'Resultados dos alunos', 'prata', false, 'p_student_sessions', 50, 222, 'personal'),
+  ('formando-monstros', 'Formando monstros', 'Seus alunos somam 500 treinos.', '🦍', 'Resultados dos alunos', 'ouro', false, 'p_student_sessions', 500, 223, 'personal'),
+  ('fabrica-de-monstros', 'Fábrica de monstros', 'Seus alunos somam 2.000 treinos.', '🏭', 'Resultados dos alunos', 'platina', false, 'p_student_sessions', 2000, 224, 'personal'),
+  ('treinador-de-recordes', 'Treinador de recordes', 'Seus alunos bateram 10 recordes pessoais.', '🏆', 'Resultados dos alunos', 'prata', false, 'p_student_prs', 10, 225, 'personal'),
+  ('formador-de-aura', 'Formador de aura', 'Seus alunos bateram 100 recordes pessoais.', '✨', 'Resultados dos alunos', 'ouro', false, 'p_student_prs', 100, 226, 'personal'),
+  ('tabela-de-precos', 'Tabela de preços', 'Crie seu primeiro pacote no Financeiro.', '🏷️', 'Financeiro', 'bronze', false, 'p_packages', 1, 227, 'personal'),
+  ('primeiro-pix', 'Primeiro Pix', 'Marque o primeiro pagamento recebido.', '💸', 'Financeiro', 'bronze', false, 'p_paid', 1, 228, 'personal'),
+  ('caixa-cheio', 'Caixa cheio', 'Marque 50 pagamentos recebidos.', '💰', 'Financeiro', 'ouro', false, 'p_paid', 50, 229, 'personal'),
+  ('mes-de-ouro', 'Mês de ouro', 'Receba R$ 5.000 num mesmo mês.', '🥇', 'Financeiro', 'ouro', false, 'p_revenue_month', 5000, 230, 'personal');

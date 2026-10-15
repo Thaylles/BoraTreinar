@@ -1,4 +1,4 @@
--- Conquistas: catálogo, liberação automática, secretas mascaradas e permissões.
+-- Conquistas: catálogo (de aluno e de Personal), liberação automática, secretas mascaradas e permissões.
 \set ON_ERROR_STOP 1
 
 create or replace function pg_temp.as_user(p_email text) returns void language plpgsql as $$
@@ -41,12 +41,15 @@ create temp table c as select (select id from auth.users where email = 'conq.a@a
   (select id from auth.users where email = 'conq.b@a.com') as bia;
 grant all on c to authenticated;
 
-select pg_temp.assert((select count(*) from public.achievements) = 200, '200 conquistas no catálogo');
+select pg_temp.assert((select count(*) from public.achievements) = 230, '230 conquistas no catálogo');
+select pg_temp.assert((select count(*) from public.achievements where audience = 'aluno') = 200, '200 de quem treina');
+select pg_temp.assert((select count(*) from public.achievements where audience = 'personal' and not hidden) = 30, '30 de Personal, visíveis');
 select pg_temp.assert((select count(*) from public.achievements where hidden) = 100, '100 secretas');
 select pg_temp.assert((select count(distinct metric) from public.achievements) >= 60, 'métricas variadas');
 -- Toda métrica usada existe no cálculo
 select pg_temp.assert(not exists (select 1 from public.achievements a
-  where not (private.achievement_metrics((select ana from c)) ? a.metric)), 'todas as métricas são calculadas');
+  where not ((private.achievement_metrics((select ana from c)) || private.personal_metrics((select ana from c))) ? a.metric)),
+  'todas as métricas são calculadas');
 
 select pg_temp.assert((select count(*) from public.student_achievements sa where sa.student_id = (select ana from c) and sa.code = 'tenho-personal') = 1,
   'vínculo com Personal libera "Tenho Personal" na hora');
@@ -76,6 +79,7 @@ select pg_temp.assert((select count(*) from public.notifications where user_id =
 select pg_temp.as_user('conq.a@a.com');
 select pg_temp.assert(pg_temp.fails($$select * from public.achievements$$), 'catálogo não é lido direto');
 select pg_temp.assert((select count(*) from public.my_achievements()) = 200, 'aluna vê as 200');
+select pg_temp.assert(pg_temp.fails($$select * from public.my_achievements(p_audience => 'personal')$$), 'aluna não abre as de Personal');
 select pg_temp.assert((select count(*) from public.my_achievements() where hidden and unlocked_at is null and title is null and description is null) =
   (select count(*) from public.my_achievements() where hidden and unlocked_at is null), 'secretas bloqueadas vêm sem nome');
 select pg_temp.assert((select title from public.my_achievements() where code = 'madrugador') = 'Madrugador', 'secreta liberada mostra o nome');
@@ -88,6 +92,43 @@ select pg_temp.assert(pg_temp.fails($$select * from public.my_achievements((sele
 
 select pg_temp.as_user('conq.b@a.com');
 select pg_temp.assert((select count(*) from public.my_achievements() where unlocked_at is not null) = 0, 'aluno sem treino começa zerado');
+
+-- ── Personal: conquistas próprias e "Meu treino" ─────────────
+reset role;
+select pg_temp.assert((select array_agg(code order by code) from public.student_achievements sa
+  join auth.users u on u.id = sa.student_id where u.email = 'conq.p@p.com') = array['convite-enviado', 'primeiro-aluno'],
+  'Personal libera "Convite enviado" e "Primeiro aluno"');
+select pg_temp.assert((select count(*) from public.notifications n join auth.users u on u.id = n.user_id
+  where u.email = 'conq.p@p.com' and n.link = '/personal/conquistas') >= 1, 'Personal é avisado com link da área dele');
+select pg_temp.assert((private.personal_metrics((select id from auth.users where email = 'conq.p@p.com'))->>'p_student_sessions')::int = 1,
+  'treinos da aluna contam para o Personal');
+
+select pg_temp.as_user('conq.p@p.com');
+select pg_temp.assert((select count(*) from public.my_achievements(p_audience => 'personal')) = 30, 'Personal vê as 30 dele');
+select pg_temp.assert((select unlocked_at is not null from public.my_achievements(p_audience => 'personal') where code = 'primeiro-aluno'),
+  'conquista de Personal aparece liberada');
+select pg_temp.assert((select progress from public.my_achievements(p_audience => 'personal') where code = 'turma-formada') = 1,
+  'progresso das de Personal');
+-- O Personal treina: pesa, cadastra um exercício próprio e registra o próprio treino.
+insert into public.body_weights (student_id, weight_kg) values (auth.uid(), 90);
+insert into public.equipment (name, muscle_group, created_by) values ('Remada do Paulo', 'costas', auth.uid());
+select public.save_workout_session(jsonb_build_object(
+  'client_id', gen_random_uuid(), 'student_id', auth.uid(), 'kind', 'livre', 'plan_name', 'Meu treino A',
+  'started_at', now() - interval '50 minutes', 'finished_at', now(),
+  'exercises', jsonb_build_array(
+    jsonb_build_object('equipment_id', pg_temp.eq('Remada do Paulo'), 'sets', jsonb_build_array(
+      jsonb_build_object('load_kg', 50, 'reps', 10, 'done', true))))));
+select pg_temp.assert((select count(*) from public.workout_sessions where student_id = auth.uid()) = 1, 'Personal registra o próprio treino');
+select pg_temp.assert((select unlocked_at is not null from public.my_achievements() where code = 'ta-pago'), 'treino do Personal libera "Tá pago!"');
+select pg_temp.assert((select unlocked_at is not null from public.my_achievements(p_audience => 'personal') where code = 'inventor-de-exercicio'),
+  'exercício próprio libera "Inventor de exercício"');
+select pg_temp.assert((select unlocked_at is null from public.my_achievements(p_audience => 'personal') where code = 'prancheta-na-mao'),
+  'treino próprio não conta como registro de aluno');
+select pg_temp.assert(pg_temp.fails($$select public.accept_invite('x')$$), 'Personal continua sem aceitar convites');
+
+select pg_temp.as_user('conq.b@a.com');
+select pg_temp.assert(pg_temp.fails($$insert into public.workout_sessions (client_id, student_id, kind) values (gen_random_uuid(), (select id from auth.users where email = 'conq.p@p.com'), 'livre')$$),
+  'aluno não registra treino do Personal');
 
 reset role;
 \echo '✅ Todos os testes de conquistas passaram'

@@ -623,6 +623,7 @@ export type Database = {
         Returns: InviteRow;
         SetofOptions: { from: "*"; to: "invites"; isOneToOne: true; isSetofReturn: false };
       };
+      can_train_self: { Args: Record<string, never>; Returns: boolean };
       current_role_is: {
         Args: { r: Database["public"]["Enums"]["user_role"] };
         Returns: boolean;
@@ -710,7 +711,7 @@ export type Database = {
       inactivity_nudges: { Args: Record<string, never>; Returns: number };
       accept_invite: { Args: { p_token: string }; Returns: string };
       my_achievements: {
-        Args: { p_student?: string | null };
+        Args: { p_student?: string | null; p_audience?: string };
         Returns: {
           code: string;
           title: string | null;

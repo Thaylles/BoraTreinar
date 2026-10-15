@@ -34,6 +34,8 @@ export function AchievementsView({
     filter === "conquistadas" ? r.unlocked_at : filter === "faltam" ? !r.unlocked_at : filter === "secretas" ? r.hidden : true,
   );
   const categories = [...new Set(list.map((r) => r.category))];
+  const hasSecrets = rows.some((r) => r.hidden);
+  const filters = hasSecrets ? FILTERS : FILTERS.filter((f) => f.key !== "secretas");
   const pct = Math.round((stats.unlocked / Math.max(1, stats.total)) * 100);
 
   return (
@@ -68,13 +70,15 @@ export function AchievementsView({
             </div>
           ))}
         </div>
-        <p className="mt-3 text-xs text-white/75">
-          🔒 {stats.hiddenLeft} conquistas secretas ainda escondidas. Você só descobre quando liberar!
-        </p>
+        {hasSecrets && (
+          <p className="mt-3 text-xs text-white/75">
+            🔒 {stats.hiddenLeft} conquistas secretas ainda escondidas. Você só descobre quando liberar!
+          </p>
+        )}
       </section>
 
       <nav className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4" aria-label="Filtrar conquistas">
-        {FILTERS.map((f) => (
+        {filters.map((f) => (
           <Link
             key={f.key}
             href={f.key === "todas" ? basePath : `${basePath}?filtro=${f.key}`}

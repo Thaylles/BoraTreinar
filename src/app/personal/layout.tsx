@@ -19,6 +19,7 @@ export default async function PersonalLayout({ children }: { children: React.Rea
       roleLabel={profile.role === "admin" ? "Admin · modo Personal" : "Personal"}
       root="/personal"
       isAdmin={profile.role === "admin"}
+      canTrain={profile.role === "personal"}
       items={[
         { href: "/personal", label: "Início", icon: "house" },
         { href: "/personal/alunos", label: "Alunos", icon: "users" },

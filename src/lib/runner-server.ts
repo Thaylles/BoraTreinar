@@ -9,6 +9,17 @@ import { groupedWithNext } from "@/lib/plans";
 export async function loadRunnerForPlan(planId: string, studentId: string) {
   const loaded = await loadPlan(planId);
   if (!loaded || loaded.plan.is_template || loaded.plan.student_id !== studentId) return null;
+  return buildRunner(loaded, studentId);
+}
+
+/** Personal treinando com um dos próprios modelos ("Meu treino"). */
+export async function loadRunnerForTemplate(templateId: string, userId: string) {
+  const loaded = await loadPlan(templateId);
+  if (!loaded || !loaded.plan.is_template || loaded.plan.created_by !== userId) return null;
+  return buildRunner(loaded, userId);
+}
+
+async function buildRunner(loaded: NonNullable<Awaited<ReturnType<typeof loadPlan>>>, studentId: string) {
   const items = loaded.items.filter((i) => i.equipment);
   const grouped = groupedWithNext(items.map((i) => i.technique));
   const history = await loadExerciseHistory(

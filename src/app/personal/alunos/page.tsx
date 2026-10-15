@@ -9,6 +9,9 @@ import { cn } from "@/lib/cn";
 import { WhatsAppButton } from "@/components/whatsapp-button";
 import { daysAgoLabel, daysAgoSP, startOfWeekSP } from "@/lib/week";
 import { Avatar } from "@/components/avatar";
+import { AddExistingStudent } from "@/components/add-existing-student";
+import { ConfirmSubmit } from "@/components/confirm-submit";
+import { cancelLink } from "./vinculo-actions";
 
 export const metadata: Metadata = { title: "Alunos" };
 
@@ -27,7 +30,15 @@ export default async function AlunosPage({
     .eq("personal_id", profile.id)
     .eq("status", "ativo");
   query = showArchived ? query.not("archived_at", "is", null) : query.is("archived_at", null);
-  const { data: links } = await query;
+  const [{ data: links }, { data: requests }] = await Promise.all([
+    query,
+    supabase
+      .from("link_requests")
+      .select("id, student:profiles!link_requests_student_id_fkey(full_name, avatar_path)")
+      .eq("personal_id", profile.id)
+      .eq("status", "pendente")
+      .order("created_at", { ascending: false }),
+  ]);
 
   const ids = (links ?? []).map((l) => l.student?.id).filter((x): x is string => !!x);
   const { data: recent } = ids.length
@@ -51,6 +62,35 @@ export default async function AlunosPage({
   return (
     <>
       <PageTitle sub={`${students.length} ${showArchived ? "arquivado(s)" : "ativo(s)"}`}>Alunos</PageTitle>
+
+      {!showArchived && (
+        <details className="mb-4 rounded-3xl border border-border bg-surface p-4" open={!!requests?.length}>
+          <summary className="cursor-pointer font-display font-bold">+ Adicionar aluno que já tem conta</summary>
+          <p className="mb-3 mt-1 text-sm text-muted">
+            Busque pelo e-mail ou WhatsApp. O aluno recebe um aviso e confirma no app (sem precisar de link).
+          </p>
+          <AddExistingStudent />
+          {!!requests?.length && (
+            <div className="mt-4">
+              <p className="mb-2 text-sm font-semibold">Aguardando o aluno confirmar</p>
+              <ul className="space-y-2">
+                {requests.map((r) => (
+                  <li key={r.id} className="flex items-center gap-3 rounded-2xl bg-background p-2">
+                    <Avatar path={r.student?.avatar_path} name={r.student?.full_name ?? "?"} size={32} />
+                    <span className="min-w-0 flex-1 truncate text-sm">{r.student?.full_name}</span>
+                    <form action={cancelLink}>
+                      <input type="hidden" name="id" value={r.id} />
+                      <ConfirmSubmit message="Cancelar o pedido?" className="text-xs font-semibold text-pitanga-600 hover:underline">
+                        Cancelar
+                      </ConfirmSubmit>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </details>
+      )}
 
       <div className="mb-4 flex gap-2" role="tablist">
         {[

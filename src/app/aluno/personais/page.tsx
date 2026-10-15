@@ -7,6 +7,8 @@ import { requireRole } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/avatar";
+import { LinkRequestsCard } from "@/components/link-requests-card";
+import { LinkButton } from "@/components/ui/button";
 
 export const metadata: Metadata = { title: "Meus Personais" };
 
@@ -19,6 +21,11 @@ export default async function PersonaisPage({ searchParams }: { searchParams: Pr
     .eq("student_id", profile.id)
     .eq("status", "ativo")
     .order("role");
+  const { data: requests } = await supabase
+    .from("link_requests")
+    .select("id, personal:profiles!link_requests_personal_id_fkey(full_name, avatar_path)")
+    .eq("student_id", profile.id)
+    .eq("status", "pendente");
 
   return (
     <>
@@ -27,6 +34,10 @@ export default async function PersonaisPage({ searchParams }: { searchParams: Pr
         <Alert kind="success" className="mb-4">
           Convite aceito! Agora esse Personal acompanha seus treinos. 💪
         </Alert>
+      )}
+      <LinkRequestsCard requests={requests ?? []} />
+      {!links?.length && (
+        <p className="mb-4 text-sm text-muted">Você ainda não tem Personal. Treinar com acompanhamento faz seus resultados aparecerem mais rápido!</p>
       )}
       <ul className="space-y-3">
         {links?.map((l) => (
@@ -47,6 +58,9 @@ export default async function PersonaisPage({ searchParams }: { searchParams: Pr
           </li>
         ))}
       </ul>
+      <LinkButton href="/aluno/encontrar" variant="secondary" className="mt-4 w-full">
+        Encontrar um Personal
+      </LinkButton>
       <p className="mt-6 text-sm text-muted">
         Todos os Personais listados aqui podem ver suas fichas e seu histórico de treinos. Seu peso só aparece
         para eles se você permitir.

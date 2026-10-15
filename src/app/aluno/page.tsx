@@ -13,6 +13,7 @@ import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { PushToggle } from "@/components/pwa/push-toggle";
 import { firstName } from "@/lib/format";
 import { WeeklyGoal } from "@/components/weekly-goal";
+import { LinkRequestsCard } from "@/components/link-requests-card";
 
 export const metadata: Metadata = { title: "Início" };
 
@@ -26,12 +27,24 @@ export default async function AlunoHome({
   const supabase = await createClient();
   const [weighIn, agenda] = await Promise.all([getWeighInStatus(profile.id), loadAgenda({ studentId: profile.id, days: 7 })]);
   const nextClass = agenda.occurrences.find((o) => !o.cancelled);
-  const { data: plans } = await supabase
-    .from("workout_plans")
-    .select("id, name, goal, items:workout_plan_items(count)")
-    .eq("student_id", profile.id)
-    .is("archived_at", null)
-    .order("name");
+  const [{ data: plans }, { count: personals }, { data: requests }] = await Promise.all([
+    supabase
+      .from("workout_plans")
+      .select("id, name, goal, items:workout_plan_items(count)")
+      .eq("student_id", profile.id)
+      .is("archived_at", null)
+      .order("name"),
+    supabase
+      .from("personal_students")
+      .select("id", { count: "exact", head: true })
+      .eq("student_id", profile.id)
+      .eq("status", "ativo"),
+    supabase
+      .from("link_requests")
+      .select("id, personal:profiles!link_requests_personal_id_fkey(full_name, avatar_path)")
+      .eq("student_id", profile.id)
+      .eq("status", "pendente"),
+  ]);
 
   return (
     <>
@@ -41,6 +54,24 @@ export default async function AlunoHome({
         <Alert kind="success" className="mb-4">
           Conta criada! Você já está vinculado ao seu Personal. Bem-vindo ao BoraTreinar! 🇧🇷
         </Alert>
+      )}
+
+      <LinkRequestsCard requests={requests ?? []} />
+
+      {!personals && !requests?.length && (
+        <Link
+          href="/aluno/encontrar"
+          className="mb-4 flex items-center gap-3 rounded-3xl border-2 border-dashed border-bandeira-500 p-4 transition hover:bg-bandeira-50 dark:hover:bg-bandeira-500/10"
+        >
+          <span className="text-3xl" aria-hidden>🏋️</span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-display font-bold">Encontre um Personal</span>
+            <span className="block text-sm text-muted">
+              Opcional, mas com acompanhamento seus treinos rendem muito mais. Veja fotos, valores e chame no WhatsApp.
+            </span>
+          </span>
+          <ChevronRight className="size-5 text-muted" aria-hidden />
+        </Link>
       )}
 
       <InstallPrompt />
@@ -88,7 +119,9 @@ export default async function AlunoHome({
           <div>
             <p className="font-display text-xl font-bold">Seus treinos aparecem aqui</p>
             <p className="text-sm text-white/85">
-              Assim que seu Personal montar suas fichas, é só escolher a do dia e mandar ver.
+              {personals
+                ? "Assim que seu Personal montar suas fichas, é só escolher a do dia e mandar ver."
+                : "Sem Personal? Use o treino livre para registrar seus exercícios, ou encontre um Personal para montar suas fichas."}
             </p>
           </div>
         </Card>

@@ -204,6 +204,7 @@ export type Database = {
           birth_date: string | null;
           catalog_blocked: boolean;
           created_at: string;
+          directory_listed: boolean;
           email: string;
           full_name: string;
           id: string;
@@ -223,6 +224,7 @@ export type Database = {
         };
         Update: {
           avatar_path?: string | null;
+          directory_listed?: boolean;
           birth_date?: string | null;
           full_name?: string;
           phone?: string | null;
@@ -508,6 +510,34 @@ export type Database = {
           },
         ];
       };
+      link_requests: {
+        Row: {
+          created_at: string;
+          id: string;
+          personal_id: string;
+          responded_at: string | null;
+          status: "pendente" | "aceito" | "recusado" | "cancelado";
+          student_id: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: "link_requests_personal_id_fkey";
+            columns: ["personal_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "link_requests_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       payment_packages: {
         Row: {
           classes_per_week: number | null;
@@ -679,6 +709,25 @@ export type Database = {
       };
       inactivity_nudges: { Args: Record<string, never>; Returns: number };
       accept_invite: { Args: { p_token: string }; Returns: string };
+      personal_directory: {
+        Args: Record<string, never>;
+        Returns: {
+          id: string;
+          full_name: string;
+          avatar_path: string | null;
+          age: number | null;
+          phone: string;
+          packages: { name: string; kind: "por_aula" | "mensal"; classes_per_week: number | null; price: number }[];
+          min_class_price: number | null;
+        }[];
+      };
+      find_student_for_link: {
+        Args: { p_query: string };
+        Returns: { id: string; full_name: string; avatar_path: string | null; linked: boolean; pending: boolean }[];
+      };
+      request_student_link: { Args: { p_student: string }; Returns: string };
+      respond_link_request: { Args: { p_request: string; p_accept: boolean }; Returns: undefined };
+      cancel_link_request: { Args: { p_request: string }; Returns: undefined };
       ensure_month_charges: { Args: { p_month: string }; Returns: number };
       set_student_billing: {
         Args: {

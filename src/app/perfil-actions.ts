@@ -27,15 +27,35 @@ export async function setAvatar(path: string | null): Promise<ActionState> {
 export async function updateMyProfile(_: ActionState, fd: FormData): Promise<ActionState> {
   const name = String(fd.get("full_name") ?? "").trim();
   const phone = String(fd.get("phone") ?? "").replace(/\D/g, "");
+  const birth = String(fd.get("birth_date") ?? "");
   if (name.length < 2) return { error: "Informe seu nome." };
+  if (birth && !/^\d{4}-\d{2}-\d{2}$/.test(birth)) return { error: "Data de nascimento inválida." };
   if (phone && !/^\d{10,13}$/.test(phone)) return { error: "WhatsApp inválido (DDD + número)." };
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Sessão expirada. Entre novamente." };
-  const { error } = await supabase.from("profiles").update({ full_name: name, phone: phone || null }).eq("id", user.id);
+  const { error } = await supabase.from("profiles").update({ full_name: name, phone: phone || null, birth_date: birth || null }).eq("id", user.id);
   if (error) return { error: friendlyError(error.message) };
   revalidatePath("/", "layout");
   return { ok: "Perfil salvo!" };
+}
+
+/** Personal liga/desliga a vitrine (aparecer para alunos que procuram um Personal). */
+export async function setDirectoryListed(_: ActionState, fd: FormData): Promise<ActionState> {
+  const listed = fd.get("listed") === "1";
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sessão expirada. Entre novamente." };
+  if (listed) {
+    const { data: me } = await supabase.from("profiles").select("phone").eq("id", user.id).single();
+    if (!me?.phone) return { error: "Cadastre seu WhatsApp acima antes de aparecer para os alunos." };
+  }
+  const { error } = await supabase.from("profiles").update({ directory_listed: listed }).eq("id", user.id);
+  if (error) return { error: friendlyError(error.message) };
+  revalidatePath("/", "layout");
+  return { ok: listed ? "Pronto! Você aparece para alunos procurando Personal. 🎉" : "Você não aparece mais na busca de Personais." };
 }

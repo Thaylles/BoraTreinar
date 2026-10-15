@@ -6,7 +6,7 @@ import { Field } from "@/components/ui/field";
 import { FormMessage } from "@/components/ui/alert";
 import { SubmitButton } from "@/components/ui/submit-button";
 
-export function ProfileForm({ name, phone }: { name: string; phone: string | null }) {
+export function ProfileForm({ name, phone, birthDate }: { name: string; phone: string | null; birthDate: string | null }) {
   const [state, action] = useActionState(updateMyProfile, undefined);
   return (
     <form action={action} className="space-y-4">
@@ -21,6 +21,7 @@ export function ProfileForm({ name, phone }: { name: string; phone: string | nul
         hint="Com DDD. Aparece no botão de WhatsApp para quem te acompanha."
         autoComplete="tel"
       />
+      <Field label="Data de nascimento" name="birth_date" type="date" defaultValue={birthDate ?? ""} autoComplete="bday" />
       <FormMessage state={state} />
       <SubmitButton pendingText="Salvando…">Salvar</SubmitButton>
     </form>

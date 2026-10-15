@@ -41,8 +41,8 @@ insert into auth.users (email, raw_user_meta_data) values
 select pg_temp.assert(pg_temp.fails($$insert into auth.users (email, raw_user_meta_data)
   values ('x@x.com', '{"role":"admin","full_name":"Hacker"}')$$), 'papel inválido é rejeitado');
 select pg_temp.assert(pg_temp.fails($$insert into auth.users (email, raw_user_meta_data)
-  values ('x@x.com', '{"role":"aluno","full_name":"Sem Convite","phone":"11999999999","terms_accepted":true}')$$),
-  'aluno sem convite é rejeitado');
+  values ('x@x.com', '{"role":"aluno","full_name":"Sem Termo","phone":"11999999999"}')$$),
+  'aluno sem aceitar o termo é rejeitado');
 
 -- ── Convites ──────────────────────────────────────────────────
 select pg_temp.as_user('ana@p.com');

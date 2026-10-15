@@ -7,6 +7,7 @@ import { homeFor, safeNext } from "@/lib/auth";
 import { appUrl } from "@/lib/env";
 import { friendlyError, type ActionState } from "@/lib/errors";
 import { normalizePhoneBR } from "@/lib/phone";
+import { sendEmail } from "@/lib/email";
 
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 const MIN_PASSWORD = 8;
@@ -133,13 +134,35 @@ export async function signUpStudent(_: ActionState, fd: FormData): Promise<Actio
 }
 
 export async function requestPasswordReset(_: ActionState, fd: FormData): Promise<ActionState> {
+  const email = str(fd, "email").toLowerCase();
+  // Mesma resposta exista ou não a conta, para não revelar e-mails cadastrados.
+  const done: ActionState = {
+    ok: "Se existir uma conta com esse e-mail, você vai receber um link para criar uma nova senha.",
+  };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { error: "Informe um e-mail válido." };
+
+  // Preferimos gerar o link no servidor e enviar pelo e-mail do app (Gmail): funciona em
+  // qualquer navegador/aparelho (sem depender do navegador que pediu) e não esbarra no
+  // limite de e-mails do Supabase.
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const { data, error } = await createAdminClient().auth.admin.generateLink({ type: "recovery", email });
+    if (error || !data.properties?.hashed_token) return done;
+    const link = `${appUrl}/auth/confirm?token_hash=${encodeURIComponent(data.properties.hashed_token)}&type=recovery&next=/redefinir-senha`;
+    const html = `<div style="font-family:Arial,sans-serif;color:#10213f">
+      <h2 style="color:#009C3B">Criar uma nova senha</h2>
+      <p>Recebemos um pedido para redefinir a senha da sua conta no BoraTreinar.</p>
+      <p><a href="${link}" style="display:inline-block;background:#009C3B;color:#fff;padding:12px 18px;border-radius:12px;text-decoration:none;font-weight:700">Criar nova senha</a></p>
+      <p style="color:#5b6478;font-size:13px">O link vale por 1 hora e só pode ser usado uma vez. Se não foi você, ignore este e-mail.</p>
+    </div>`;
+    if (await sendEmail(email, "Redefinir sua senha — BoraTreinar", html)) return done;
+  }
+
   const supabase = await createClient();
-  const { error } = await supabase.auth.resetPasswordForEmail(str(fd, "email"), {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${appUrl}/auth/confirm?next=/redefinir-senha`,
   });
   if (error) return { error: friendlyError(error.message) };
-  // Mesma resposta exista ou não a conta, para não revelar e-mails cadastrados.
-  return { ok: "Se existir uma conta com esse e-mail, você vai receber um link para criar uma nova senha." };
+  return done;
 }
 
 export async function updatePassword(_: ActionState, fd: FormData): Promise<ActionState> {
@@ -156,4 +179,17 @@ export async function updatePassword(_: ActionState, fd: FormData): Promise<Acti
     .eq("id", data.user.id)
     .single();
   redirect(profile ? homeFor(profile.role) : "/");
+}
+
+/** Botão da página /confirmar: valida o link do e-mail (token_hash) e entra na conta. */
+export async function confirmEmailLink(fd: FormData) {
+  const tokenHash = str(fd, "token_hash");
+  const type = str(fd, "type");
+  const next = safeNext(fd.get("next")) ?? "/painel";
+  if (!tokenHash || !["recovery", "signup", "email", "invite", "magiclink", "email_change"].includes(type)) {
+    redirect("/entrar?erro=link");
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.auth.verifyOtp({ type: type as "recovery", token_hash: tokenHash });
+  redirect(error ? "/entrar?erro=link" : next);
 }

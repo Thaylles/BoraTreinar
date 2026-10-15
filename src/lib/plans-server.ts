@@ -18,7 +18,7 @@ export async function loadCatalogFor(studentId: string | null): Promise<CatalogI
   ]);
   const allowed = links.data ? new Set(links.data.map((l) => l.personal_id)) : null;
   return (all ?? [])
-    .filter((e) => !allowed || e.is_default || (e.created_by && allowed.has(e.created_by)))
+    .filter((e) => !allowed || e.is_default || (e.created_by && (allowed.has(e.created_by) || e.created_by === studentId)))
     .map(({ id, name, muscle_group, image_path, image_url, is_bodyweight }) => ({
       id, name, muscle_group, image_path, image_url, is_bodyweight,
     }));

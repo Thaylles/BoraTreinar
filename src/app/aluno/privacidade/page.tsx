@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Download, ShieldCheck, Trash2 } from "lucide-react";
 import { Card, PageTitle } from "@/components/ui/card";
-import { requireRole } from "@/lib/auth";
+import { requireStudent } from "@/lib/auth";
 import { DeleteAccountForm } from "./delete-form";
 
 export const metadata: Metadata = { title: "Privacidade e meus dados" };
 
 export default async function PrivacidadePage() {
-  await requireRole("aluno");
+  await requireStudent();
   return (
     <>
       <PageTitle sub="Seus direitos pela LGPD (Lei Geral de Proteção de Dados).">Privacidade e meus dados</PageTitle>

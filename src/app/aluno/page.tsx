@@ -14,6 +14,7 @@ import { PushToggle } from "@/components/pwa/push-toggle";
 import { firstName } from "@/lib/format";
 import { WeeklyGoal } from "@/components/weekly-goal";
 import { LinkRequestsCard } from "@/components/link-requests-card";
+import { AchievementsCard } from "@/components/achievements/achievements-card";
 
 export const metadata: Metadata = { title: "Início" };
 
@@ -23,11 +24,13 @@ export default async function AlunoHome({
   searchParams: Promise<{ bemvindo?: string }>;
 }) {
   const { profile } = await requireRole("aluno");
+  // Personal no "Meu treino": treina com os próprios modelos; não procura Personal.
+  const coach = profile.role === "personal";
   const welcome = (await searchParams).bemvindo === "1";
   const supabase = await createClient();
   const [weighIn, agenda] = await Promise.all([getWeighInStatus(profile.id), loadAgenda({ studentId: profile.id, days: 7 })]);
   const nextClass = agenda.occurrences.find((o) => !o.cancelled);
-  const [{ data: plans }, { count: personals }, { data: requests }] = await Promise.all([
+  const [{ data: plans }, { count: personals }, { data: requests }, { data: achievements }, { data: templates }] = await Promise.all([
     supabase
       .from("workout_plans")
       .select("id, name, goal, items:workout_plan_items(count)")
@@ -44,6 +47,16 @@ export default async function AlunoHome({
       .select("id, personal:profiles!link_requests_personal_id_fkey(full_name, avatar_path)")
       .eq("student_id", profile.id)
       .eq("status", "pendente"),
+    supabase.rpc("my_achievements", {}),
+    coach
+      ? supabase
+          .from("workout_plans")
+          .select("id, name, goal, items:workout_plan_items(count)")
+          .eq("is_template", true)
+          .eq("created_by", profile.id)
+          .is("archived_at", null)
+          .order("name")
+      : Promise.resolve({ data: null }),
   ]);
 
   return (
@@ -58,7 +71,7 @@ export default async function AlunoHome({
 
       <LinkRequestsCard requests={requests ?? []} />
 
-      {!personals && !requests?.length && (
+      {!coach && !personals && !requests?.length && (
         <Link
           href="/aluno/encontrar"
           className="mb-4 flex items-center gap-3 rounded-3xl border-2 border-dashed border-bandeira-500 p-4 transition hover:bg-bandeira-50 dark:hover:bg-bandeira-500/10"
@@ -89,8 +102,52 @@ export default async function AlunoHome({
       )}
 
       <WeeklyGoal studentId={profile.id} />
+      <AchievementsCard rows={achievements ?? []} href="/aluno/conquistas" />
 
-      {plans?.length ? (
+      {coach && (
+        <section className="mb-8">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="font-display text-xl font-bold">Treinar com um modelo</h2>
+            <Link href="/personal/modelos" className="text-sm font-semibold text-bandeira-600 hover:underline dark:text-bandeira-100">
+              Editar modelos
+            </Link>
+          </div>
+          {templates?.length ? (
+            <ul className="space-y-2">
+              {templates.map((t) => (
+                <li key={t.id}>
+                  <Link
+                    href={`/aluno/treinar/modelo/${t.id}`}
+                    className="flex items-center gap-3 rounded-3xl bg-gradient-to-br from-anil-700 to-anil-900 p-4 text-white shadow-md transition hover:brightness-110"
+                  >
+                    <Dumbbell className="size-8 shrink-0 text-ipe-400" aria-hidden />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-display text-lg font-bold leading-tight">{t.name}</p>
+                      <p className="text-sm text-white/85">
+                        {t.items[0]?.count ?? 0} exercícios{t.goal && ` · ${t.goal}`}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-ipe-500 px-3 py-1 text-sm font-bold text-anil-900">Treinar</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <Link
+              href="/personal/modelos"
+              className="flex items-center gap-3 rounded-3xl border-2 border-dashed border-border p-4 text-sm text-muted transition hover:border-bandeira-500"
+            >
+              <Dumbbell className="size-6 shrink-0 text-bandeira-500" aria-hidden />
+              <span className="flex-1">
+                Monte um modelo de treino em <strong className="text-foreground">Modelos</strong> e ele aparece aqui para você treinar. Ou use o treino livre abaixo.
+              </span>
+              <ChevronRight className="size-5" aria-hidden />
+            </Link>
+          )}
+        </section>
+      )}
+
+      {coach ? null : plans?.length ? (
         <section className="mb-8">
           <h2 className="mb-3 font-display text-xl font-bold">Suas fichas</h2>
           <ul className="space-y-2">
@@ -167,7 +224,8 @@ export default async function AlunoHome({
         <ChevronRight className="size-5 text-muted" aria-hidden />
       </Link>
 
-      <NotificationsList />
+      {/* O Personal vê os avisos (dos alunos) no início da área dele. */}
+      {!coach && <NotificationsList />}
     </>
   );
 }

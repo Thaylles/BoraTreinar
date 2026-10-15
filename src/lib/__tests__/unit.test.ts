@@ -6,6 +6,7 @@ import { whatsappLink } from "../whatsapp.ts";
 import { exportFileName, planCsv, repsLabel, restLabel } from "../plan-export.ts";
 import { buildStudentReport, reportHtml, ruleSuggestions, sessionsLine, suggestionSets } from "../report.ts";
 import { computeDashboard, periodFor, shiftPeriod, weightChange, type SummarySession } from "../stats.ts";
+import { achievementStats, shortNumber } from "../achievements.ts";
 import { brl, packageSummary, parseMoney, paymentStatus, pricePerClass } from "../finance.ts";
 import { addDays, addMonths, mondayOf, monthGrid, upcomingOccurrences, weekdayOf } from "../schedule.ts";
 
@@ -290,4 +291,21 @@ test("financeiro: valor por aula, moeda e status", () => {
   assert.equal(paymentStatus(p, "2026-10-10"), "hoje");
   assert.equal(paymentStatus(p, "2026-10-11"), "atrasado");
   assert.equal(paymentStatus({ ...p, paid_at: "2026-10-09T10:00:00Z" }, "2026-10-11"), "pago");
+});
+
+test("conquistas: resumo, pontos e números curtos", () => {
+  const base = { emoji: "🏆", category: "X", hidden: false, progress: 1, threshold: 1, sort: 1, title: "t", description: "d" };
+  const rows = [
+    { ...base, code: "a", tier: "bronze" as const, unlocked_at: "2026-10-01T10:00:00Z" },
+    { ...base, code: "b", tier: "ouro" as const, unlocked_at: "2026-10-02T10:00:00Z" },
+    { ...base, code: "c", tier: "platina" as const, unlocked_at: null, hidden: true, title: null, description: null },
+  ];
+  const s = achievementStats(rows);
+  assert.equal(s.unlocked, 2);
+  assert.equal(s.points, 105);
+  assert.equal(s.hiddenLeft, 1);
+  assert.equal(s.byTier.find((t) => t.tier === "ouro")?.got, 1);
+  assert.equal(shortNumber(12500), "12,5 mil");
+  assert.equal(shortNumber(1_000_000), "1 mi");
+  assert.equal(shortNumber(250), "250");
 });

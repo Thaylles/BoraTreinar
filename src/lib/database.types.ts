@@ -709,6 +709,22 @@ export type Database = {
       };
       inactivity_nudges: { Args: Record<string, never>; Returns: number };
       accept_invite: { Args: { p_token: string }; Returns: string };
+      my_achievements: {
+        Args: { p_student?: string | null };
+        Returns: {
+          code: string;
+          title: string | null;
+          description: string | null;
+          emoji: string;
+          category: string;
+          tier: "bronze" | "prata" | "ouro" | "platina";
+          hidden: boolean;
+          unlocked_at: string | null;
+          progress: number | null;
+          threshold: number | null;
+          sort: number;
+        }[];
+      };
       personal_directory: {
         Args: Record<string, never>;
         Returns: {

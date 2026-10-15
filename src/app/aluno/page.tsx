@@ -14,6 +14,7 @@ import { PushToggle } from "@/components/pwa/push-toggle";
 import { firstName } from "@/lib/format";
 import { WeeklyGoal } from "@/components/weekly-goal";
 import { LinkRequestsCard } from "@/components/link-requests-card";
+import { AchievementsCard } from "@/components/achievements/achievements-card";
 
 export const metadata: Metadata = { title: "Início" };
 
@@ -27,7 +28,7 @@ export default async function AlunoHome({
   const supabase = await createClient();
   const [weighIn, agenda] = await Promise.all([getWeighInStatus(profile.id), loadAgenda({ studentId: profile.id, days: 7 })]);
   const nextClass = agenda.occurrences.find((o) => !o.cancelled);
-  const [{ data: plans }, { count: personals }, { data: requests }] = await Promise.all([
+  const [{ data: plans }, { count: personals }, { data: requests }, { data: achievements }] = await Promise.all([
     supabase
       .from("workout_plans")
       .select("id, name, goal, items:workout_plan_items(count)")
@@ -44,6 +45,7 @@ export default async function AlunoHome({
       .select("id, personal:profiles!link_requests_personal_id_fkey(full_name, avatar_path)")
       .eq("student_id", profile.id)
       .eq("status", "pendente"),
+    supabase.rpc("my_achievements", {}),
   ]);
 
   return (
@@ -89,6 +91,7 @@ export default async function AlunoHome({
       )}
 
       <WeeklyGoal studentId={profile.id} />
+      <AchievementsCard rows={achievements ?? []} href="/aluno/conquistas" />
 
       {plans?.length ? (
         <section className="mb-8">

@@ -160,9 +160,14 @@ export default async function AlunoPage({
       <section className="mb-6">
         <div className="mb-1 flex items-center justify-between gap-2">
           <h2 className="font-display text-xl font-bold">Treinos</h2>
-          <Link href={`/personal/alunos/${id}/evolucao`} className="inline-flex items-center gap-1 rounded-xl bg-bandeira-50 px-3 py-1.5 text-sm font-bold text-bandeira-700 hover:brightness-95 dark:bg-bandeira-500/20 dark:text-bandeira-100">
-            📈 Ver evolução
-          </Link>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Link href={`/personal/alunos/${id}/conquistas`} className="inline-flex items-center gap-1 rounded-xl bg-ipe-100 px-3 py-1.5 text-sm font-bold text-anil-900 hover:brightness-95 dark:bg-ipe-500/20 dark:text-ipe-400">
+              🏆 Conquistas
+            </Link>
+            <Link href={`/personal/alunos/${id}/evolucao`} className="inline-flex items-center gap-1 rounded-xl bg-bandeira-50 px-3 py-1.5 text-sm font-bold text-bandeira-700 hover:brightness-95 dark:bg-bandeira-500/20 dark:text-bandeira-100">
+              📈 Ver evolução
+            </Link>
+          </div>
         </div>
         <p className="mb-3 text-sm text-muted">
           <strong className="text-foreground">{thisWeek.length}</strong> nesta semana (seg–dom)

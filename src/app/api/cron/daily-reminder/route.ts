@@ -19,6 +19,8 @@ export async function GET(request: NextRequest) {
 
   // Alunos parados há alguns dias recebem um lembrete (vira push no celular de quem ativou).
   const { data: nudges } = await admin.rpc("inactivity_nudges");
+  // Lembretes de pagamento: 1 dia antes, no dia e no dia seguinte ao vencimento.
+  const { data: paymentReminders } = await admin.rpc("payment_reminders", { p_date: date });
 
   let emails = 0;
   for (const r of data ?? []) {
@@ -42,5 +44,5 @@ export async function GET(request: NextRequest) {
     if (await sendEmail(r.personal_email, `Hoje: ${items.length} ${items.length === 1 ? "aula" : "aulas"} — BoraTreinar`, html)) emails++;
   }
 
-  return NextResponse.json({ ok: true, date, personais: data?.length ?? 0, emails, lembretesInatividade: nudges ?? 0 });
+  return NextResponse.json({ ok: true, date, personais: data?.length ?? 0, emails, lembretesInatividade: nudges ?? 0, lembretesPagamento: paymentReminders ?? 0 });
 }

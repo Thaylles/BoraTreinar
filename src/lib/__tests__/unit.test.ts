@@ -6,6 +6,7 @@ import { whatsappLink } from "../whatsapp.ts";
 import { exportFileName, planCsv, repsLabel, restLabel } from "../plan-export.ts";
 import { buildStudentReport, reportHtml, ruleSuggestions, sessionsLine, suggestionSets } from "../report.ts";
 import { computeDashboard, periodFor, shiftPeriod, weightChange, type SummarySession } from "../stats.ts";
+import { brl, packageSummary, parseMoney, paymentStatus, pricePerClass } from "../finance.ts";
 import { addDays, addMonths, mondayOf, monthGrid, upcomingOccurrences, weekdayOf } from "../schedule.ts";
 
 test("normaliza telefone brasileiro com DDI 55", () => {
@@ -272,4 +273,21 @@ test("bi-set e tri-set agrupam com os exercícios seguintes", async () => {
   assert.deepEqual(groupedWithNext(["triset", null, null, "dropset"]), [2, 1, 0, 0]);
   assert.deepEqual(groupedWithNext([null, "biset"]), [0, 0]);
   assert.deepEqual(groupedWithNext(["triset", null]), [1, 0]);
+});
+
+test("financeiro: valor por aula, moeda e status", () => {
+  assert.equal(pricePerClass({ kind: "por_aula", price: 50, classes_per_week: null }), 50);
+  // 2x por semana = 52/12 × 2 ≈ 8,67 aulas no mês → R$ 350 ÷ 8,67 ≈ R$ 40,38
+  assert.equal(Math.round(pricePerClass({ kind: "mensal", price: 350, classes_per_week: 2 }) * 100) / 100, 40.38);
+  assert.equal(brl(1234.5), "R$ 1.234,50");
+  assert.equal(packageSummary({ kind: "mensal", price: 200, classes_per_week: 1 }), "1x por semana · R$ 200,00/mês");
+  assert.equal(parseMoney("1.200,50"), 1200.5);
+  assert.equal(parseMoney("350"), 350);
+  assert.equal(parseMoney("R$ 49,9"), 49.9);
+  assert.equal(parseMoney("abc"), null);
+  const p = { paid_at: null, due_on: "2026-10-10", amount: 200 };
+  assert.equal(paymentStatus(p, "2026-10-09"), "pendente");
+  assert.equal(paymentStatus(p, "2026-10-10"), "hoje");
+  assert.equal(paymentStatus(p, "2026-10-11"), "atrasado");
+  assert.equal(paymentStatus({ ...p, paid_at: "2026-10-09T10:00:00Z" }, "2026-10-11"), "pago");
 });

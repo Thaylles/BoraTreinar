@@ -15,6 +15,7 @@ export default async function PersonalLayout({ children }: { children: React.Rea
   return (
     <AppShell
       name={profile.full_name}
+      avatarPath={profile.avatar_path}
       roleLabel={profile.role === "admin" ? "Admin · modo Personal" : "Personal"}
       root="/personal"
       isAdmin={profile.role === "admin"}
@@ -23,7 +24,7 @@ export default async function PersonalLayout({ children }: { children: React.Rea
         { href: "/personal/alunos", label: "Alunos", icon: "users" },
         { href: "/personal/agenda", label: "Agenda", icon: "calendar" },
         { href: "/personal/exercicios", label: "Exercícios", icon: "dumbbell" },
-        { href: "/personal/convites", label: "Convites", icon: "ticket" },
+        { href: "/personal/financeiro", label: "Financeiro", icon: "wallet" },
         { href: "/personal/solicitacoes", label: "Pedidos", icon: "inbox", badge: count ?? 0 },
       ]}
     >

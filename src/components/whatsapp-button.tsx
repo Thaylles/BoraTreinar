@@ -14,20 +14,25 @@ export function WhatsAppButton({
   phone,
   compact = false,
   className,
+  text,
+  label = "Chamar no WhatsApp",
 }: {
   phone: string | null | undefined;
   compact?: boolean;
   className?: string;
+  /** Mensagem pronta (padrão: confirmação do treino). */
+  text?: string;
+  label?: string;
 }) {
-  const href = whatsappLink(phone);
+  const href = whatsappLink(phone, text);
   if (!href) return null;
   return (
     <a
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label="Chamar no WhatsApp"
-      title="Chamar no WhatsApp"
+      aria-label={label}
+      title={label}
       className={cn(
         "inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#25D366] font-display font-bold text-[#0b3d1f] transition hover:brightness-95",
         compact ? "size-11" : "px-4 py-2.5",
@@ -35,7 +40,7 @@ export function WhatsAppButton({
       )}
     >
       <WhatsAppIcon className={compact ? "size-6" : "size-5"} />
-      {!compact && "Chamar no WhatsApp"}
+      {!compact && label}
     </a>
   );
 }

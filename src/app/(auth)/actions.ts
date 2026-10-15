@@ -53,6 +53,33 @@ export async function signUpPersonal(_: ActionState, fd: FormData): Promise<Acti
   };
 }
 
+/** Aluno cria conta sozinho (sem convite). Confirma o e-mail e cai na vitrine de Personais. */
+export async function signUpStudentOpen(_: ActionState, fd: FormData): Promise<ActionState> {
+  const fullName = str(fd, "full_name");
+  const password = String(fd.get("password") ?? "");
+  const phone = normalizePhoneBR(str(fd, "phone"));
+  const birthDate = str(fd, "birth_date") || null;
+
+  if (fullName.length < 2) return { error: "Informe seu nome." };
+  if (!phone) return { error: "Informe um WhatsApp válido com DDD." };
+  if (password.length < MIN_PASSWORD) return { error: "A senha precisa ter pelo menos 8 caracteres." };
+  if (fd.get("terms") !== "on") return { error: "É preciso aceitar o termo de uso e privacidade." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signUp({
+    email: str(fd, "email"),
+    password,
+    options: {
+      emailRedirectTo: `${appUrl}/auth/confirm?next=/aluno/encontrar`,
+      data: { role: "aluno", full_name: fullName, phone, birth_date: birthDate, terms_accepted: true },
+    },
+  });
+  if (error) return { error: friendlyError(error.message) };
+  return {
+    ok: "Conta criada! Enviamos um link de confirmação para o seu e-mail. Confirma lá e bora treinar!",
+  };
+}
+
 export async function signUpStudent(_: ActionState, fd: FormData): Promise<ActionState> {
   const token = str(fd, "token");
   const fullName = str(fd, "full_name");

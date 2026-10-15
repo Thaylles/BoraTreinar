@@ -27,12 +27,14 @@ export function LoginForm({ next, linkError }: { next?: string; linkError?: bool
         Entrar
       </SubmitButton>
       <p className="text-center text-sm text-muted">
-        É Personal e não tem conta?{" "}
+        Não tem conta?{" "}
+        <Link href="/cadastro?tipo=aluno" className="font-semibold text-bandeira-600 hover:underline">
+          Sou aluno
+        </Link>{" "}
+        ·{" "}
         <Link href="/cadastro" className="font-semibold text-bandeira-600 hover:underline">
-          Crie a sua
+          Sou Personal
         </Link>
-        <br />
-        É aluno? Use o link de convite do seu Personal.
       </p>
     </form>
   );

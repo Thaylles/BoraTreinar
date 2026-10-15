@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Loader2, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
+import { PhotoSourceButtons } from "@/components/photo-source-buttons";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/image";
 import { EQUIPMENT_BUCKET } from "@/lib/catalog";
@@ -20,7 +21,6 @@ export function CatalogPhoto({
   userId: string;
   hasPhoto: boolean;
 }) {
-  const fileRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -65,26 +65,11 @@ export function CatalogPhoto({
     <div className="mt-6 rounded-3xl border border-border bg-surface p-4">
       <h2 className="font-display text-lg font-bold">Foto do aparelho</h2>
       <p className="mb-3 text-sm text-muted">
-        Tire uma foto do aparelho para os alunos reconhecerem na academia. A foto vale para todos que usam o
+        Tire uma foto do aparelho (ou escolha uma da galeria) para os alunos reconhecerem na academia. A foto vale para todos que usam o
         BoraTreinar e mostra que foi você quem enviou.
       </p>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) upload(f);
-          e.target.value = "";
-        }}
-      />
       <div className="flex flex-wrap gap-2">
-        <Button type="button" onClick={() => fileRef.current?.click()} disabled={pending}>
-          {pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Camera className="size-4" aria-hidden />}
-          {hasPhoto ? "Trocar foto" : "Enviar foto"}
-        </Button>
+        <PhotoSourceButtons onPick={upload} pending={pending} />
         {hasPhoto && (
           <Button type="button" variant="ghost" onClick={restore} disabled={pending}>
             <RotateCcw className="size-4" aria-hidden /> Voltar à ilustração

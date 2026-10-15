@@ -81,6 +81,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ c
             Sou Personal — criar conta
           </Link>
           <Link
+            href="/cadastro?tipo=aluno"
+            className="w-full rounded-2xl bg-ipe-500 px-6 py-4 font-display text-lg font-bold text-anil-900 shadow-lg shadow-ipe-500/25 transition hover:bg-ipe-400 sm:w-auto"
+          >
+            Sou aluno — criar conta
+          </Link>
+          <Link
             href="/entrar"
             className="w-full rounded-2xl border-2 border-anil-700 px-6 py-4 font-display text-lg font-bold text-anil-700 transition hover:bg-anil-700 hover:text-white sm:w-auto dark:border-ipe-500 dark:text-ipe-500 dark:hover:bg-ipe-500 dark:hover:text-anil-900"
           >
@@ -88,7 +94,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ c
           </Link>
         </div>
         <p className="mt-4 text-sm text-muted">
-          É aluno? Peça o link de convite ao seu Personal.
+          Recebeu um convite do seu Personal? É só abrir o link dele.
         </p>
       </section>
 

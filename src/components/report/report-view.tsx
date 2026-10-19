@@ -1,6 +1,7 @@
 import { ArrowDownRight, ArrowRight, ArrowUpRight, Bot, CircleAlert, CircleCheck, Lightbulb, Lock, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { SOURCE_LABEL, sessionsLine, suggestionSets, type ReportContent, type SuggestionSource } from "@/lib/report";
+import { SOURCE_LABEL, sessionsLine, suggestionSets, type ReportContent, type ReportStudent, type SuggestionSource } from "@/lib/report";
+import { formatAmount } from "@/lib/cardio";
 import { formatKg, type Trend } from "@/lib/stats";
 import { cn } from "@/lib/cn";
 
@@ -93,6 +94,8 @@ export function ReportView({ content, vote }: { content: ReportContent; vote?: R
             )}
           </ul>
 
+          {s.detail && <WeekDetail s={s} />}
+
           {suggestionSets(s).length > 0 && (
             <div className="space-y-2">
               {suggestionSets(s).map((set) => (
@@ -110,6 +113,8 @@ export function ReportView({ content, vote }: { content: ReportContent; vote?: R
               ))}
             </div>
           )}
+
+          <Motivation s={s} />
         </Card>
       ))}
       <p className="text-xs text-muted">
@@ -119,6 +124,118 @@ export function ReportView({ content, vote }: { content: ReportContent; vote?: R
           : "Sugestões geradas por regras simples."}
       </p>
       {vote}
+    </div>
+  );
+}
+
+const ddmm = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+
+/** Semana em detalhe: tempo, meta, o que deixou de fazer, cardio, esforço e conquistas. */
+function WeekDetail({ s }: { s: ReportStudent }) {
+  const d = s.detail!;
+  const c = d.cardio;
+  return (
+    <div className="mb-3 space-y-3 text-sm">
+      <ul className="space-y-1">
+        {!!s.sessions && (
+          <li>
+            ⏱️ {d.minutes} min de treino em {d.days} {d.days === 1 ? "dia" : "dias"}
+          </li>
+        )}
+        {d.weeklyGoal != null && (
+          <li>
+            🎯 Meta semanal: {d.days}/{d.weeklyGoal} dias {d.days >= d.weeklyGoal && "✅"}
+          </li>
+        )}
+        {!s.sessions && <li>📅 {d.lastWorkout ? `Último treino: ${ddmm(d.lastWorkout)}` : "Ainda não registrou nenhum treino"}</li>}
+        {d.effort.avg != null && (
+          <li>
+            💪 Esforço médio: {d.effort.avg.toLocaleString("pt-BR")}/5 ({d.effort.rated} {d.effort.rated === 1 ? "treino avaliado" : "treinos avaliados"})
+          </li>
+        )}
+        {!!d.effort.pain && (
+          <li className="font-semibold text-pitanga-600">
+            ⚠️ Relatou dor em {d.effort.pain} {d.effort.pain === 1 ? "treino" : "treinos"}
+          </li>
+        )}
+        {d.effort.feedback.map((f) => (
+          <li key={f} className="text-muted">
+            💬 “{f}”
+          </li>
+        ))}
+      </ul>
+
+      {d.missed.length ? (
+        <div>
+          <p className="mb-1 font-bold">🚫 Deixou de fazer</p>
+          <ul className="list-disc space-y-0.5 pl-5">
+            {d.missed.map((m) => (
+              <li key={m.kind + m.name}>
+                {m.name} — {m.kind === "pulado" ? `não fez${m.count > 1 ? ` (${m.count}×)` : ""}` : `${m.count} de ${m.total} séries não feitas`}
+                {!!m.plans.length && <span className="text-muted"> · {m.plans.join(", ")}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        !!s.sessions && <p className="font-bold">✅ Não deixou nenhum exercício para trás</p>
+      )}
+
+      <div className="rounded-2xl border border-border p-3">
+        <p className="font-bold">
+          🏃 Cardio:{" "}
+          {c.minutes
+            ? `fez ${formatAmount(c.minutes, "min")}${c.km ? ` · ${formatAmount(c.km, "km")}` : ""} em ${c.days} ${c.days === 1 ? "dia" : "dias"}`
+            : "não fez nesta semana"}
+        </p>
+        {c.goal ? (
+          <>
+            <p className="mt-1 text-xs text-muted">
+              Meta: {c.goal.label}
+              {!c.goal.byPersonal && " (definida pelo aluno)"} — {formatAmount(c.goal.value, c.goal.unit)} de {formatAmount(c.goal.target, c.goal.unit)}
+            </p>
+            <div className="mt-1 h-2.5 overflow-hidden rounded-full bg-border/60" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={c.goal.pct} aria-label="Meta de cardio">
+              <div className={cn("h-full rounded-full", c.goal.done ? "bg-ipe-500" : "bg-pitanga-500")} style={{ width: `${c.goal.pct}%` }} />
+            </div>
+          </>
+        ) : (
+          <p className="mt-1 text-xs text-muted">Sem meta de cardio. Defina na página do aluno.</p>
+        )}
+        {!!c.items.length && (
+          <ul className="mt-2 space-y-0.5 text-xs">
+            {c.items.map((i, k) => (
+              <li key={k}>
+                {ddmm(i.date)} · {i.name}: {i.line}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {!!d.achievements.length && (
+        <p>
+          🏆 <strong>Conquistas:</strong> {d.achievements.map((a) => `${a.emoji} ${a.title}`).join(" · ")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Mensagens de motivação (regras e IAs) para o Personal mandar ao aluno. */
+function Motivation({ s }: { s: ReportStudent }) {
+  const msgs = [
+    ...(s.motivation ? [{ source: "regras" as SuggestionSource, text: s.motivation }] : []),
+    ...(s.aiSuggestions ?? []).filter((a) => a.motivation).map((a) => ({ source: a.source as SuggestionSource, text: a.motivation! })),
+  ];
+  if (!msgs.length) return null;
+  return (
+    <div className="mt-3 rounded-2xl bg-ipe-100 p-3 text-sm text-anil-900 dark:bg-ipe-500/15 dark:text-ipe-400">
+      <p className="mb-1 font-bold">💬 Mensagem de motivação para mandar ao aluno</p>
+      {msgs.map((m) => (
+        <p key={m.source} className="mt-1">
+          “{m.text}” <span className="text-xs opacity-70">· {SOURCE_LABEL[m.source]}</span>
+        </p>
+      ))}
     </div>
   );
 }

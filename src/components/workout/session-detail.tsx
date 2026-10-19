@@ -5,6 +5,7 @@ import { EquipmentImage } from "@/components/equipment-image";
 import { formatDateTime } from "@/lib/format";
 import type { loadSession } from "@/lib/sessions-server";
 import { effortInfo } from "@/lib/effort";
+import { cardioSetLine } from "@/lib/cardio";
 
 type Loaded = NonNullable<Awaited<ReturnType<typeof loadSession>>>;
 
@@ -78,7 +79,15 @@ export function SessionDetail({ data, exerciseHref }: { data: Loaded; exerciseHr
                   <span className="w-5 text-muted">{s.set_number}.</span>
                   {s.done ? <Check className="size-4 text-bandeira-600" aria-label="feita" /> : <X className="size-4 text-pitanga-500" aria-label="não feita" />}
                   <span className={s.done ? "" : "text-muted line-through"}>
-                    {Number(s.load_kg).toLocaleString("pt-BR")} kg × {s.reps}
+                    {ex.equipment?.muscle_group === "cardio"
+                      ? cardioSetLine({
+                          minutes: s.duration_min ?? s.reps,
+                          km: s.distance_km,
+                          speed: s.speed_kmh,
+                          incline: s.incline_pct,
+                          level: s.level,
+                        })
+                      : `${Number(s.load_kg).toLocaleString("pt-BR")} kg × ${s.reps}`}
                   </span>
                   {s.is_pr && (
                     <span className="inline-flex items-center gap-0.5 rounded-full bg-ipe-500 px-2 text-xs font-bold text-anil-900">

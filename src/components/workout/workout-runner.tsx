@@ -25,6 +25,7 @@ import { SessionRating } from "@/components/workout/session-rating";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { cn } from "@/lib/cn";
+import { cardioSetLine, type IntensityUnit } from "@/lib/cardio";
 
 export type RunnerExercise = {
   equipment: {
@@ -34,6 +35,8 @@ export type RunnerExercise = {
     image_path: string | null;
     image_url: string | null;
     is_bodyweight: boolean;
+    /** Cardio: velocidade/inclinação (esteira) ou nível (bicicleta, elíptico). */
+    intensity_unit?: IntensityUnit | null;
   };
   notes: string | null;
   restSeconds: number;
@@ -48,7 +51,8 @@ export type RunnerExercise = {
   groupedNext?: number;
 };
 
-type SetState = { load: string; reps: string; done: boolean | null };
+/** No cardio, `reps` guarda os minutos; os demais campos são do painel do aparelho. */
+type SetState = { load: string; reps: string; done: boolean | null; km?: string; speed?: string; incline?: string; level?: string };
 type ExerciseState = { rest: number; sets: SetState[] };
 type Draft = { v: 1; clientId: string; startedAt: string; exercises: ExerciseState[] };
 type Timer = { endsAt: number; total: number; exercise: number } | null;
@@ -59,6 +63,10 @@ const parseNum = (s: string) => {
   const n = Number(s.replace(",", ".").trim());
   return Number.isFinite(n) && n >= 0 ? n : 0;
 };
+const optNum = (s: string | undefined) => (s == null || s.trim() === "" ? null : parseNum(s));
+const str = (n: number | null | undefined) => (n == null ? "" : fmtNum(n));
+const isCardioEx = (ex: RunnerExercise) => ex.equipment.muscle_group === "cardio";
+
 const clock = (sec: number) => {
   const s = Math.max(0, Math.round(sec));
   const h = Math.floor(s / 3600);
@@ -75,6 +83,18 @@ function initialExercises(list: RunnerExercise[]): ExerciseState[] {
       rest: ex.restSeconds,
       sets: Array.from({ length: count }, (_, i) => {
         const prev = last[i] ?? last[last.length - 1];
+        if (isCardioEx(ex)) {
+          const minutes = prev?.minutes ?? prev?.reps ?? ex.repsMin ?? null;
+          return {
+            load: "0",
+            reps: minutes == null ? "" : fmtNum(minutes),
+            km: str(prev?.km),
+            speed: str(prev?.speed),
+            incline: str(prev?.incline),
+            level: str(prev?.level),
+            done: null,
+          };
+        }
         const load = prev?.load ?? ex.suggestedLoad ?? (ex.equipment.is_bodyweight ? 0 : null);
         const reps = ex.repsMin ?? prev?.reps ?? null;
         return { load: load == null ? "" : fmtNum(load), reps: reps == null ? "" : String(reps), done: null };
@@ -224,7 +244,7 @@ export function WorkoutRunner({
     const ex = draft!.exercises[ei];
     const last = ex.sets[ex.sets.length - 1];
     if (ex.sets.length >= 20) return;
-    updateExercise(ei, { sets: [...ex.sets, { load: last?.load ?? "", reps: last?.reps ?? "", done: null }] });
+    updateExercise(ei, { sets: [...ex.sets, { ...(last ?? { load: "", reps: "" }), done: null }] });
   }
   function removeSet(ei: number) {
     const ex = draft!.exercises[ei];
@@ -259,7 +279,20 @@ export function WorkoutRunner({
       finished_at: finishedAt,
       exercises: draft.exercises.map((ex, i) => ({
         equipment_id: exercises[i].equipment.id,
-        sets: ex.sets.map((s) => ({ load_kg: parseNum(s.load), reps: Math.round(parseNum(s.reps)), done: s.done === true })),
+        sets: ex.sets.map((s) =>
+          isCardioEx(exercises[i])
+            ? {
+                load_kg: 0,
+                reps: Math.round(parseNum(s.reps)),
+                done: s.done === true,
+                duration_min: optNum(s.reps),
+                distance_km: optNum(s.km),
+                speed_kmh: optNum(s.speed),
+                incline_pct: optNum(s.incline),
+                level: s.level ? Math.round(parseNum(s.level)) : null,
+              }
+            : { load_kg: parseNum(s.load), reps: Math.round(parseNum(s.reps)), done: s.done === true },
+        ),
       })),
     };
     const base = {
@@ -434,13 +467,15 @@ function ExerciseCard({
               <History className="mt-0.5 size-3.5 shrink-0" aria-hidden />
               <span>
                 Última vez ({new Date(last.date).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit" })}):{" "}
-                {last.sets.map((s) => `${fmtNum(s.load)}kg×${s.reps}`).join(", ")}
+                {isCardio
+                  ? last.sets.map((s) => cardioSetLine({ minutes: s.minutes ?? s.reps, km: s.km ?? null, speed: s.speed ?? null, incline: s.incline ?? null, level: s.level ?? null })).join(" | ")
+                  : last.sets.map((s) => `${fmtNum(s.load)}kg×${s.reps}`).join(", ")}
               </span>
             </p>
           ) : (
             <p className="mt-1 text-xs text-muted">Primeira vez nesse exercício 🚀</p>
           )}
-          {best != null && (
+          {best != null && !isCardio && (
             <p className="mt-0.5 flex items-center gap-1 text-xs text-muted">
               <Trophy className="size-3.5 text-ipe-600" aria-hidden /> Recorde: {formatKg(best)}
             </p>
@@ -484,6 +519,20 @@ function ExerciseCard({
         </p>
       )}
 
+      {isCardio ? (
+        <ul className="mt-3 space-y-2">
+          {state.sets.map((s, si) => (
+            <CardioSetRow
+              key={si}
+              index={si}
+              set={s}
+              unit={exercise.equipment.intensity_unit ?? "nivel"}
+              onChange={(patch) => onSet(si, patch)}
+              onMark={(done) => onMark(si, done)}
+            />
+          ))}
+        </ul>
+      ) : (
       <div className="mt-3">
         <div className="grid grid-cols-[1.75rem_1fr_1fr_5.5rem] items-center gap-2 px-1 text-xs font-semibold text-muted">
           <span>#</span>
@@ -548,6 +597,7 @@ function ExerciseCard({
           ))}
         </ul>
       </div>
+      )}
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex gap-2">
@@ -673,5 +723,85 @@ function WorkoutSummary({ summary, backHref, canRate }: { summary: Summary; back
         Voltar
       </Link>
     </div>
+  );
+}
+
+const cardioInput =
+  "w-full rounded-xl border border-border bg-background px-3 py-2.5 text-center text-lg font-semibold outline-none focus:border-bandeira-500";
+
+/** Uma série de cardio: tempo, distância e a intensidade do painel do aparelho. */
+function CardioSetRow({
+  index,
+  set,
+  unit,
+  onChange,
+  onMark,
+}: {
+  index: number;
+  set: SetState;
+  unit: IntensityUnit;
+  onChange: (patch: Partial<SetState>) => void;
+  onMark: (done: boolean) => void;
+}) {
+  const fields: { key: "reps" | "km" | "speed" | "incline" | "level"; label: string; mode: "decimal" | "numeric" }[] = [
+    { key: "reps", label: "Tempo (min)", mode: "decimal" },
+    { key: "km", label: "Distância (km)", mode: "decimal" },
+    ...(unit === "velocidade"
+      ? ([
+          { key: "speed", label: "Velocidade (km/h)", mode: "decimal" },
+          { key: "incline", label: "Inclinação (%)", mode: "decimal" },
+        ] as const)
+      : ([{ key: "level", label: "Nível", mode: "numeric" }] as const)),
+  ];
+  return (
+    <li
+      className={cn(
+        "rounded-2xl border border-border p-2 transition",
+        set.done === true && "border-bandeira-500/60 bg-bandeira-50 dark:bg-bandeira-500/10",
+        set.done === false && "bg-pitanga-100/60 dark:bg-pitanga-500/10",
+      )}
+    >
+      <div className="grid grid-cols-2 gap-2">
+        {fields.map((f) => (
+          <label key={f.key} className="text-xs font-semibold text-muted">
+            {f.label}
+            <input
+              inputMode={f.mode}
+              value={set[f.key] ?? ""}
+              onChange={(e) => onChange({ [f.key]: e.target.value })}
+              placeholder="—"
+              aria-label={`${f.label} da série ${index + 1}`}
+              className={cn(cardioInput, "mt-1 text-foreground")}
+            />
+          </label>
+        ))}
+      </div>
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          onClick={() => onMark(true)}
+          aria-pressed={set.done === true}
+          aria-label={`Série ${index + 1} feita`}
+          className={cn(
+            "flex h-11 flex-1 items-center justify-center gap-1 rounded-xl border-2 text-sm font-bold transition",
+            set.done === true ? "border-bandeira-500 bg-bandeira-500 text-white" : "border-border text-muted",
+          )}
+        >
+          <Check className="size-5" aria-hidden /> Feito
+        </button>
+        <button
+          type="button"
+          onClick={() => onMark(false)}
+          aria-pressed={set.done === false}
+          aria-label={`Série ${index + 1} não feita`}
+          className={cn(
+            "flex h-11 flex-1 items-center justify-center gap-1 rounded-xl border-2 text-sm font-bold transition",
+            set.done === false ? "border-pitanga-500 bg-pitanga-500 text-white" : "border-border text-muted",
+          )}
+        >
+          <X className="size-5" aria-hidden /> Não fiz
+        </button>
+      </div>
+    </li>
   );
 }

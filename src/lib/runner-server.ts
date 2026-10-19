@@ -34,6 +34,7 @@ async function buildRunner(loaded: NonNullable<Awaited<ReturnType<typeof loadPla
       image_path: i.equipment!.image_path,
       image_url: i.equipment!.image_url,
       is_bodyweight: i.equipment!.is_bodyweight,
+      intensity_unit: i.equipment!.intensity_unit,
     },
     notes: i.notes,
     restSeconds: i.rest_seconds,

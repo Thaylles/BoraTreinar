@@ -176,7 +176,7 @@ test("relatório do aluno: fichas e livres, tendência de carga e peso só com p
   assert.deepEqual(hidden.weight, { visible: false });
 
   const sug = ruleSuggestions(r);
-  assert.ok(sug.length >= 3 && sug.length <= 4);
+  assert.ok(sug.length >= 3 && sug.length <= 6);
   assert.ok(sug.some((x) => x.includes("estagnada em Agachamento")));
   assert.ok(sug.some((x) => x.includes("caiu em Remada")));
 
@@ -191,6 +191,72 @@ test("relatório do aluno: fichas e livres, tendência de carga e peso só com p
     { week_start: "2026-10-05", week_end: "2026-10-11", students: [hidden], ai: false },
     { personalName: "Dora", reportUrl: "https://x" },
   ).includes("Peso:"), "sem permissão o peso não aparece no e-mail");
+});
+
+test("semana em detalhe: exercícios pulados, séries não feitas, cardio e meta", async () => {
+  const { weekDetail, ruleSuggestions: rules, ruleMotivation, reportHtml: html } = await import("../report.ts");
+  const { goalProgress, cardioSetLine, goalLabel } = await import("../cardio.ts");
+  const cardioWeek = {
+    week_start: "2026-10-12", minutes: 45, km: 4.5, intense_minutes: 30, days: 1,
+    goal: { kind: "minutos" as const, target: 90, min_speed_kmh: null, min_level: null, by_personal: true },
+  };
+  assert.deepEqual(goalProgress(cardioWeek), { value: 45, target: 90, unit: "min", pct: 50, done: false });
+  assert.equal(cardioSetLine({ minutes: 30, km: 4.5, speed: 9, incline: 1, level: null }), "30 min · 4,5 km · 9 km/h · inclinação 1%");
+  assert.equal(goalLabel({ kind: "intenso", target: 60, min_speed_kmh: 8.5, min_level: 6 }), "60 min em ritmo forte por semana (≥ 8,5 km/h ou nível ≥ 6)");
+  const set = (session_id: string, equipment_id: string, done: boolean, extra = {}) => ({
+    session_id, equipment_id, done, reps: 10, duration_min: null, distance_km: null, speed_kmh: null, incline_pct: null, level: null, ...extra,
+  });
+  const d = weekDetail({
+    sessions: [
+      { id: "w1", date: "2026-10-13", plan_id: "p1", plan_name: "Treino A", duration_seconds: 3600, effort: 4, pain: true, feedback: "Joelho incomodou" },
+      { id: "w2", date: "2026-10-15", plan_id: null, plan_name: null, duration_seconds: 1800, effort: 3, pain: false, feedback: null },
+    ],
+    sets: [
+      set("w1", "sup", true), set("w1", "sup", false), set("w1", "sup", true),
+      set("w1", "est", true, { reps: 30, duration_min: 30, distance_km: 4.5, speed_kmh: 9 }),
+      set("w2", "bic", true, { reps: 15, duration_min: 15, level: 6 }),
+      set("w2", "ros", false), set("w2", "ros", false),
+    ],
+    planItems: { p1: ["sup", "agc", "est"] },
+    equipment: {
+      sup: { name: "Supino", cardio: false }, agc: { name: "Agachamento", cardio: false }, ros: { name: "Rosca", cardio: false },
+      est: { name: "Esteira", cardio: true }, bic: { name: "Bicicleta", cardio: true },
+    },
+    cardioWeek,
+    weeklyGoal: 3,
+    lastWorkout: "2026-10-15",
+    achievements: [{ emoji: "✅", title: "Tá pago!" }],
+  });
+  assert.equal(d.days, 2);
+  assert.equal(d.minutes, 90);
+  assert.deepEqual(
+    d.missed.map((m) => [m.name, m.kind, m.count, m.total ?? null]),
+    [["Agachamento", "pulado", 1, null], ["Rosca", "pulado", 1, null], ["Supino", "incompleto", 1, 3]],
+  );
+  assert.deepEqual(d.cardio.items.map((i) => i.line), ["30 min · 4,5 km · 9 km/h", "15 min · nível 6"]);
+  assert.equal(d.cardio.goal?.pct, 50);
+  assert.deepEqual(d.effort, { avg: 3.5, rated: 2, pain: 1, feedback: ["Joelho incomodou"] });
+
+  const r = buildStudentReport({
+    id: "s9", name: "Duda Lima", sessions: [], names: {}, period: periodFor("semana", "2026-10-18"), today: "2026-10-18", weights: null,
+  });
+  const s = { ...r, sessions: 2, detail: d };
+  const sug = rules(s);
+  assert.ok(sug.length <= 6);
+  assert.ok(sug.some((x) => x.startsWith("Treinou 2 de 3 dias")));
+  assert.ok(sug.some((x) => x.includes("Deixou de fazer Agachamento e Rosca")));
+  assert.ok(sug.some((x) => x.startsWith("Cardio abaixo da meta: 45 min de 90 min")));
+  assert.ok(sug.some((x) => x.startsWith("Relatou dor em 1 treino")));
+  assert.ok(ruleMotivation(s).includes("Duda"));
+  const out = html({ week_start: "2026-10-12", week_end: "2026-10-18", students: [{ ...s, suggestions: sug, motivation: ruleMotivation(s) }], ai: false }, {
+    personalName: "Dora", reportUrl: "https://x",
+  });
+  for (const t of ["Deixou de fazer", "Agachamento — não fez", "1 de 3 séries não feitas", "Cardio: fez (45 min", "45 min de 90 min", "Esteira: 30 min", "Mensagem de motivação", "Tá pago!", "Relatou dor"])
+    assert.ok(out.includes(t), `e-mail com "${t}"`);
+  const none = html({ week_start: "2026-10-12", week_end: "2026-10-18", students: [{ ...s, detail: { ...d, cardio: { ...d.cardio, minutes: 0, items: [], goal: null } } }], ai: false }, {
+    personalName: "Dora", reportUrl: "https://x",
+  });
+  assert.ok(none.includes("Cardio: não fez nesta semana"));
 });
 
 test("sugestões por regras para quem não treinou", () => {

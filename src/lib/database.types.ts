@@ -55,6 +55,7 @@ export type Database = {
           image_updated_at: string | null;
           image_updated_by: string | null;
           image_url: string | null;
+          intensity_unit: "velocidade" | "nivel" | null;
           is_bodyweight: boolean;
           is_default: boolean;
           locked: boolean;
@@ -67,6 +68,7 @@ export type Database = {
           description?: string | null;
           id?: string;
           image_path?: string | null;
+          intensity_unit?: "velocidade" | "nivel" | null;
           is_bodyweight?: boolean;
           muscle_group: Database["public"]["Enums"]["muscle_group"];
           name: string;
@@ -74,6 +76,7 @@ export type Database = {
         Update: {
           description?: string | null;
           image_path?: string | null;
+          intensity_unit?: "velocidade" | "nivel" | null;
           is_bodyweight?: boolean;
           muscle_group?: Database["public"]["Enums"]["muscle_group"];
           name?: string;
@@ -380,15 +383,20 @@ export type Database = {
       };
       session_sets: {
         Row: {
+          distance_km: number | null;
           done: boolean;
+          duration_min: number | null;
           equipment_id: string;
           exercise_order: number;
           id: string;
+          incline_pct: number | null;
           is_pr: boolean;
+          level: number | null;
           load_kg: number;
           reps: number;
           session_id: string;
           set_number: number;
+          speed_kmh: number | null;
         };
         Insert: never;
         Update: never;
@@ -408,6 +416,53 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      // Só pelo servidor (service role): o app lê conquistas por my_achievements().
+      achievements: {
+        Row: {
+          audience: "aluno" | "personal";
+          category: string;
+          code: string;
+          description: string;
+          emoji: string;
+          hidden: boolean;
+          metric: string;
+          sort: number;
+          threshold: number;
+          tier: "bronze" | "prata" | "ouro" | "platina";
+          title: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      student_achievements: {
+        Row: { code: string; student_id: string; unlocked_at: string };
+        Insert: never;
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: "student_achievements_code_fkey";
+            columns: ["code"];
+            isOneToOne: false;
+            referencedRelation: "achievements";
+            referencedColumns: ["code"];
+          },
+        ];
+      };
+      cardio_goals: {
+        Row: {
+          kind: "minutos" | "distancia" | "intenso";
+          min_level: number | null;
+          min_speed_kmh: number | null;
+          set_by: string | null;
+          student_id: string;
+          target: number;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
       };
       weekly_reports: {
         Row: {
@@ -710,6 +765,12 @@ export type Database = {
       };
       inactivity_nudges: { Args: Record<string, never>; Returns: number };
       accept_invite: { Args: { p_token: string }; Returns: string };
+      set_cardio_goal: {
+        Args: { p_student: string; p_kind: string; p_target: number; p_min_speed?: number | null; p_min_level?: number | null };
+        Returns: undefined;
+      };
+      clear_cardio_goal: { Args: { p_student: string }; Returns: undefined };
+      cardio_week: { Args: { p_student: string; p_day?: string }; Returns: Json };
       my_achievements: {
         Args: { p_student?: string | null; p_audience?: string };
         Returns: {

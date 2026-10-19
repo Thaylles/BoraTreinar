@@ -13,6 +13,8 @@ export type CatalogItem = {
   image_path: string | null;
   image_url: string | null;
   is_bodyweight: boolean;
+  /** Cardio: como o painel do aparelho mede a intensidade. */
+  intensity_unit?: "velocidade" | "nivel" | null;
 };
 
 const normalize = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();

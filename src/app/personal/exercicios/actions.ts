@@ -12,6 +12,8 @@ export type EquipmentInput = {
   muscle_group: string;
   description: string;
   is_bodyweight: boolean;
+  /** Cardio: "velocidade" (esteira) ou "nivel" (bicicleta, elíptico). */
+  intensity_unit?: string;
   /** undefined = manter a imagem atual; null = remover; string = novo caminho no Storage */
   image_path?: string | null;
 };
@@ -37,6 +39,8 @@ export async function saveEquipment(input: EquipmentInput): Promise<{ error: str
     muscle_group: input.muscle_group,
     description,
     is_bodyweight: input.is_bodyweight,
+    intensity_unit:
+      input.muscle_group === "cardio" ? (input.intensity_unit === "velocidade" ? ("velocidade" as const) : ("nivel" as const)) : null,
     ...(input.image_path !== undefined && { image_path: input.image_path }),
   };
 

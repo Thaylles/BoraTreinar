@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { RotateCcw } from "lucide-react";
 import { PhotoSourceButtons } from "@/components/photo-source-buttons";
 import { createClient } from "@/lib/supabase/client";
-import { compressImage } from "@/lib/image";
+import { compressImage, isHeic } from "@/lib/image";
 import { EQUIPMENT_BUCKET } from "@/lib/catalog";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
@@ -29,7 +29,7 @@ export function CatalogPhoto({
   function upload(file: File) {
     setError(null);
     setDone(null);
-    if (!file.type.startsWith("image/")) return setError("Escolha um arquivo de imagem.");
+    if (!file.type.startsWith("image/") && !isHeic(file)) return setError("Escolha um arquivo de imagem.");
     if (file.size > 15 * 1024 * 1024) return setError("Imagem muito grande (máx. 15 MB).");
     startTransition(async () => {
       try {

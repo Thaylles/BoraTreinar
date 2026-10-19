@@ -18,7 +18,7 @@ import {
   equipmentImageSrc,
   type Equipment,
 } from "@/lib/catalog";
-import { compressImage } from "@/lib/image";
+import { compressImage, imageReadError, isHeic } from "@/lib/image";
 
 type Props = {
   equipment: Pick<
@@ -68,7 +68,7 @@ export function AdminEquipmentForm({ equipment: eq }: Props) {
   function pick(f: File | null) {
     setLocalError(null);
     if (!f) return;
-    if (!f.type.startsWith("image/"))
+    if (!f.type.startsWith("image/") && !isHeic(f))
       return setLocalError("Escolha um arquivo de imagem.");
     if (f.size > 15 * 1024 * 1024)
       return setLocalError("Imagem muito grande (máx. 15 MB).");
@@ -89,7 +89,7 @@ export function AdminEquipmentForm({ equipment: eq }: Props) {
           blob.type === "image/webp" ? "foto.webp" : "foto.jpg",
         );
       } catch {
-        return setLocalError("Não foi possível ler a imagem. Tenta outra?");
+        return setLocalError(imageReadError(file));
       }
     }
     if (remove) fd.set("remove_photo", "1");

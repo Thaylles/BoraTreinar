@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { PhotoSourceButtons } from "@/components/photo-source-buttons";
 import { createClient } from "@/lib/supabase/client";
-import { compressImage } from "@/lib/image";
+import { compressImage, isHeic } from "@/lib/image";
 import { EQUIPMENT_BUCKET, MUSCLE_GROUPS, equipmentImageSrc, type Equipment } from "@/lib/catalog";
 import { Field, inputClass } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ export function EquipmentForm({ userId, initial }: Props) {
   function pickFile(f: File | null) {
     setError(null);
     if (!f) return;
-    if (!f.type.startsWith("image/")) return setError("Escolha um arquivo de imagem.");
+    if (!f.type.startsWith("image/") && !isHeic(f)) return setError("Escolha um arquivo de imagem.");
     if (f.size > 15 * 1024 * 1024) return setError("Imagem muito grande (máx. 15 MB).");
     setFile(f);
     setRemoved(false);

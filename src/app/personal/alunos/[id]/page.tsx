@@ -20,6 +20,7 @@ import { createClient } from "@/lib/supabase/server";
 import { cancelTransfer, revokeShare, setArchived } from "../../actions";
 import { TransferForm } from "./transfer-form";
 import { Avatar } from "@/components/avatar";
+import { CardioGoalCard } from "@/components/cardio/cardio-goal-card";
 
 export const metadata: Metadata = { title: "Aluno" };
 
@@ -194,6 +195,8 @@ export default async function AlunoPage({
       </section>
 
       <StudentClassesSection studentId={id} meId={me.id} />
+
+      <CardioGoalCard studentId={id} canEdit audience="personal" />
 
       <PersonalWeightSection studentId={id} />
 

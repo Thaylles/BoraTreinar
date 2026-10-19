@@ -15,6 +15,7 @@ import { firstName } from "@/lib/format";
 import { WeeklyGoal } from "@/components/weekly-goal";
 import { LinkRequestsCard } from "@/components/link-requests-card";
 import { AchievementsCard } from "@/components/achievements/achievements-card";
+import { CardioGoalCard } from "@/components/cardio/cardio-goal-card";
 
 export const metadata: Metadata = { title: "Início" };
 
@@ -102,6 +103,7 @@ export default async function AlunoHome({
       )}
 
       <WeeklyGoal studentId={profile.id} />
+      <CardioGoalCard studentId={profile.id} canEdit={!personals} audience="aluno" />
       <AchievementsCard rows={achievements ?? []} href="/aluno/conquistas" />
 
       {coach && (

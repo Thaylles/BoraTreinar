@@ -2,7 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { CatalogItem } from "@/components/plans/exercise-picker";
 
-const CATALOG_COLS = "id, name, muscle_group, image_path, image_url, is_bodyweight, is_default, created_by";
+const CATALOG_COLS = "id, name, muscle_group, image_path, image_url, is_bodyweight, is_default, created_by, intensity_unit";
 
 /**
  * Exercícios que podem entrar numa ficha. Para ficha de aluno, só os que o aluno
@@ -19,8 +19,8 @@ export async function loadCatalogFor(studentId: string | null): Promise<CatalogI
   const allowed = links.data ? new Set(links.data.map((l) => l.personal_id)) : null;
   return (all ?? [])
     .filter((e) => !allowed || e.is_default || (e.created_by && (allowed.has(e.created_by) || e.created_by === studentId)))
-    .map(({ id, name, muscle_group, image_path, image_url, is_bodyweight }) => ({
-      id, name, muscle_group, image_path, image_url, is_bodyweight,
+    .map(({ id, name, muscle_group, image_path, image_url, is_bodyweight, intensity_unit }) => ({
+      id, name, muscle_group, image_path, image_url, is_bodyweight, intensity_unit,
     }));
 }
 
@@ -36,7 +36,7 @@ export async function loadPlan(planId: string) {
   if (!plan) return null;
   const { data: items } = await supabase
     .from("workout_plan_items")
-    .select("*, equipment:equipment(id, name, muscle_group, image_path, image_url, is_bodyweight, description)")
+    .select("*, equipment:equipment(id, name, muscle_group, image_path, image_url, is_bodyweight, description, intensity_unit)")
     .eq("plan_id", planId)
     .order("position");
   return { plan, items: items ?? [] };

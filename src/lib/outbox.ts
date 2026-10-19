@@ -11,7 +11,20 @@ export type SessionPayload = {
   started_at: string;
   finished_at: string;
   notes?: string;
-  exercises: { equipment_id: string; sets: { load_kg: number; reps: number; done: boolean }[] }[];
+  exercises: {
+    equipment_id: string;
+    sets: {
+      load_kg: number;
+      reps: number;
+      done: boolean;
+      // Cardio (opcionais)
+      duration_min?: number | null;
+      distance_km?: number | null;
+      speed_kmh?: number | null;
+      incline_pct?: number | null;
+      level?: number | null;
+    }[];
+  }[];
 };
 
 const KEY = "bt:outbox";

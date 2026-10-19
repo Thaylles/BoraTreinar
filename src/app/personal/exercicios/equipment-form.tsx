@@ -19,6 +19,7 @@ export function EquipmentForm({ userId, initial }: Props) {
   const [removed, setRemoved] = useState(false);
   const [warnNoImage, setWarnNoImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [group, setGroup] = useState(initial?.muscle_group ?? "");
   const [pending, startTransition] = useTransition();
 
   const hasImage = Boolean(file) || (Boolean(initial?.image_path) && !removed);
@@ -67,6 +68,7 @@ export function EquipmentForm({ userId, initial }: Props) {
         muscle_group: String(fd.get("muscle_group") ?? ""),
         description: String(fd.get("description") ?? ""),
         is_bodyweight: fd.get("is_bodyweight") === "on",
+        intensity_unit: String(fd.get("intensity_unit") ?? ""),
         image_path,
       });
       if (result?.error) setError(result.error);
@@ -115,7 +117,7 @@ export function EquipmentForm({ userId, initial }: Props) {
         <label htmlFor="muscle_group" className="block text-sm font-semibold">
           Grupo muscular
         </label>
-        <select id="muscle_group" name="muscle_group" required defaultValue={initial?.muscle_group ?? ""} className={inputClass}>
+        <select id="muscle_group" name="muscle_group" required value={group} onChange={(e) => setGroup(e.target.value as typeof group)} className={inputClass}>
           <option value="" disabled>
             Escolha…
           </option>
@@ -126,6 +128,17 @@ export function EquipmentForm({ userId, initial }: Props) {
           ))}
         </select>
       </div>
+      {group === "cardio" && (
+        <div className="space-y-1.5">
+          <label htmlFor="intensity_unit" className="block text-sm font-semibold">
+            Intensidade no painel do aparelho
+          </label>
+          <select id="intensity_unit" name="intensity_unit" defaultValue={initial?.intensity_unit ?? "nivel"} className={inputClass}>
+            <option value="velocidade">Velocidade (km/h) e inclinação (%) — como na esteira</option>
+            <option value="nivel">Nível de carga — como na bicicleta e no elíptico</option>
+          </select>
+        </div>
+      )}
       <div className="space-y-1.5">
         <label htmlFor="description" className="block text-sm font-semibold">
           Descrição / dicas de execução

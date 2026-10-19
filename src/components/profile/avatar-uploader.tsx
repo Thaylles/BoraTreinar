@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { compressImage } from "@/lib/image";
+import { compressImage, isHeic } from "@/lib/image";
 import { AVATAR_BUCKET } from "@/lib/avatar";
 import { setAvatar } from "@/app/perfil-actions";
 import { Avatar } from "@/components/avatar";
@@ -21,7 +21,7 @@ export function AvatarUploader({ userId, name, path }: { userId: string; name: s
 
   function upload(file: File) {
     setState(undefined);
-    if (!file.type.startsWith("image/")) return setState({ error: "Escolha um arquivo de imagem." });
+    if (!file.type.startsWith("image/") && !isHeic(file)) return setState({ error: "Escolha um arquivo de imagem." });
     if (file.size > 20 * 1024 * 1024) return setState({ error: "Imagem muito grande (máx. 20 MB)." });
     setPreview(URL.createObjectURL(file));
     startTransition(async () => {

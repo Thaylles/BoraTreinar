@@ -1,8 +1,10 @@
 import "server-only";
 import { loadPlan } from "@/lib/plans-server";
-import { loadExerciseHistory } from "@/lib/history-server";
+import { loadDoneEquipmentIds, loadExerciseHistory } from "@/lib/history-server";
 import { loadCatalogFor } from "@/lib/plans-server";
-import type { RunnerExercise } from "@/components/workout/workout-runner";
+import type { RunnerExercise, SwapOption } from "@/components/workout/workout-runner";
+import type { CatalogItem } from "@/components/plans/exercise-picker";
+import { rankAlternatives } from "@/lib/swaps";
 import { groupedWithNext } from "@/lib/plans";
 
 /** Monta os exercícios da tela de execução a partir de uma ficha do aluno. */
@@ -46,6 +48,7 @@ async function buildRunner(loaded: NonNullable<Awaited<ReturnType<typeof loadPla
     technique: i.technique,
     groupedNext: grouped[idx],
   }));
+  await attachSwaps(exercises, studentId, items.map((i) => i.substitute ?? null));
   return { plan: loaded.plan, exercises };
 }
 
@@ -73,5 +76,35 @@ export async function loadRunnerForFree(studentId: string, equipmentIds: string[
     suggestedLoad: c.is_bodyweight ? 0 : null,
     history: history[c.id] ?? { last: null, best: null },
   }));
+  await attachSwaps(exercises, studentId, exercises.map(() => null), catalog);
   return { exercises, ignored: equipmentIds.length - chosen.length };
+}
+
+const toRunnerEquipment = (c: CatalogItem): RunnerExercise["equipment"] => ({
+  id: c.id,
+  name: c.name,
+  muscle_group: c.muscle_group,
+  image_path: c.image_path,
+  image_url: c.image_url,
+  is_bodyweight: c.is_bodyweight,
+  intensity_unit: c.intensity_unit ?? null,
+});
+
+/**
+ * "Aparelho ocupado": cada exercício recebe o substituto indicado pelo Personal (se houver) ou até 6
+ * candidatos do mesmo grupo muscular (a IA escolhe 1–2 na hora). Já vem com o histórico do aluno.
+ */
+async function attachSwaps(exercises: RunnerExercise[], studentId: string, substitutes: (CatalogItem | null)[], catalog?: CatalogItem[]) {
+  const [cat, known] = await Promise.all([catalog ? Promise.resolve(catalog) : loadCatalogFor(studentId), loadDoneEquipmentIds(studentId)]);
+  const inWorkout = new Set(exercises.map((e) => e.equipment.id));
+  const picks = exercises.map((e, i) =>
+    substitutes[i] ? [substitutes[i]!] : rankAlternatives(e.equipment, cat, { exclude: inWorkout, known, limit: 6 }),
+  );
+  const ids = [...new Set(picks.flat().map((c) => c.id))];
+  const history = ids.length ? await loadExerciseHistory(studentId, ids) : {};
+  const option = (c: CatalogItem): SwapOption => ({ equipment: toRunnerEquipment(c), history: history[c.id] ?? { last: null, best: null } });
+  exercises.forEach((e, i) => {
+    if (substitutes[i]) e.substitute = option(substitutes[i]!);
+    else e.alternatives = picks[i].map(option);
+  });
 }

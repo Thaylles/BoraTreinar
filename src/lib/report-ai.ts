@@ -1,5 +1,6 @@
 import "server-only";
 import type { AiSource, ReportStudent } from "@/lib/report";
+import { AI_PROVIDERS } from "@/lib/ai";
 
 const SYSTEM = `Você é um treinador de musculação experiente ajudando um Personal Trainer brasileiro.
 Para cada aluno, escreva de 3 a 5 sugestões curtas e práticas de estratégia para a próxima semana, em português do Brasil,
@@ -91,60 +92,10 @@ function parse(text: string, alias: Map<string, string>): { suggestions: Record<
   return { suggestions, motivation };
 }
 
-async function post(url: string, headers: Record<string, string>, body: unknown): Promise<unknown> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      signal: controller.signal,
-      headers: { "content-type": "application/json", ...headers },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      throw new Error(res.status === 429 ? "limite de uso atingido (429)" : `HTTP ${res.status} ${detail.slice(0, 120)}`);
-    }
-    return await res.json();
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/** Claude (Anthropic). Precisa de ANTHROPIC_API_KEY; modelo em ANTHROPIC_MODEL. */
-async function claude(prompt: string): Promise<string> {
-  const body = (await post(
-    "https://api.anthropic.com/v1/messages",
-    { "x-api-key": process.env.ANTHROPIC_API_KEY!, "anthropic-version": "2023-06-01" },
-    {
-      model: process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5",
-      max_tokens: 6000,
-      system: SYSTEM,
-      messages: [{ role: "user", content: prompt }],
-    },
-  )) as { content?: { type: string; text?: string }[] };
-  return body.content?.find((c) => c.type === "text")?.text ?? "";
-}
-
-/** Gemini (Google AI Studio, tem faixa gratuita). Precisa de GEMINI_API_KEY; modelo em GEMINI_MODEL. */
-async function gemini(prompt: string): Promise<string> {
-  const model = process.env.GEMINI_MODEL || "gemini-flash-latest";
-  const body = (await post(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-    { "x-goog-api-key": process.env.GEMINI_API_KEY! },
-    {
-      systemInstruction: { parts: [{ text: SYSTEM }] },
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: "application/json", maxOutputTokens: 6000, temperature: 0.4 },
-    },
-  )) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-  return body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
-}
-
-const PROVIDERS: { source: AiSource; enabled: () => boolean; call: (prompt: string) => Promise<string> }[] = [
-  { source: "gemini", enabled: () => !!process.env.GEMINI_API_KEY, call: gemini },
-  { source: "claude", enabled: () => !!process.env.ANTHROPIC_API_KEY, call: claude },
-];
+const PROVIDERS = AI_PROVIDERS.map((p) => ({
+  ...p,
+  call: (prompt: string) => p.call(SYSTEM, prompt, { maxTokens: 6000, timeoutMs: TIMEOUT_MS, json: true }),
+}));
 
 /**
  * Sugestões de todas as IAs configuradas, em paralelo (uma chamada por IA por Personal).

@@ -229,6 +229,15 @@ test("semana em detalhe: exercícios pulados, séries não feitas, cardio e meta
   });
   assert.equal(d.days, 2);
   assert.equal(d.minutes, 90);
+  // Agachamento trocado pelo Leg press (aparelho ocupado): não conta como pulado.
+  const swapped = weekDetail({
+    sessions: [{ id: "w1", date: "2026-10-13", plan_id: "p1", plan_name: "Treino A", duration_seconds: 600, effort: null, pain: false, feedback: null }],
+    sets: [set("w1", "leg", true, { replaced_equipment_id: "agc" })],
+    planItems: { p1: ["agc"] },
+    equipment: { agc: { name: "Agachamento", cardio: false }, leg: { name: "Leg press", cardio: false } },
+    cardioWeek: null, weeklyGoal: null, lastWorkout: null, achievements: [],
+  });
+  assert.deepEqual(swapped.missed, []);
   assert.deepEqual(
     d.missed.map((m) => [m.name, m.kind, m.count, m.total ?? null]),
     [["Agachamento", "pulado", 1, null], ["Rosca", "pulado", 1, null], ["Supino", "incompleto", 1, 3]],
@@ -419,4 +428,21 @@ test("anamnese: alertas por grupo muscular e levantamento", async () => {
   assert.deepEqual(s.multi.find((q) => q.key === "pain_regions")!.counts.map((x) => [x.label, x.n]), [["Joelho", 2], ["Lombar", 1]]);
   assert.deepEqual(s.multi.find((q) => q.key === "goals")!.counts[0], { value: "hipertrofia", label: "Ganho de massa (hipertrofia)", n: 2 });
   assert.deepEqual(s.single.find((q) => q.key === "activity_level")!.counts, [{ value: "ativo", label: "3–4× por semana", n: 1 }]);
+});
+
+test("aparelho ocupado: candidatos do mesmo grupo e leitura da resposta da IA", async () => {
+  const { rankAlternatives, parseSwap } = await import("../swaps.ts");
+  const cat = [
+    { id: "lp", name: "Leg press 45°", muscle_group: "quadriceps" },
+    { id: "lph", name: "Leg press horizontal", muscle_group: "quadriceps" },
+    { id: "hack", name: "Agachamento hack", muscle_group: "quadriceps" },
+    { id: "ext", name: "Cadeira extensora", muscle_group: "quadriceps" },
+    { id: "sup", name: "Supino reto com barra", muscle_group: "peito" },
+  ];
+  const lp = cat[0];
+  assert.deepEqual(rankAlternatives(lp, cat).map((c) => c.id), ["lph", "hack", "ext"], "nome parecido primeiro, só o mesmo grupo");
+  assert.deepEqual(rankAlternatives(lp, cat, { known: new Set(["ext"]) }).map((c) => c.id), ["ext", "lph", "hack"], "o que o aluno já fez vem antes");
+  assert.deepEqual(rankAlternatives(lp, cat, { exclude: new Set(["lph"]), limit: 1 }).map((c) => c.id), ["hack"], "tira os que já estão no treino");
+  assert.deepEqual(parseSwap({ ids: ["hack", "x", "hack", "ext", "lph"], motivo: "Mesmo padrão" }, ["hack", "ext", "lph"]), { ids: ["hack", "ext"], reason: "Mesmo padrão" });
+  assert.deepEqual(parseSwap(null, ["a"]), { ids: [], reason: null });
 });

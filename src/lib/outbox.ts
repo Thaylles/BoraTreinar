@@ -23,6 +23,8 @@ export type SessionPayload = {
       speed_kmh?: number | null;
       incline_pct?: number | null;
       level?: number | null;
+      /** Exercício da ficha que esta série substituiu (aparelho ocupado). */
+      replaced_equipment_id?: string | null;
     }[];
   }[];
 };

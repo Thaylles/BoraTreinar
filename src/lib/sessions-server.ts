@@ -11,7 +11,7 @@ export async function loadSession(sessionId: string) {
   if (!session) return null;
   const { data: sets } = await supabase
     .from("session_sets")
-    .select("*, equipment:equipment(id, name, muscle_group, image_path, image_url)")
+    .select("*, equipment:equipment!session_sets_equipment_id_fkey(id, name, muscle_group, image_path, image_url)")
     .eq("session_id", sessionId)
     .order("exercise_order")
     .order("set_number");

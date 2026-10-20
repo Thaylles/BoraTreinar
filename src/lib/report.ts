@@ -147,6 +147,8 @@ export type WeekSetRow = {
   speed_kmh: number | null;
   incline_pct: number | null;
   level: number | null;
+  /** Exercício da ficha que esta série substituiu (aparelho ocupado). */
+  replaced_equipment_id?: string | null;
 };
 
 /** Junta sessões, séries e fichas da semana nos detalhes do relatório (função pura, testável). */
@@ -176,7 +178,7 @@ export function weekDetail(input: {
     const sets = input.sets.filter((x) => x.session_id === s.id);
     const done = new Set(sets.filter((x) => x.done).map((x) => x.equipment_id));
     for (const id of s.plan_id ? (input.planItems[s.plan_id] ?? []) : []) {
-      if (!sets.some((x) => x.equipment_id === id)) bump(eq(id).name, "pulado", 1, 0, s.plan_name);
+      if (!sets.some((x) => x.equipment_id === id || x.replaced_equipment_id === id)) bump(eq(id).name, "pulado", 1, 0, s.plan_name);
     }
     for (const id of new Set(sets.map((x) => x.equipment_id))) {
       const mine = sets.filter((x) => x.equipment_id === id);

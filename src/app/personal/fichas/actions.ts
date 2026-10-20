@@ -22,6 +22,7 @@ export type PlanPayload = {
     rest_seconds: number;
     notes: string;
     technique: Technique | null;
+    substitute_equipment_id: string | null;
   }[];
 };
 

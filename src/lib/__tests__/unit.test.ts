@@ -375,3 +375,48 @@ test("conquistas: resumo, pontos e números curtos", () => {
   assert.equal(shortNumber(1_000_000), "1 mi");
   assert.equal(shortNumber(250), "250");
 });
+
+test("calculadora de anilhas e aquecimento", async () => {
+  const { platesFor, platesLabel, warmupSets, guessBar } = await import("../plates.ts");
+  assert.deepEqual(platesFor(80), { perSide: [25, 5], remainder: 0 });
+  assert.equal(platesLabel(platesFor(100).perSide), "25 + 15");
+  assert.equal(platesLabel(platesFor(120).perSide), "2×25");
+  assert.equal(platesLabel(platesFor(140).perSide), "2×25 + 10");
+  assert.deepEqual(platesFor(62.5), { perSide: [20, 1.25], remainder: 0 });
+  assert.deepEqual(platesFor(21), { perSide: [], remainder: 1 }, "1 kg não fecha com anilhas de 1,25");
+  assert.deepEqual(platesFor(20), { perSide: [], remainder: 0 }, "só a barra");
+  assert.deepEqual(platesFor(50, 0), { perSide: [25], remainder: 0 }, "sem barra");
+  assert.deepEqual(warmupSets(30, 20), [{ load: 20, reps: 10 }], "abaixo de 40 kg: 1 série, nunca menos que a barra");
+  assert.deepEqual(warmupSets(80, 20), [{ load: 40, reps: 8 }, { load: 60, reps: 4 }], "a partir de 40 kg: 2 séries");
+  assert.deepEqual(warmupSets(41, 0), [{ load: 20, reps: 8 }, { load: 30, reps: 4 }]);
+  assert.deepEqual(warmupSets(8), [{ load: 4, reps: 10 }], "halter leve arredonda de 1 em 1 kg");
+  assert.deepEqual(warmupSets(20, 20), [], "carga igual à barra não tem aquecimento");
+  assert.deepEqual(warmupSets(0), []);
+  assert.equal(guessBar("Supino reto com barra"), 20);
+  assert.equal(guessBar("Barra fixa"), 0);
+  assert.equal(guessBar("Leg press 45°"), 0);
+});
+
+test("anamnese: alertas por grupo muscular e levantamento", async () => {
+  const { cautionsFor, healthSurvey, needsClearance } = await import("../health.ts");
+  const base = {
+    parq_yes: [], pain_regions: [], injury_regions: [], mobility_regions: [], muscle_pain: [], surgeries: [], conditions: [],
+    medications: [], goals: [], activity_level: null, experience: null, sleep: null, smoker: null, notes: null,
+  };
+  const a = { ...base, pain_regions: ["joelho"], mobility_regions: ["ombro"], muscle_pain: ["posterior"], surgeries: ["joelho"], goals: ["hipertrofia"], activity_level: "ativo" };
+  const c = cautionsFor(a);
+  assert.deepEqual(c.quadriceps, ["dor: joelho", "cirurgia: joelho"]);
+  assert.deepEqual(c.posterior, ["dor: joelho", "cirurgia: joelho", "dor muscular"]);
+  assert.deepEqual(c.peito, ["mobilidade limitada: ombro"]);
+  assert.equal(c.biceps, undefined);
+  assert.deepEqual(cautionsFor(null), {});
+  assert.ok(!needsClearance(a) && needsClearance({ parq_yes: ["tontura"] }));
+
+  const s = healthSurvey([a, { ...base, parq_yes: ["tontura"], pain_regions: ["joelho", "lombar"], goals: ["hipertrofia", "saude"], smoker: true }]);
+  assert.equal(s.total, 2);
+  assert.equal(s.risk, 1);
+  assert.equal(s.smokers, 1);
+  assert.deepEqual(s.multi.find((q) => q.key === "pain_regions")!.counts.map((x) => [x.label, x.n]), [["Joelho", 2], ["Lombar", 1]]);
+  assert.deepEqual(s.multi.find((q) => q.key === "goals")!.counts[0], { value: "hipertrofia", label: "Ganho de massa (hipertrofia)", n: 2 });
+  assert.deepEqual(s.single.find((q) => q.key === "activity_level")!.counts, [{ value: "ativo", label: "3–4× por semana", n: 1 }]);
+});

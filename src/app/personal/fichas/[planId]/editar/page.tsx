@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { PageTitle } from "@/components/ui/card";
 import { PlanEditor } from "@/components/plans/plan-editor";
+import { loadCautions } from "@/lib/health-server";
 import { requireRole } from "@/lib/auth";
 import { loadCatalogFor, loadPlan } from "@/lib/plans-server";
 import { toEditorItems } from "@/lib/plans";
@@ -25,6 +26,7 @@ export default async function EditarFichaPage({ params }: { params: Promise<{ pl
       </Link>
       <PageTitle sub={plan.is_template ? "Modelo" : `Ficha de ${plan.student?.full_name ?? "aluno"}`}>Editar ficha</PageTitle>
       <PlanEditor
+        cautions={await loadCautions(plan.student_id)}
         catalog={catalog}
         initial={{
           planId,

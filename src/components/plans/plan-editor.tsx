@@ -42,7 +42,16 @@ const parseKg = (s: string): number | null | undefined => {
   return Number.isFinite(n) && n >= 0 && n <= 9999 ? n : undefined;
 };
 
-export function PlanEditor({ initial, catalog }: { initial: EditorInitial; catalog: CatalogItem[] }) {
+export function PlanEditor({
+  initial,
+  catalog,
+  cautions = {},
+}: {
+  initial: EditorInitial;
+  catalog: CatalogItem[];
+  /** Anamnese do aluno: motivos de cuidado por grupo muscular (ex.: quadríceps → dor no joelho). */
+  cautions?: Record<string, string[]>;
+}) {
   const [name, setName] = useState(initial.name);
   const [goal, setGoal] = useState(initial.goal);
   const [notes, setNotes] = useState(initial.notes);
@@ -119,6 +128,19 @@ export function PlanEditor({ initial, catalog }: { initial: EditorInitial; catal
 
       <section className="space-y-3">
         <h2 className="font-display text-xl font-bold">Exercícios ({items.length})</h2>
+        {Object.keys(cautions).length > 0 && (
+          <div className="rounded-2xl bg-ipe-100 p-3 text-sm text-anil-900 dark:bg-ipe-500/15 dark:text-ipe-400">
+            <p className="font-bold">🩺 Pela anamnese, cuidado com:</p>
+            <ul className="mt-1 space-y-0.5">
+              {Object.entries(cautions).map(([g, reasons]) => (
+                <li key={g}>
+                  <strong>{groupLabel(g as CatalogItem["muscle_group"])}</strong>: {reasons.join(", ")}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1 text-xs">Prefira menos volume, variações sem dor e boa amplitude controlada nesses grupos.</p>
+          </div>
+        )}
         {items.map((it, idx) => {
           const src = equipmentImageSrc(it.equipment);
           return (
@@ -134,6 +156,9 @@ export function PlanEditor({ initial, catalog }: { initial: EditorInitial; catal
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold leading-tight">{it.equipment.name}</p>
                   <p className="text-xs text-muted">{groupLabel(it.equipment.muscle_group)}</p>
+                  {cautions[it.equipment.muscle_group] && (
+                    <p className="text-xs font-semibold text-pitanga-600">⚠️ Atenção: {cautions[it.equipment.muscle_group].join(", ")}</p>
+                  )}
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <IconBtn label="Subir" disabled={idx === 0} onClick={() => move(idx, -1)}>
@@ -243,6 +268,7 @@ export function PlanEditor({ initial, catalog }: { initial: EditorInitial; catal
 
       {picking && (
         <ExercisePicker
+          cautions={cautions}
           catalog={catalog}
           selectedIds={items.map((i) => i.equipment.id)}
           onPick={addFromCatalog}

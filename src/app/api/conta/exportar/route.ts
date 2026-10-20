@@ -32,7 +32,7 @@ export async function GET() {
   const isStudent = profile.role !== "personal";
 
   try {
-    const [settings, links, sessions, sets, weights, plans, planItems, schedules, notifications] = await Promise.all([
+    const [settings, links, sessions, sets, weights, plans, planItems, schedules, notifications, health, cardioGoal] = await Promise.all([
       supabase.from("student_settings").select("*").eq("student_id", uid).maybeSingle(),
       supabase
         .from("personal_students")
@@ -45,7 +45,7 @@ export async function GET() {
         ? all((a, b) =>
             supabase
               .from("session_sets")
-              .select("session_id, exercise_order, set_number, load_kg, reps, done, is_pr, equipment:equipment(name), session:workout_sessions!inner(student_id)")
+              .select("session_id, exercise_order, set_number, load_kg, reps, done, is_pr, duration_min, distance_km, speed_kmh, incline_pct, level, equipment:equipment(name), session:workout_sessions!inner(student_id)")
               .eq("session.student_id", uid)
               .order("session_id")
               .order("exercise_order")
@@ -68,6 +68,8 @@ export async function GET() {
       ),
       supabase.from("class_schedules").select("*, exceptions:class_exceptions(on_date, reason)").eq(isStudent ? "student_id" : "personal_id", uid),
       all((a, b) => supabase.from("notifications").select("title, body, link, read_at, created_at").eq("user_id", uid).order("created_at").range(a, b)),
+      supabase.from("health_forms").select("*").eq("student_id", uid).maybeSingle(),
+      supabase.from("cardio_goals").select("kind, target, min_speed_kmh, min_level, updated_at").eq("student_id", uid).maybeSingle(),
     ]);
 
     const body = {
@@ -93,6 +95,8 @@ export async function GET() {
         exercicios: (planItems as { plan_id: string }[]).filter((i) => i.plan_id === p.id).map((i) => omit(i, ["plan_id", "plan"])),
       })),
       aulas: schedules.data,
+      anamnese: health.data,
+      meta_de_cardio: cardioGoal.data,
       notificacoes: notifications,
     };
     return new NextResponse(JSON.stringify(body, null, 2), {

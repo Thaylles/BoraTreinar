@@ -21,6 +21,7 @@ import { cancelTransfer, revokeShare, setArchived } from "../../actions";
 import { TransferForm } from "./transfer-form";
 import { Avatar } from "@/components/avatar";
 import { CardioGoalCard } from "@/components/cardio/cardio-goal-card";
+import { HealthSummary } from "@/components/health/health-summary";
 
 export const metadata: Metadata = { title: "Aluno" };
 
@@ -87,6 +88,8 @@ export default async function AlunoPage({
       <WhatsAppButton phone={student.phone} className="mb-4 w-full" />
 
       {erro && <Alert className="mb-4">{erro}</Alert>}
+
+      <HealthSummary studentId={id} />
 
       <section className="mb-6">
         <div className="mb-3 flex items-center justify-between gap-2">

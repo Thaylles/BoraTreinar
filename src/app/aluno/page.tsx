@@ -31,7 +31,7 @@ export default async function AlunoHome({
   const supabase = await createClient();
   const [weighIn, agenda] = await Promise.all([getWeighInStatus(profile.id), loadAgenda({ studentId: profile.id, days: 7 })]);
   const nextClass = agenda.occurrences.find((o) => !o.cancelled);
-  const [{ data: plans }, { count: personals }, { data: requests }, { data: achievements }, { data: templates }] = await Promise.all([
+  const [{ data: plans }, { count: personals }, { data: requests }, { data: achievements }, { data: templates }, { data: health }] = await Promise.all([
     supabase
       .from("workout_plans")
       .select("id, name, goal, items:workout_plan_items(count)")
@@ -58,6 +58,7 @@ export default async function AlunoHome({
           .is("archived_at", null)
           .order("name")
       : Promise.resolve({ data: null }),
+    supabase.from("health_forms").select("parq_yes, clearance_path").eq("student_id", profile.id).maybeSingle(),
   ]);
 
   return (
@@ -85,6 +86,33 @@ export default async function AlunoHome({
             </span>
           </span>
           <ChevronRight className="size-5 text-muted" aria-hidden />
+        </Link>
+      )}
+
+      {!coach && !health && (
+        <Link
+          href="/aluno/saude"
+          className="mb-4 flex items-center gap-3 rounded-3xl border-2 border-pitanga-500/60 bg-pitanga-100/50 p-4 transition hover:brightness-95 dark:bg-pitanga-500/10"
+        >
+          <span className="text-3xl" aria-hidden>🩺</span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-display font-bold">Preencha sua anamnese</span>
+            <span className="block text-sm text-muted">Leva 2 minutos: dores, lesões e saúde, para seu Personal montar treinos seguros.</span>
+          </span>
+          <ChevronRight className="size-5 text-muted" aria-hidden />
+        </Link>
+      )}
+      {!coach && health && health.parq_yes.length > 0 && !health.clearance_path && (
+        <Link
+          href="/aluno/saude"
+          className="mb-4 flex items-center gap-3 rounded-3xl border-2 border-ipe-500 bg-ipe-100 p-4 text-anil-900 transition hover:brightness-95 dark:bg-ipe-500/15 dark:text-ipe-400"
+        >
+          <span className="text-3xl" aria-hidden>📄</span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-display font-bold">Envie sua liberação médica</span>
+            <span className="block text-sm">Pela sua anamnese, é importante ter o ok do médico antes de intensificar os treinos.</span>
+          </span>
+          <ChevronRight className="size-5" aria-hidden />
         </Link>
       )}
 

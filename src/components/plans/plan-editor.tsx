@@ -20,6 +20,8 @@ export type EditorItem = {
   rest: number;
   notes: string;
   technique: Technique | "";
+  /** Substituto indicado para quando o aparelho estiver ocupado. */
+  substitute: CatalogItem | null;
 };
 
 export type EditorInitial = {
@@ -74,7 +76,7 @@ export function PlanEditor({
   function addFromCatalog(c: CatalogItem) {
     setItems((list) => [
       ...list,
-      { key: newKey(), equipment: c, sets: 3, reps: c.muscle_group === "cardio" ? "20" : "10–12", load: "", rest: c.muscle_group === "cardio" ? 0 : 60, notes: "", technique: "" },
+      { key: newKey(), equipment: c, sets: 3, reps: c.muscle_group === "cardio" ? "20" : "10–12", load: "", rest: c.muscle_group === "cardio" ? 0 : 60, notes: "", technique: "", substitute: null },
     ]);
   }
 
@@ -94,6 +96,7 @@ export function PlanEditor({
         rest_seconds: it.rest,
         notes: it.notes,
         technique: it.technique || null,
+        substitute_equipment_id: it.substitute?.id ?? null,
       });
     }
     startTransition(async () => {
@@ -244,6 +247,7 @@ export function PlanEditor({
                 />
               </div>
               {it.technique && <p className="mt-1.5 text-xs text-muted">{techniqueInfo(it.technique)?.hint}</p>}
+              <SubstituteSelect item={it} catalog={catalog} cautions={cautions} onChange={(substitute) => update(it.key, { substitute })} />
             </article>
           );
         })}
@@ -333,5 +337,51 @@ function IconBtn({
     >
       {children}
     </button>
+  );
+}
+
+/** Substituto do exercício para quando o aparelho estiver ocupado (mesmo grupo muscular primeiro). */
+function SubstituteSelect({
+  item,
+  catalog,
+  cautions,
+  onChange,
+}: {
+  item: EditorItem;
+  catalog: CatalogItem[];
+  cautions: Record<string, string[]>;
+  onChange: (c: CatalogItem | null) => void;
+}) {
+  const others = catalog.filter((c) => c.id !== item.equipment.id);
+  const same = others.filter((c) => c.muscle_group === item.equipment.muscle_group);
+  const rest = others.filter((c) => c.muscle_group !== item.equipment.muscle_group);
+  const label = (c: CatalogItem) => `${c.name}${cautions[c.muscle_group] ? " ⚠️" : ""}`;
+  return (
+    <label className="mt-3 block">
+      <span className="mb-1 block text-xs font-semibold text-muted">Substituto se o aparelho estiver ocupado (opcional)</span>
+      <select
+        value={item.substitute?.id ?? ""}
+        onChange={(e) => onChange(catalog.find((c) => c.id === e.target.value) ?? null)}
+        className={cn(inputClass, "px-3 py-2 text-sm")}
+      >
+        <option value="">Sem substituto (o app sugere opções com IA)</option>
+        {!!same.length && (
+          <optgroup label={`${groupLabel(item.equipment.muscle_group)} (mesmo grupo)`}>
+            {same.map((c) => (
+              <option key={c.id} value={c.id}>
+                {label(c)}
+              </option>
+            ))}
+          </optgroup>
+        )}
+        <optgroup label="Outros grupos">
+          {rest.map((c) => (
+            <option key={c.id} value={c.id}>
+              {label(c)} · {groupLabel(c.muscle_group)}
+            </option>
+          ))}
+        </optgroup>
+      </select>
+    </label>
   );
 }

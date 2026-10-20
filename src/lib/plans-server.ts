@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { CatalogItem } from "@/components/plans/exercise-picker";
+import type { Tables } from "@/lib/database.types";
 
 const CATALOG_COLS = "id, name, muscle_group, image_path, image_url, is_bodyweight, is_default, created_by, intensity_unit";
 
@@ -36,10 +37,25 @@ export async function loadPlan(planId: string) {
   if (!plan) return null;
   const { data: items } = await supabase
     .from("workout_plan_items")
-    .select("*, equipment:equipment(id, name, muscle_group, image_path, image_url, is_bodyweight, description, intensity_unit)")
+    .select("*, equipment:equipment!workout_plan_items_equipment_id_fkey(id, name, muscle_group, image_path, image_url, is_bodyweight, description, intensity_unit)")
     .eq("plan_id", planId)
     .order("position");
-  return { plan, items: items ?? [] };
+  // Substitutos indicados pelo Personal (consulta à parte: a coluna pode ainda não existir no banco).
+  const subIds = [...new Set((items ?? []).map((i) => i.substitute_equipment_id).filter((x): x is string => !!x))];
+  const { data: subs } = subIds.length
+    ? await supabase.from("equipment").select(SUBSTITUTE_COLS).in("id", subIds)
+    : { data: [] as SubstituteEquipment[] };
+  const byId = new Map((subs ?? []).map((e) => [e.id, e]));
+  return {
+    plan,
+    items: (items ?? []).map((i) => ({ ...i, substitute: i.substitute_equipment_id ? (byId.get(i.substitute_equipment_id) ?? null) : null })),
+  };
 }
+
+const SUBSTITUTE_COLS = "id, name, muscle_group, image_path, image_url, is_bodyweight, intensity_unit";
+export type SubstituteEquipment = Pick<
+  Tables<"equipment">,
+  "id" | "name" | "muscle_group" | "image_path" | "image_url" | "is_bodyweight" | "intensity_unit"
+>;
 
 export type LoadedPlan = NonNullable<Awaited<ReturnType<typeof loadPlan>>>;

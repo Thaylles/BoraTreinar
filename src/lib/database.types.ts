@@ -315,6 +315,8 @@ export type Database = {
           rest_seconds: number;
           sets: number;
           suggested_load: number | null;
+          /** Substituto indicado pelo Personal ("aparelho ocupado"). */
+          substitute_equipment_id?: string | null;
           technique: "biset" | "triset" | "dropset" | "restpause" | "piramide" | null;
         };
         Insert: never;
@@ -393,6 +395,8 @@ export type Database = {
           is_pr: boolean;
           level: number | null;
           load_kg: number;
+          /** Exercício da ficha que esta série substituiu (aparelho ocupado). */
+          replaced_equipment_id?: string | null;
           reps: number;
           session_id: string;
           set_number: number;

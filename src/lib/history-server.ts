@@ -57,3 +57,15 @@ export async function loadExerciseHistory(
   }
   return result;
 }
+
+/** Exercícios que o aluno já fez alguma vez (para priorizar trocas conhecidas). */
+export async function loadDoneEquipmentIds(studentId: string): Promise<Set<string>> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("session_sets")
+    .select("equipment_id, session:workout_sessions!inner(student_id)")
+    .eq("session.student_id", studentId)
+    .eq("done", true)
+    .limit(5000);
+  return new Set((data ?? []).map((r) => r.equipment_id));
+}

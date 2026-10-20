@@ -20,7 +20,7 @@ import { formatRest, formatKg, techniqueInfo, type Technique } from "@/lib/plans
 import { suggestProgression } from "@/lib/progression";
 import { draftStore, outbox, type SessionPayload } from "@/lib/outbox";
 import type { ExerciseHistoryInfo } from "@/lib/history-server";
-import { saveSession } from "@/app/treino-actions";
+import { saveSession, suggestSubstitutes } from "@/app/treino-actions";
 import { SessionRating } from "@/components/workout/session-rating";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
@@ -50,11 +50,20 @@ export type RunnerExercise = {
   technique?: Technique | null;
   /** Quantos exercícios seguintes fazem parte do mesmo bi-set/tri-set (sem descanso até lá). */
   groupedNext?: number;
+  /** Substituto indicado pelo Personal para quando o aparelho estiver ocupado. */
+  substitute?: SwapOption | null;
+  /** Sem substituto do Personal: candidatos do mesmo grupo (a IA escolhe 1–2 na hora). */
+  alternatives?: SwapOption[];
 };
+
+/** Exercício para troca, já com o histórico do aluno nele. */
+export type SwapOption = { equipment: RunnerExercise["equipment"]; history: ExerciseHistoryInfo };
+type SwapSource = "personal" | "ia" | "regras";
 
 /** No cardio, `reps` guarda os minutos; os demais campos são do painel do aparelho. */
 type SetState = { load: string; reps: string; done: boolean | null; km?: string; speed?: string; incline?: string; level?: string };
-type ExerciseState = { rest: number; sets: SetState[] };
+/** `swap`: exercício feito no lugar do da ficha (aparelho ocupado). */
+type ExerciseState = { rest: number; sets: SetState[]; swap?: { id: string; source: SwapSource } };
 type Draft = { v: 1; clientId: string; startedAt: string; exercises: ExerciseState[] };
 type Timer = { endsAt: number; total: number; exercise: number } | null;
 type Summary = { duration: number; doneSets: number; volume: number; prs: string[]; offline: boolean; sessionId?: string };
@@ -77,12 +86,21 @@ const clock = (sec: number) => {
 };
 
 function initialExercises(list: RunnerExercise[]): ExerciseState[] {
-  return list.map((ex) => {
+  return list.map((ex) => ({ rest: ex.restSeconds, sets: initialSets(ex) }));
+}
+
+/** O exercício que vale agora: o da ficha ou o escolhido na troca. */
+function effectiveExercise(ex: RunnerExercise, state: ExerciseState | undefined): RunnerExercise {
+  const id = state?.swap?.id;
+  if (!id) return ex;
+  const opt = [ex.substitute, ...(ex.alternatives ?? [])].find((o) => o?.equipment.id === id);
+  return opt ? { ...ex, equipment: opt.equipment, history: opt.history, suggestedLoad: null } : ex;
+}
+
+function initialSets(ex: RunnerExercise): SetState[] {
     const last = ex.history.last?.sets ?? [];
     const count = Math.max(1, ex.targetSets);
-    return {
-      rest: ex.restSeconds,
-      sets: Array.from({ length: count }, (_, i) => {
+    return Array.from({ length: count }, (_, i) => {
         const prev = last[i] ?? last[last.length - 1];
         if (isCardioEx(ex)) {
           const minutes = prev?.minutes ?? prev?.reps ?? ex.repsMin ?? null;
@@ -99,9 +117,7 @@ function initialExercises(list: RunnerExercise[]): ExerciseState[] {
         const load = prev?.load ?? ex.suggestedLoad ?? (ex.equipment.is_bodyweight ? 0 : null);
         const reps = ex.repsMin ?? prev?.reps ?? null;
         return { load: load == null ? "" : fmtNum(load), reps: reps == null ? "" : String(reps), done: null };
-      }),
-    };
-  });
+    });
 }
 
 /** Bipe curto via Web Audio (o AudioContext é criado num toque do usuário). */
@@ -247,6 +263,13 @@ export function WorkoutRunner({
     if (ex.sets.length >= 20) return;
     updateExercise(ei, { sets: [...ex.sets, { ...(last ?? { load: "", reps: "" }), done: null }] });
   }
+  /** Aparelho ocupado: troca o exercício (séries recomeçam com o histórico do novo) ou desfaz. */
+  function swapExercise(ei: number, opt: SwapOption | null, source: SwapSource = "regras") {
+    const base = exercises[ei];
+    const next = opt ? { ...base, equipment: opt.equipment, history: opt.history, suggestedLoad: null } : base;
+    updateExercise(ei, { swap: opt ? { id: opt.equipment.id, source } : undefined, sets: initialSets(next) });
+  }
+
   function removeSet(ei: number) {
     const ex = draft!.exercises[ei];
     if (ex.sets.length <= 1) return;
@@ -279,9 +302,9 @@ export function WorkoutRunner({
       started_at: draft.startedAt,
       finished_at: finishedAt,
       exercises: draft.exercises.map((ex, i) => ({
-        equipment_id: exercises[i].equipment.id,
-        sets: ex.sets.map((s) =>
-          isCardioEx(exercises[i])
+        equipment_id: effectiveExercise(exercises[i], ex).equipment.id,
+        sets: ex.sets.map((s) => ({
+          ...(isCardioEx(effectiveExercise(exercises[i], ex))
             ? {
                 load_kg: 0,
                 reps: Math.round(parseNum(s.reps)),
@@ -292,8 +315,9 @@ export function WorkoutRunner({
                 incline_pct: optNum(s.incline),
                 level: s.level ? Math.round(parseNum(s.level)) : null,
               }
-            : { load_kg: parseNum(s.load), reps: Math.round(parseNum(s.reps)), done: s.done === true },
-        ),
+            : { load_kg: parseNum(s.load), reps: Math.round(parseNum(s.reps)), done: s.done === true }),
+          ...(ex.swap && { replaced_equipment_id: exercises[i].equipment.id }),
+        })),
       })),
     };
     const base = {
@@ -374,7 +398,10 @@ export function WorkoutRunner({
           <ExerciseCard
             key={ex.equipment.id + ei}
             index={ei}
-            exercise={ex}
+            exercise={effectiveExercise(ex, draft.exercises[ei])}
+            original={ex}
+            studentId={studentId}
+            onSwap={(opt, source) => swapExercise(ei, opt, source)}
             state={draft.exercises[ei]}
             onSet={(si, patch) => updateSet(ei, si, patch)}
             onMark={(si, done) => markSet(ei, si, done)}
@@ -416,6 +443,9 @@ export function WorkoutRunner({
 function ExerciseCard({
   index,
   exercise,
+  original,
+  studentId,
+  onSwap,
   state,
   onSet,
   onMark,
@@ -426,6 +456,10 @@ function ExerciseCard({
 }: {
   index: number;
   exercise: RunnerExercise;
+  /** O exercício da ficha (antes de qualquer troca). */
+  original: RunnerExercise;
+  studentId: string;
+  onSwap: (opt: SwapOption | null, source?: SwapSource) => void;
   state: ExerciseState;
   onSet: (si: number, patch: Partial<SetState>) => void;
   onMark: (si: number, done: boolean) => void;
@@ -483,6 +517,8 @@ function ExerciseCard({
           )}
         </div>
       </div>
+
+      <SwapBar original={original} studentId={studentId} state={state} onSwap={onSwap} />
 
       {(technique || !!exercise.groupedNext) && (
         <p className="mt-3 rounded-2xl border border-anil-700/20 px-3 py-2 text-sm">
@@ -961,6 +997,126 @@ function WarmupPanel({ equipmentId, name, loads }: { equipmentId: string; name: 
             })}
           </ul>
         </div>
+      )}
+    </div>
+  );
+}
+
+const SOURCE_LABEL: Record<SwapSource, string> = {
+  personal: "Indicado pelo seu Personal",
+  ia: "Sugestão da IA",
+  regras: "Exercícios parecidos do mesmo grupo",
+};
+
+/**
+ * "Aparelho ocupado?": só aparece antes de marcar alguma série. Se o Personal indicou um substituto,
+ * mostra só ele; senão a IA escolhe 1–2 parecidos entre os candidatos (sem IA/sem internet: os 2 primeiros).
+ */
+function SwapBar({
+  original,
+  studentId,
+  state,
+  onSwap,
+}: {
+  original: RunnerExercise;
+  studentId: string;
+  state: ExerciseState;
+  onSwap: (opt: SwapOption | null, source?: SwapSource) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [picks, setPicks] = useState<{ options: SwapOption[]; source: SwapSource; reason: string | null } | null>(null);
+  const started = state.sets.some((x) => x.done !== null);
+
+  if (state.swap) {
+    return (
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-anil-700/5 px-3 py-2 text-sm dark:bg-white/5">
+        <span>
+          🔁 No lugar de <strong>{original.equipment.name}</strong> (aparelho ocupado)
+        </span>
+        {!started && (
+          <button type="button" onClick={() => onSwap(null)} className="text-xs font-semibold text-muted hover:text-foreground">
+            Desfazer
+          </button>
+        )}
+      </div>
+    );
+  }
+  if (started || (!original.substitute && !original.alternatives?.length)) return null;
+
+  async function openPanel() {
+    setOpen(true);
+    if (picks) return;
+    if (original.substitute) return setPicks({ options: [original.substitute], source: "personal", reason: null });
+    const alts = original.alternatives ?? [];
+    const fallback = { options: alts.slice(0, 2), source: "regras" as SwapSource, reason: null };
+    setLoading(true);
+    try {
+      const r = await suggestSubstitutes({
+        studentId,
+        original: { id: original.equipment.id, name: original.equipment.name, muscle_group: original.equipment.muscle_group },
+        candidates: alts.map((o) => ({ id: o.equipment.id, name: o.equipment.name, muscle_group: o.equipment.muscle_group })),
+      });
+      const options = r.ids.map((id) => alts.find((o) => o.equipment.id === id)).filter((o): o is SwapOption => !!o);
+      setPicks(options.length ? { options, source: "ia", reason: r.reason } : fallback);
+    } catch {
+      setPicks(fallback); // sem internet: usa os candidatos por regra
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={openPanel}
+        className="mt-3 inline-flex items-center gap-1 rounded-xl border border-border px-3 py-1.5 text-xs font-semibold text-muted hover:border-bandeira-500 hover:text-foreground"
+      >
+        🔁 Aparelho ocupado?
+      </button>
+    );
+  }
+  return (
+    <div className="mt-3 rounded-2xl border border-anil-700/30 p-3 text-sm">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="font-bold">🔁 Trocar por</p>
+        <button type="button" onClick={() => setOpen(false)} className="text-xs font-semibold text-muted hover:text-foreground">
+          Fechar
+        </button>
+      </div>
+      {loading || !picks ? (
+        <p className="flex items-center gap-2 text-muted">
+          <Loader2 className="size-4 animate-spin" aria-hidden /> Buscando exercícios parecidos…
+        </p>
+      ) : (
+        <>
+          <p className="mb-2 text-xs text-muted">
+            {SOURCE_LABEL[picks.source]}
+            {picks.reason && ` · ${picks.reason}`}
+          </p>
+          <ul className="space-y-2">
+            {picks.options.map((o) => (
+              <li key={o.equipment.id} className="flex items-center gap-2">
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold leading-tight">{o.equipment.name}</span>
+                  {o.history.last && (
+                    <span className="text-xs text-muted">
+                      Última vez: {o.history.last.sets.map((x) => `${fmtNum(x.load)}kg×${x.reps}`).slice(0, 3).join(", ")}
+                    </span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onSwap(o, picks.source)}
+                  className="rounded-xl bg-bandeira-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-bandeira-600"
+                >
+                  Trocar
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );

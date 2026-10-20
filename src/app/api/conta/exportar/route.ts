@@ -45,7 +45,7 @@ export async function GET() {
         ? all((a, b) =>
             supabase
               .from("session_sets")
-              .select("session_id, exercise_order, set_number, load_kg, reps, done, is_pr, duration_min, distance_km, speed_kmh, incline_pct, level, equipment:equipment(name), session:workout_sessions!inner(student_id)")
+              .select("session_id, exercise_order, set_number, load_kg, reps, done, is_pr, duration_min, distance_km, speed_kmh, incline_pct, level, equipment:equipment!session_sets_equipment_id_fkey(name), session:workout_sessions!inner(student_id)")
               .eq("session.student_id", uid)
               .order("session_id")
               .order("exercise_order")
@@ -60,7 +60,7 @@ export async function GET() {
       all((a, b) =>
         supabase
           .from("workout_plan_items")
-          .select("plan_id, position, sets, reps_min, reps_max, suggested_load, rest_seconds, notes, equipment:equipment(name), plan:workout_plans!inner(student_id, created_by)")
+          .select("plan_id, position, sets, reps_min, reps_max, suggested_load, rest_seconds, notes, equipment:equipment!workout_plan_items_equipment_id_fkey(name), plan:workout_plans!inner(student_id, created_by)")
           .eq(isStudent ? "plan.student_id" : "plan.created_by", uid)
           .order("plan_id")
           .order("position")

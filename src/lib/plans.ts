@@ -65,7 +65,17 @@ export function groupedWithNext(techniques: (Technique | null | undefined)[]): n
 
 /** Converte itens do banco para o formato do editor. */
 export function toEditorItems(
-  rows: { sets: number; reps_min: number | null; reps_max: number | null; suggested_load: number | null; rest_seconds: number; notes: string | null; technique?: Technique | null; equipment: CatalogItem | null }[],
+  rows: {
+    sets: number;
+    reps_min: number | null;
+    reps_max: number | null;
+    suggested_load: number | null;
+    rest_seconds: number;
+    notes: string | null;
+    technique?: Technique | null;
+    equipment: CatalogItem | null;
+    substitute?: CatalogItem | null;
+  }[],
 ): Omit<EditorItem, "key">[] {
   return rows
     .filter((r) => r.equipment)
@@ -77,5 +87,6 @@ export function toEditorItems(
       rest: r.rest_seconds,
       notes: r.notes ?? "",
       technique: r.technique ?? "",
+      substitute: r.substitute ?? null,
     }));
 }

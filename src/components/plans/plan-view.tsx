@@ -55,6 +55,7 @@ export function PlanItemsList({ items }: { items: LoadedPlan["items"] }) {
               <p className="mt-1.5 text-xs font-semibold text-anil-700 dark:text-ipe-400">↳ continua no próximo exercício, sem descanso</p>
             )}
             {it.notes && <p className="mt-1 text-sm text-muted">💬 {it.notes}</p>}
+            {it.substitute && <p className="mt-1 text-xs text-muted">🔁 Se o aparelho estiver ocupado: {it.substitute.name}</p>}
           </div>
         </li>
       ))}

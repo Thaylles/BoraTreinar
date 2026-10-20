@@ -25,6 +25,15 @@ type Result = { personals: number; reports: number; emails: number; ai: number }
  * Roda com service role, então a privacidade do peso é aplicada aqui: só entra com permissão do aluno.
  * Com `deliver`, envia o e-mail e a notificação uma única vez por semana.
  */
+const WEEK_SET_COLS = "session_id, equipment_id, done, reps, duration_min, distance_km, speed_kmh, incline_pct, level";
+
+/** Séries da semana; tolera o banco ainda sem a coluna de substituição (migração pendente). */
+async function loadWeekSets(admin: ReturnType<typeof createAdminClient>, sessionIds: string[]): Promise<{ data: WeekSetRow[] | null }> {
+  const withSwap = await admin.from("session_sets").select(`${WEEK_SET_COLS}, replaced_equipment_id`).in("session_id", sessionIds);
+  if (!withSwap.error) return { data: withSwap.data as unknown as WeekSetRow[] };
+  return admin.from("session_sets").select(WEEK_SET_COLS).in("session_id", sessionIds);
+}
+
 export async function generateWeeklyReports(opts: { personalId?: string; deliver: boolean }): Promise<Result> {
   const admin = createAdminClient();
   const today = spDateKey();
@@ -75,10 +84,7 @@ export async function generateWeeklyReports(opts: { personalId?: string; deliver
     const planIds = [...new Set((weekSessions ?? []).map((x) => x.plan_id).filter((x): x is string => !!x))];
     const [{ data: weekSets }, { data: planItems }] = await Promise.all([
       sessionIds.length
-        ? admin
-            .from("session_sets")
-            .select("session_id, equipment_id, done, reps, duration_min, distance_km, speed_kmh, incline_pct, level")
-            .in("session_id", sessionIds)
+        ? loadWeekSets(admin, sessionIds)
         : Promise.resolve({ data: [] as WeekSetRow[] }),
       planIds.length
         ? admin.from("workout_plan_items").select("plan_id, equipment_id").in("plan_id", planIds)

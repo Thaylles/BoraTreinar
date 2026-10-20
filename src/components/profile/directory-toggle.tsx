@@ -13,8 +13,8 @@ export function DirectoryToggle({ listed }: { listed: boolean }) {
       <input type="hidden" name="listed" value={listed ? "0" : "1"} />
       <p className="font-display text-lg font-bold">Aparecer para novos alunos</p>
       <p className="text-sm text-muted">
-        Alunos sem Personal veem sua foto, idade, o valor por aula dos seus pacotes (aba Financeiro) e um botão para te chamar
-        no WhatsApp.
+        Alunos sem Personal veem sua foto, idade, cidades de atendimento, o valor por aula dos seus pacotes (aba Financeiro) e
+        um botão para te chamar no WhatsApp. Precisa de WhatsApp, data de nascimento e pelo menos uma cidade.
       </p>
       <p className="text-sm">
         Status: <strong>{listed ? "visível na busca ✅" : "não aparece"}</strong>

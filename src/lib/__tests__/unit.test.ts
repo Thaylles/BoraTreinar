@@ -471,3 +471,23 @@ test("Pix: chave, CRC e BR Code no padrão do Banco Central", async () => {
   assert.equal(formatPixKey("telefone", "+5511988887777"), "(11) 98888-7777");
   assert.equal(formatPixKey("cpf", "52998224725"), "529.982.247-25");
 });
+
+test("cidades do RS e idade", async () => {
+  const { RS_CITIES } = await import("../cities-rs.ts");
+  const { cityName, searchCities, citiesLabel, isCity } = await import("../cities.ts");
+  const { ageOn, birthDateError } = await import("../age.ts");
+  assert.equal(RS_CITIES.length, 497);
+  assert.equal(cityName(4314902), "Porto Alegre");
+  assert.ok(!isCity(3550308));
+  assert.deepEqual(searchCities("caxias").map((c) => c.name), ["Caxias do Sul"]);
+  assert.equal(searchCities("sao leo")[0].name, "São Leopoldo");
+  assert.equal(searchCities("PELOTAS")[0].code, 4314407);
+  assert.ok(searchCities("santa").length === 8);
+  assert.equal(citiesLabel([4314902, 4304606]), "Porto Alegre e Canoas");
+  assert.equal(citiesLabel([4314902, 4304606, 4305108, 4314407]), "Porto Alegre, Canoas, Caxias do Sul e mais 1");
+  assert.equal(ageOn("1990-10-21", "2026-10-20"), 35);
+  assert.equal(ageOn("1990-10-20", "2026-10-20"), 36);
+  assert.equal(birthDateError("1990-10-20", "2026-10-20"), null);
+  assert.ok(birthDateError("2015-01-01", "2026-10-20"));
+  assert.ok(birthDateError("abc", "2026-10-20"));
+});

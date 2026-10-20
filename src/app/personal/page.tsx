@@ -53,6 +53,40 @@ export default async function PersonalHome({ searchParams }: { searchParams: Pro
       <InstallPrompt />
       <PushToggle />
 
+      {(!profile.birth_date || !profile.service_cities?.length) && (
+        <Link
+          href="/personal/perfil#cidades"
+          className="mb-4 flex items-center gap-3 rounded-3xl border-2 border-dashed border-bandeira-500 bg-surface p-4 transition hover:bg-bandeira-50 dark:hover:bg-bandeira-500/10"
+        >
+          <span className="text-2xl" aria-hidden>📍</span>
+          <span className="flex-1 text-sm">
+            <span className="block font-display text-base font-bold">Complete seu perfil para novos alunos</span>
+            {[!profile.birth_date && "sua data de nascimento", !profile.service_cities?.length && "as cidades onde você atende"]
+              .filter(Boolean)
+              .join(" e ")
+              .replace(/^./, (c) => c.toUpperCase())}
+            : é assim que alunos da sua região te encontram.
+          </span>
+          <ChevronRight className="size-5 text-muted" aria-hidden />
+        </Link>
+      )}
+      {!profile.logo_path && (
+        <Link
+          href="/personal/perfil#marca"
+          className="mb-4 flex items-center gap-3 rounded-3xl border-2 border-ipe-500 bg-ipe-100/60 p-4 transition hover:bg-ipe-100 dark:bg-ipe-500/10"
+        >
+          <span className="text-2xl" aria-hidden>✨</span>
+          <span className="flex-1 text-sm">
+            <span className="block font-display text-base font-bold">
+              Sua marca no app dos alunos{" "}
+              <span className="ml-1 rounded-full bg-ipe-500 px-2 py-0.5 align-middle text-[10px] font-extrabold uppercase text-anil-900">Premium</span>
+            </span>
+            Coloque seu logo no topo do app dos seus alunos. <strong>Teste grátis por tempo limitado</strong>: experimente agora!
+          </span>
+          <ChevronRight className="size-5 text-muted" aria-hidden />
+        </Link>
+      )}
+
       <div className="mb-6 grid grid-cols-3 gap-3">
         {stats.map(({ href, label, value, icon: Icon }) => (
           <Link key={href} href={href}>

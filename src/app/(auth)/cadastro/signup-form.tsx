@@ -24,6 +24,14 @@ export function SignUpPersonalForm() {
         placeholder="(11) 99999-0000"
       />
       <Field
+        label="Data de nascimento"
+        name="birth_date"
+        type="date"
+        autoComplete="bday"
+        required
+        hint="Sua idade aparece para alunos que procuram um Personal."
+      />
+      <Field
         label="Senha"
         name="password"
         type="password"

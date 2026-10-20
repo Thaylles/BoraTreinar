@@ -7,6 +7,8 @@ import { homeFor, safeNext } from "@/lib/auth";
 import { appUrl } from "@/lib/env";
 import { friendlyError, type ActionState } from "@/lib/errors";
 import { normalizePhoneBR } from "@/lib/phone";
+import { birthDateError } from "@/lib/age";
+import { spDateKey } from "@/lib/week";
 import { sendEmail } from "@/lib/email";
 
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
@@ -37,6 +39,9 @@ export async function signUpPersonal(_: ActionState, fd: FormData): Promise<Acti
   if (fullName.length < 2) return { error: "Informe seu nome." };
   if (password.length < MIN_PASSWORD) return { error: "A senha precisa ter pelo menos 8 caracteres." };
   if (phoneRaw && !phone) return { error: "Telefone inválido. Use DDD + número." };
+  const birthDate = str(fd, "birth_date");
+  const birthError = birthDate ? birthDateError(birthDate, spDateKey()) : "Informe sua data de nascimento.";
+  if (birthError) return { error: birthError };
   if (fd.get("terms") !== "on") return { error: "É preciso aceitar o termo de uso e privacidade." };
 
   const supabase = await createClient();
@@ -45,7 +50,7 @@ export async function signUpPersonal(_: ActionState, fd: FormData): Promise<Acti
     password,
     options: {
       emailRedirectTo: `${appUrl}/auth/confirm?next=/personal`,
-      data: { role: "personal", full_name: fullName, phone, terms_accepted: true },
+      data: { role: "personal", full_name: fullName, phone, birth_date: birthDate, terms_accepted: true },
     },
   });
   if (error) return { error: friendlyError(error.message) };

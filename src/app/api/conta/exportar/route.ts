@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { citiesLabel } from "@/lib/cities";
 import { getSessionProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { spDateKey } from "@/lib/week";
@@ -84,6 +85,7 @@ export async function GET() {
         papel: profile.role,
         nascimento: profile.birth_date,
         criado_em: profile.created_at,
+        cidades_de_atendimento: profile.service_cities?.length ? citiesLabel(profile.service_cities, 100) : undefined,
       },
       configuracoes: settings.data,
       vinculos: links.data,

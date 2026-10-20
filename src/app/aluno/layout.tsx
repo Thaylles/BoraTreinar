@@ -1,11 +1,14 @@
 import { AppShell } from "@/components/shell/app-shell";
 import { requireRole } from "@/lib/auth";
 import { OutboxSync } from "@/components/workout/outbox-sync";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function AlunoLayout({ children }: { children: React.ReactNode }) {
   const { profile } = await requireRole("aluno");
   // Personal no "Meu treino": só o que é do próprio treino (sem Personais/aulas de aluno).
   const coach = profile.role === "personal";
+  // Marca do Personal (Premium): o aluno vê o logo de quem o acompanha. Sem a migração, segue o logo padrão.
+  const { data: brand } = coach ? { data: null } : await (await createClient()).rpc("my_personal_logo").maybeSingle();
   return (
     <AppShell
       name={profile.full_name}
@@ -15,6 +18,7 @@ export default async function AlunoLayout({ children }: { children: React.ReactN
       isAdmin={profile.role === "admin"}
       canTrain={coach}
       profileHref={coach ? "/personal/perfil" : undefined}
+      brand={brand ? { logoPath: brand.logo_path, name: brand.full_name } : null}
       items={[
         { href: "/aluno", label: "Início", icon: "house" },
         { href: "/aluno/evolucao", label: "Evolução", icon: "chart" },

@@ -211,8 +211,12 @@ export type Database = {
           email: string;
           full_name: string;
           id: string;
+          /** Logo do Personal (bucket avatars). Ausente antes da migração de marca. */
+          logo_path?: string | null;
           phone: string | null;
           role: Database["public"]["Enums"]["user_role"];
+          /** Cidades de atendimento do Personal (códigos IBGE do RS). */
+          service_cities?: number[];
           terms_accepted_at: string | null;
           updated_at: string;
         };
@@ -231,6 +235,8 @@ export type Database = {
           birth_date?: string | null;
           full_name?: string;
           phone?: string | null;
+          logo_path?: string | null;
+          service_cities?: number[];
           // Só pelo admin (service role):
           catalog_blocked?: boolean;
           email?: string;
@@ -872,8 +878,12 @@ export type Database = {
           sort: number;
         }[];
       };
-      personal_directory: {
+      my_personal_logo: {
         Args: Record<string, never>;
+        Returns: { personal_id: string; full_name: string; logo_path: string }[];
+      };
+      personal_directory: {
+        Args: { p_city?: number | null };
         Returns: {
           id: string;
           full_name: string;
@@ -882,6 +892,7 @@ export type Database = {
           phone: string;
           packages: { name: string; kind: "por_aula" | "mensal"; classes_per_week: number | null; price: number }[];
           min_class_price: number | null;
+          cities?: number[];
         }[];
       };
       find_student_for_link: {

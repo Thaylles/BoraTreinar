@@ -8,13 +8,19 @@ import { requireStudent } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { brl, pricePerClass } from "@/lib/finance";
 import { firstName } from "@/lib/format";
+import { cityName, citiesLabel, isCity } from "@/lib/cities";
+import { CityFilter } from "@/components/cities/city-filter";
 
 export const metadata: Metadata = { title: "Encontrar um Personal" };
 
-export default async function EncontrarPersonalPage() {
+export default async function EncontrarPersonalPage({ searchParams }: { searchParams: Promise<{ cidade?: string }> }) {
   const { profile } = await requireStudent();
+  const code = Number((await searchParams).cidade);
+  const city = isCity(code) ? code : null;
   const supabase = await createClient();
-  const { data } = await supabase.rpc("personal_directory");
+  // Sem a migração de cidades, a vitrine antiga (sem filtro) continua respondendo.
+  const first = await supabase.rpc("personal_directory", city ? { p_city: city } : {});
+  const data = first.error && city ? (await supabase.rpc("personal_directory", {})).data : first.data;
   const personals = (data ?? []).filter((p) => p.id !== profile.id);
 
   return (
@@ -34,10 +40,20 @@ export default async function EncontrarPersonalPage() {
         </p>
       </div>
 
+      <div className="mb-5">
+        <CityFilter current={city} basePath="/aluno/encontrar" />
+      </div>
+
       {!personals.length ? (
-        <EmptyState icon={<UserSearch className="size-8" />} title="Nenhum Personal disponível ainda">
-          Novos Personais aparecem aqui assim que se cadastram. Enquanto isso, você já pode registrar seus treinos.
-        </EmptyState>
+        city ? (
+          <EmptyState icon={<UserSearch className="size-8" />} title={`Ainda não há Personal atendendo em ${cityName(city)}`}>
+            Tente uma cidade vizinha ou volte em breve: novos Personais entram toda semana.
+          </EmptyState>
+        ) : (
+          <EmptyState icon={<UserSearch className="size-8" />} title="Nenhum Personal disponível ainda">
+            Novos Personais aparecem aqui assim que se cadastram. Enquanto isso, você já pode registrar seus treinos.
+          </EmptyState>
+        )
       ) : (
         <ul className="space-y-3">
           {personals.map((p) => (
@@ -47,6 +63,7 @@ export default async function EncontrarPersonalPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-display text-lg font-bold">{p.full_name}</p>
                   <p className="text-sm text-muted">{p.age ? `${p.age} anos` : "Personal Trainer"}</p>
+                  {!!p.cities?.length && <p className="text-sm text-muted">📍 Atende em {citiesLabel(p.cities)}</p>}
                   <p className="text-sm">
                     {p.min_class_price != null ? (
                       <>

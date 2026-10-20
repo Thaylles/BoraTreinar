@@ -6,6 +6,8 @@ import { MONTHS } from "@/lib/schedule";
 import { Badge, EmptyState, PageTitle } from "@/components/ui/card";
 import { OccurrenceList } from "@/components/agenda/occurrence-list";
 import { requireStudent } from "@/lib/auth";
+import { PixPay } from "@/components/finance/pix-pay";
+import type { PixSettings } from "@/components/finance/pix-form";
 import { loadAgenda } from "@/lib/agenda-server";
 
 export const metadata: Metadata = { title: "Minhas aulas" };
@@ -24,11 +26,17 @@ export default async function AlunoAulasPage() {
     loadAgenda({ studentId: profile.id, days: 21 }),
     supabase
       .from("payments")
-      .select("id, month, description, amount, due_on, paid_at, personal:profiles!payments_personal_id_fkey(full_name)")
+      .select("*, personal:profiles!payments_personal_id_fkey(full_name)")
       .eq("student_id", profile.id)
       .order("month", { ascending: false })
       .limit(6),
   ]);
+  // Pix dos Personais com cobrança em aberto (sem a tabela ainda, só não mostra o QR Code).
+  const open = (payments ?? []).filter((p) => !p.paid_at && Number(p.amount) > 0);
+  const { data: pixRows } = open.length
+    ? await supabase.from("pix_settings").select("*").in("personal_id", [...new Set(open.map((p) => p.personal_id))])
+    : { data: [] };
+  const pixOf = new Map<string, PixSettings>((pixRows ?? []).map((x) => [x.personal_id, x]));
   return (
     <>
       <PageTitle sub="Aulas presenciais com seu Personal nas próximas 3 semanas.">Minhas aulas</PageTitle>
@@ -41,19 +49,24 @@ export default async function AlunoAulasPage() {
             {payments.map((p) => {
               const st = STATUS[paymentStatus(p, today)];
               return (
-                <li key={p.id} className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3">
-                  <div className="min-w-0 flex-1 text-sm">
-                    <p className="font-semibold">
-                      {MONTHS[Number(p.month.slice(5, 7)) - 1]} · {p.personal?.full_name}
-                    </p>
-                    <p className="truncate text-xs text-muted">
-                      {p.description} · vence {p.due_on.slice(8, 10)}/{p.due_on.slice(5, 7)}
-                    </p>
+                <li key={p.id} className="rounded-2xl border border-border bg-surface p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="min-w-0 flex-1 text-sm">
+                      <p className="font-semibold">
+                        {MONTHS[Number(p.month.slice(5, 7)) - 1]} · {p.personal?.full_name}
+                      </p>
+                      <p className="truncate text-xs text-muted">
+                        {p.description} · vence {p.due_on.slice(8, 10)}/{p.due_on.slice(5, 7)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold tabular-nums">{brl(Number(p.amount))}</p>
+                      <Badge tone={st.tone}>{st.label}</Badge>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold tabular-nums">{brl(Number(p.amount))}</p>
-                    <Badge tone={st.tone}>{st.label}</Badge>
-                  </div>
+                  {!p.paid_at && Number(p.amount) > 0 && (
+                    <PixPay payment={{ ...p, amount: Number(p.amount) }} pix={pixOf.get(p.personal_id) ?? null} />
+                  )}
                 </li>
               );
             })}

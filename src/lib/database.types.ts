@@ -479,6 +479,55 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      pix_settings: {
+        Row: {
+          city: string;
+          holder_name: string;
+          key_type: "cpf" | "cnpj" | "email" | "telefone" | "aleatoria";
+          payment_link: string | null;
+          personal_id: string;
+          pix_key: string;
+          updated_at: string;
+        };
+        Insert: {
+          city: string;
+          holder_name: string;
+          key_type: "cpf" | "cnpj" | "email" | "telefone" | "aleatoria";
+          payment_link?: string | null;
+          personal_id?: string;
+          pix_key: string;
+          updated_at?: string;
+        };
+        Update: {
+          city?: string;
+          holder_name?: string;
+          key_type?: "cpf" | "cnpj" | "email" | "telefone" | "aleatoria";
+          payment_link?: string | null;
+          pix_key?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      session_comments: {
+        Row: {
+          author_id: string;
+          body: string;
+          created_at: string;
+          id: string;
+          session_id: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: "session_comments_author_id_fkey";
+            columns: ["author_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       cardio_goals: {
         Row: {
           kind: "minutos" | "distancia" | "intenso";
@@ -664,6 +713,8 @@ export type Database = {
           month: string;
           paid_at: string | null;
           personal_id: string;
+          /** Aluno avisou "Já paguei" (aguarda o Personal confirmar). */
+          reported_paid_at?: string | null;
           student_id: string;
         };
         Insert: never;
@@ -794,6 +845,9 @@ export type Database = {
       };
       inactivity_nudges: { Args: Record<string, never>; Returns: number };
       accept_invite: { Args: { p_token: string }; Returns: string };
+      report_payment: { Args: { p_payment: string }; Returns: undefined };
+      reject_payment_report: { Args: { p_payment: string }; Returns: undefined };
+      add_session_comment: { Args: { p_session: string; p_body: string }; Returns: string };
       save_health_form: { Args: { p: Json }; Returns: undefined };
       set_health_clearance: { Args: { p_path: string | null }; Returns: undefined };
       set_cardio_goal: {

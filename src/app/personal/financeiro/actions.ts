@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { friendlyError, type ActionState } from "@/lib/errors";
 import { SUGGESTED_PACKAGES, parseMoney } from "@/lib/finance";
+import { normalizePixKey, PIX_KEY_TYPES, type PixKeyType } from "@/lib/pix";
 
 const done = () => revalidatePath("/personal/financeiro", "page");
 
@@ -82,4 +83,46 @@ export async function setPaymentAmount(_: ActionState, fd: FormData): Promise<Ac
   if (error) return { error: friendlyError(error.message) };
   done();
   return { ok: "Valor ajustado." };
+}
+
+export async function savePix(_: ActionState, fd: FormData): Promise<ActionState> {
+  const type = String(fd.get("key_type") ?? "") as PixKeyType;
+  if (!PIX_KEY_TYPES.some((t) => t.value === type)) return { error: "Escolha o tipo de chave." };
+  const key = normalizePixKey(type, String(fd.get("pix_key") ?? ""));
+  if ("error" in key) return { error: key.error };
+  const name = String(fd.get("holder_name") ?? "").trim();
+  const city = String(fd.get("city") ?? "").trim();
+  const link = String(fd.get("payment_link") ?? "").trim();
+  if (!name) return { error: "Informe o nome de quem recebe (como aparece no banco)." };
+  if (!city) return { error: "Informe a cidade." };
+  if (link && !/^https:\/\/\S+$/.test(link)) return { error: "O link de pagamento precisa começar com https://" };
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { error: "Sessão expirada. Entre de novo." };
+  const { error } = await supabase.from("pix_settings").upsert({
+    personal_id: auth.user.id,
+    key_type: type,
+    pix_key: key.key,
+    holder_name: name.slice(0, 60),
+    city: city.slice(0, 40),
+    payment_link: link || null,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) return { error: friendlyError(error.message) };
+  done();
+  return { ok: "Pix salvo! Seus alunos já veem o QR Code nas cobranças." };
+}
+
+export async function removePix() {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  if (data.user) await supabase.from("pix_settings").delete().eq("personal_id", data.user.id);
+  done();
+}
+
+/** O aluno avisou que pagou, mas o Personal não encontrou o pagamento. */
+export async function rejectPaymentReport(fd: FormData) {
+  const supabase = await createClient();
+  await supabase.rpc("reject_payment_report", { p_payment: String(fd.get("id")) });
+  done();
 }

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { friendlyError } from "@/lib/errors";
+import { friendlyError, type ActionState } from "@/lib/errors";
 import type { SessionPayload } from "@/lib/outbox";
 import { getSessionProfile } from "@/lib/auth";
 import { loadCautions } from "@/lib/health-server";
@@ -71,4 +71,28 @@ export async function suggestSubstitutes(input: {
     }
   }
   return none;
+}
+
+/** Comentário no treino (aluno ou Personal vinculado). O outro lado recebe uma notificação. */
+export async function addSessionComment(_: ActionState, fd: FormData): Promise<ActionState> {
+  const sessionId = String(fd.get("session_id") ?? "");
+  const body = String(fd.get("body") ?? "").trim();
+  if (!body) return { error: "Escreva o comentário." };
+  if (body.length > 1000) return { error: "Máximo de 1000 caracteres." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("add_session_comment", { p_session: sessionId, p_body: body });
+  if (error) return { error: friendlyError(error.message) };
+  revalidateComments(sessionId);
+  return { ok: "Comentário enviado." };
+}
+
+export async function deleteSessionComment(fd: FormData) {
+  const supabase = await createClient();
+  await supabase.from("session_comments").delete().eq("id", String(fd.get("id")));
+  revalidateComments(String(fd.get("session_id")));
+}
+
+function revalidateComments(sessionId: string) {
+  revalidatePath(`/aluno/historico/${sessionId}`);
+  revalidatePath(`/personal/treinos/${sessionId}`);
 }

@@ -8,6 +8,7 @@ import { requireRole } from "@/lib/auth";
 import { loadSession } from "@/lib/sessions-server";
 import { deleteSession } from "@/app/treino-actions";
 import { SessionRating } from "@/components/workout/session-rating";
+import { SessionComments } from "@/components/workout/session-comments";
 
 export const metadata: Metadata = { title: "Treino" };
 
@@ -28,6 +29,7 @@ export default async function AlunoSessaoPage({ params }: { params: Promise<{ se
           <SessionRating sessionId={sessionId} />
         </div>
       )}
+      <SessionComments sessionId={sessionId} meId={profile.id} placeholder="Conte como foi ou tire uma dúvida com seu Personal…" />
       <form action={deleteSession} className="mt-8">
         <input type="hidden" name="id" value={sessionId} />
         <ConfirmSubmit

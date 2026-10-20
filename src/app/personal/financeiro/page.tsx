@@ -9,6 +9,7 @@ import { WhatsAppButton } from "@/components/whatsapp-button";
 import { PackageForm } from "@/components/finance/package-form";
 import { BillingForm } from "@/components/finance/billing-form";
 import { AmountForm } from "@/components/finance/amount-form";
+import { PixForm, type PixSettings } from "@/components/finance/pix-form";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { loadAgenda } from "@/lib/agenda-server";
@@ -17,7 +18,8 @@ import { addMonths, MONTHS } from "@/lib/schedule";
 import { brl, classesPerMonth, paymentStatus, pricePerClass, type PaymentStatus } from "@/lib/finance";
 import { firstName } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import { createSuggestedPackages, deletePackage, removeBilling, togglePaid } from "./actions";
+import { formatPixKey } from "@/lib/pix";
+import { createSuggestedPackages, deletePackage, rejectPaymentReport, removeBilling, removePix, togglePaid } from "./actions";
 
 export const metadata: Metadata = { title: "Financeiro" };
 
@@ -43,7 +45,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   // Cria as cobranças do mês que ainda não existem (alunos com plano).
   await supabase.rpc("ensure_month_charges", { p_month: monthStart });
 
-  const [{ data: payments }, { data: billings }, { data: packages }, { data: links }, { occurrences }] = await Promise.all([
+  const [{ data: payments }, { data: billings }, { data: packages }, { data: links }, { occurrences }, { data: pixRow }] = await Promise.all([
     supabase
       .from("payments")
       .select("*, student:profiles!payments_student_id_fkey(id, full_name, phone, avatar_path)")
@@ -59,7 +61,9 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       .eq("status", "ativo")
       .is("archived_at", null),
     loadAgenda({ personalId: profile.id, from: monthStart, days }),
+    supabase.from("pix_settings").select("*").eq("personal_id", profile.id).maybeSingle(),
   ]);
+  const pix: PixSettings | null = pixRow ?? null;
 
   const list = payments ?? [];
   const total = list.reduce((s, p) => s + Number(p.amount), 0);
@@ -138,6 +142,11 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
                       <Badge tone={STATUS[st].tone}>{STATUS[st].label}</Badge>
                     </div>
                   </div>
+                  {!p.paid_at && p.reported_paid_at && (
+                    <p className="mt-2 rounded-xl bg-ipe-100 px-3 py-2 text-sm font-semibold dark:bg-ipe-500/15">
+                      💸 {firstName(name)} avisou que pagou em {ddmm(spDateKey(p.reported_paid_at))}. Confira no banco e confirme.
+                    </p>
+                  )}
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <form action={togglePaid}>
                       <input type="hidden" name="id" value={p.id} />
@@ -148,10 +157,21 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
                         </ConfirmSubmit>
                       ) : (
                         <Button size="sm">
-                          <CheckCircle2 className="size-4" aria-hidden /> Marcar como pago
+                          <CheckCircle2 className="size-4" aria-hidden /> {p.reported_paid_at ? "Confirmar recebimento" : "Marcar como pago"}
                         </Button>
                       )}
                     </form>
+                    {!p.paid_at && p.reported_paid_at && (
+                      <form action={rejectPaymentReport}>
+                        <input type="hidden" name="id" value={p.id} />
+                        <ConfirmSubmit
+                          message={`Avisar ${firstName(name)} que o pagamento não foi encontrado?`}
+                          className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-sm font-semibold text-pitanga-600 hover:bg-pitanga-100 dark:hover:bg-pitanga-500/15"
+                        >
+                          Não recebi
+                        </ConfirmSubmit>
+                      </form>
+                    )}
                     {!p.paid_at && (
                       <WhatsAppButton
                         phone={p.student?.phone}
@@ -172,6 +192,31 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
             })}
           </ul>
         )}
+      </section>
+
+      <section id="pix" aria-labelledby="pix-h" className="mb-8 scroll-mt-20">
+        <h2 id="pix-h" className="mb-1 font-display text-xl font-bold">
+          💠 Receber por Pix
+        </h2>
+        <p className="mb-3 text-sm text-muted">
+          Com a sua chave, cada cobrança mostra ao aluno um QR Code e o Pix copia e cola já com o valor. O dinheiro cai direto na sua
+          conta; quando o aluno avisar &quot;Já paguei&quot;, é só conferir e confirmar.
+        </p>
+        <details className="rounded-2xl border border-border bg-surface p-4" open={!pix}>
+          <summary className="cursor-pointer font-display font-bold">
+            {pix ? `Chave ${formatPixKey(pix.key_type, pix.pix_key)} · ${pix.holder_name}` : "Cadastrar chave Pix"}
+          </summary>
+          <div className="mt-3">
+            <PixForm current={pix} defaultName={profile.full_name} />
+            {pix && (
+              <form action={removePix} className="mt-2">
+                <ConfirmSubmit message="Remover sua chave Pix? Os alunos deixam de ver o QR Code." className="text-xs font-semibold text-pitanga-600 hover:underline">
+                  Remover Pix
+                </ConfirmSubmit>
+              </form>
+            )}
+          </div>
+        </details>
       </section>
 
       <section id="planos" aria-labelledby="planos-h" className="mb-8 scroll-mt-20">

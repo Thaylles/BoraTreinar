@@ -32,7 +32,7 @@ export async function GET() {
   const isStudent = profile.role !== "personal";
 
   try {
-    const [settings, links, sessions, sets, weights, plans, planItems, schedules, notifications, health, cardioGoal] = await Promise.all([
+    const [settings, links, sessions, sets, weights, plans, planItems, schedules, notifications, health, cardioGoal, pix, comments] = await Promise.all([
       supabase.from("student_settings").select("*").eq("student_id", uid).maybeSingle(),
       supabase
         .from("personal_students")
@@ -70,6 +70,8 @@ export async function GET() {
       all((a, b) => supabase.from("notifications").select("title, body, link, read_at, created_at").eq("user_id", uid).order("created_at").range(a, b)),
       supabase.from("health_forms").select("*").eq("student_id", uid).maybeSingle(),
       supabase.from("cardio_goals").select("kind, target, min_speed_kmh, min_level, updated_at").eq("student_id", uid).maybeSingle(),
+      supabase.from("pix_settings").select("key_type, pix_key, holder_name, city, payment_link, updated_at").eq("personal_id", uid).maybeSingle(),
+      supabase.from("session_comments").select("session_id, body, created_at").eq("author_id", uid).order("created_at"),
     ]);
 
     const body = {
@@ -97,6 +99,8 @@ export async function GET() {
       aulas: schedules.data,
       anamnese: health.data,
       meta_de_cardio: cardioGoal.data,
+      pix: pix.data,
+      comentarios_em_treinos: comments.data,
       notificacoes: notifications,
     };
     return new NextResponse(JSON.stringify(body, null, 2), {

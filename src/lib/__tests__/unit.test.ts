@@ -446,3 +446,28 @@ test("aparelho ocupado: candidatos do mesmo grupo e leitura da resposta da IA", 
   assert.deepEqual(parseSwap({ ids: ["hack", "x", "hack", "ext", "lph"], motivo: "Mesmo padrão" }, ["hack", "ext", "lph"]), { ids: ["hack", "ext"], reason: "Mesmo padrão" });
   assert.deepEqual(parseSwap(null, ["a"]), { ids: [], reason: null });
 });
+
+test("Pix: chave, CRC e BR Code no padrão do Banco Central", async () => {
+  const { crc16, pixPayload, normalizePixKey, formatPixKey } = await import("../pix.ts");
+  assert.equal(crc16("123456789"), "29B1");
+  // Exemplo do manual do BR Code (Bacen).
+  assert.equal(
+    pixPayload({ key: "123e4567-e12b-12d1-a456-426655440000", name: "Fulano de Tal", city: "BRASILIA" }),
+    "00020126580014br.gov.bcb.pix0136123e4567-e12b-12d1-a456-4266554400005204000053039865802BR5913Fulano de Tal6008BRASILIA62070503***63041D3D",
+  );
+  const code = pixPayload({ key: "paula@pix.com", name: "Paula Ünder Pereira da Silva Souza", city: "São José dos Campos", amount: 350, description: "Aulas de outubro" });
+  assert.ok(code.includes("5406350.00"));
+  assert.ok(code.includes("5925Paula Under Pereira da Si"));
+  assert.ok(code.includes("6015Sao Jose dos Ca"));
+  assert.ok(code.includes("0216Aulas de outubro"));
+  assert.equal(code.slice(-4), (await import("../pix.ts")).crc16(code.slice(0, -4)));
+  assert.deepEqual(normalizePixKey("cpf", "529.982.247-25"), { key: "52998224725" });
+  assert.ok("error" in normalizePixKey("cpf", "111.111.111-11"));
+  assert.deepEqual(normalizePixKey("cnpj", "11.222.333/0001-81"), { key: "11222333000181" });
+  assert.deepEqual(normalizePixKey("telefone", "(11) 98888-7777"), { key: "+5511988887777" });
+  assert.deepEqual(normalizePixKey("telefone", "+55 11 98888-7777"), { key: "+5511988887777" });
+  assert.deepEqual(normalizePixKey("email", " Paula@Pix.com "), { key: "paula@pix.com" });
+  assert.ok("error" in normalizePixKey("aleatoria", "abc"));
+  assert.equal(formatPixKey("telefone", "+5511988887777"), "(11) 98888-7777");
+  assert.equal(formatPixKey("cpf", "52998224725"), "529.982.247-25");
+});

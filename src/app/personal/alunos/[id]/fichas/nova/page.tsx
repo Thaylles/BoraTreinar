@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { PageTitle } from "@/components/ui/card";
 import { PlanEditor } from "@/components/plans/plan-editor";
+import { loadCautions } from "@/lib/health-server";
 import { requireRole } from "@/lib/auth";
 import { loadCatalogFor } from "@/lib/plans-server";
 import { createClient } from "@/lib/supabase/server";
@@ -29,6 +30,7 @@ export default async function NovaFichaPage({ params }: { params: Promise<{ id: 
       </Link>
       <PageTitle sub={`Para ${student.full_name}`}>Nova ficha</PageTitle>
       <PlanEditor
+        cautions={await loadCautions(id)}
         catalog={catalog}
         initial={{ planId: null, studentId: id, name: `Treino ${letter}`, goal: "", notes: "", validUntil: "", items: [] }}
       />

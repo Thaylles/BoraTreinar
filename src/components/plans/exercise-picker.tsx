@@ -26,12 +26,15 @@ export function ExercisePicker({
   onPick,
   onClose,
   multiple = true,
+  cautions = {},
 }: {
   catalog: CatalogItem[];
   selectedIds: string[];
   onPick: (item: CatalogItem) => void;
   onClose: () => void;
   multiple?: boolean;
+  /** Anamnese do aluno: motivos de cuidado por grupo muscular. */
+  cautions?: Record<string, string[]>;
 }) {
   const [q, setQ] = useState("");
   const [group, setGroup] = useState<MuscleGroup | null>(null);
@@ -120,6 +123,9 @@ export function ExercisePicker({
                   <span className="min-w-0 flex-1">
                     <span className="block font-semibold leading-tight">{c.name}</span>
                     <span className="text-xs text-muted">{groupLabel(c.muscle_group)}</span>
+                    {cautions[c.muscle_group] && (
+                      <span className="block text-xs font-semibold text-pitanga-600">⚠️ {cautions[c.muscle_group].join(", ")}</span>
+                    )}
                   </span>
                   {selected && (
                     <span className="rounded-full bg-bandeira-500 p-1 text-white" aria-label="Já na ficha">

@@ -450,6 +450,31 @@ export type Database = {
           },
         ];
       };
+      health_forms: {
+        Row: {
+          activity_level: string | null;
+          clearance_path: string | null;
+          conditions: string[];
+          created_at: string;
+          experience: string | null;
+          goals: string[];
+          injury_regions: string[];
+          medications: string[];
+          mobility_regions: string[];
+          muscle_pain: string[];
+          notes: string | null;
+          pain_regions: string[];
+          parq_yes: string[];
+          sleep: string | null;
+          smoker: boolean | null;
+          student_id: string;
+          surgeries: string[];
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       cardio_goals: {
         Row: {
           kind: "minutos" | "distancia" | "intenso";
@@ -765,6 +790,8 @@ export type Database = {
       };
       inactivity_nudges: { Args: Record<string, never>; Returns: number };
       accept_invite: { Args: { p_token: string }; Returns: string };
+      save_health_form: { Args: { p: Json }; Returns: undefined };
+      set_health_clearance: { Args: { p_path: string | null }; Returns: undefined };
       set_cardio_goal: {
         Args: { p_student: string; p_kind: string; p_target: number; p_min_speed?: number | null; p_min_level?: number | null };
         Returns: undefined;

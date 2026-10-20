@@ -92,6 +92,15 @@ export default async function AlunosPage({
         </details>
       )}
 
+      <Link
+        href="/personal/saude"
+        className="mb-4 flex items-center gap-3 rounded-3xl border border-border bg-surface p-3 text-sm transition hover:border-bandeira-500"
+      >
+        <span className="text-xl" aria-hidden>🩺</span>
+        <span className="flex-1 font-semibold">Levantamento de saúde dos alunos (anamnese)</span>
+        <ChevronRight className="size-4 text-muted" aria-hidden />
+      </Link>
+
       <div className="mb-4 flex gap-2" role="tablist">
         {[
           { href: "/personal/alunos", label: "Ativos", active: !showArchived },

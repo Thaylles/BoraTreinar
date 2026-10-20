@@ -396,3 +396,27 @@ test("calculadora de anilhas e aquecimento", async () => {
   assert.equal(guessBar("Barra fixa"), 0);
   assert.equal(guessBar("Leg press 45°"), 0);
 });
+
+test("anamnese: alertas por grupo muscular e levantamento", async () => {
+  const { cautionsFor, healthSurvey, needsClearance } = await import("../health.ts");
+  const base = {
+    parq_yes: [], pain_regions: [], injury_regions: [], mobility_regions: [], muscle_pain: [], surgeries: [], conditions: [],
+    medications: [], goals: [], activity_level: null, experience: null, sleep: null, smoker: null, notes: null,
+  };
+  const a = { ...base, pain_regions: ["joelho"], mobility_regions: ["ombro"], muscle_pain: ["posterior"], surgeries: ["joelho"], goals: ["hipertrofia"], activity_level: "ativo" };
+  const c = cautionsFor(a);
+  assert.deepEqual(c.quadriceps, ["dor: joelho", "cirurgia: joelho"]);
+  assert.deepEqual(c.posterior, ["dor: joelho", "cirurgia: joelho", "dor muscular"]);
+  assert.deepEqual(c.peito, ["mobilidade limitada: ombro"]);
+  assert.equal(c.biceps, undefined);
+  assert.deepEqual(cautionsFor(null), {});
+  assert.ok(!needsClearance(a) && needsClearance({ parq_yes: ["tontura"] }));
+
+  const s = healthSurvey([a, { ...base, parq_yes: ["tontura"], pain_regions: ["joelho", "lombar"], goals: ["hipertrofia", "saude"], smoker: true }]);
+  assert.equal(s.total, 2);
+  assert.equal(s.risk, 1);
+  assert.equal(s.smokers, 1);
+  assert.deepEqual(s.multi.find((q) => q.key === "pain_regions")!.counts.map((x) => [x.label, x.n]), [["Joelho", 2], ["Lombar", 1]]);
+  assert.deepEqual(s.multi.find((q) => q.key === "goals")!.counts[0], { value: "hipertrofia", label: "Ganho de massa (hipertrofia)", n: 2 });
+  assert.deepEqual(s.single.find((q) => q.key === "activity_level")!.counts, [{ value: "ativo", label: "3–4× por semana", n: 1 }]);
+});

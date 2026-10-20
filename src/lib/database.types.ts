@@ -211,8 +211,12 @@ export type Database = {
           email: string;
           full_name: string;
           id: string;
+          /** Logo do Personal (bucket avatars). Ausente antes da migração de marca. */
+          logo_path?: string | null;
           phone: string | null;
           role: Database["public"]["Enums"]["user_role"];
+          /** Cidades de atendimento do Personal (códigos IBGE do RS). */
+          service_cities?: number[];
           terms_accepted_at: string | null;
           updated_at: string;
         };
@@ -231,6 +235,8 @@ export type Database = {
           birth_date?: string | null;
           full_name?: string;
           phone?: string | null;
+          logo_path?: string | null;
+          service_cities?: number[];
           // Só pelo admin (service role):
           catalog_blocked?: boolean;
           email?: string;
@@ -479,6 +485,55 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      pix_settings: {
+        Row: {
+          city: string;
+          holder_name: string;
+          key_type: "cpf" | "cnpj" | "email" | "telefone" | "aleatoria";
+          payment_link: string | null;
+          personal_id: string;
+          pix_key: string;
+          updated_at: string;
+        };
+        Insert: {
+          city: string;
+          holder_name: string;
+          key_type: "cpf" | "cnpj" | "email" | "telefone" | "aleatoria";
+          payment_link?: string | null;
+          personal_id?: string;
+          pix_key: string;
+          updated_at?: string;
+        };
+        Update: {
+          city?: string;
+          holder_name?: string;
+          key_type?: "cpf" | "cnpj" | "email" | "telefone" | "aleatoria";
+          payment_link?: string | null;
+          pix_key?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      session_comments: {
+        Row: {
+          author_id: string;
+          body: string;
+          created_at: string;
+          id: string;
+          session_id: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: "session_comments_author_id_fkey";
+            columns: ["author_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       cardio_goals: {
         Row: {
           kind: "minutos" | "distancia" | "intenso";
@@ -664,6 +719,8 @@ export type Database = {
           month: string;
           paid_at: string | null;
           personal_id: string;
+          /** Aluno avisou "Já paguei" (aguarda o Personal confirmar). */
+          reported_paid_at?: string | null;
           student_id: string;
         };
         Insert: never;
@@ -794,6 +851,9 @@ export type Database = {
       };
       inactivity_nudges: { Args: Record<string, never>; Returns: number };
       accept_invite: { Args: { p_token: string }; Returns: string };
+      report_payment: { Args: { p_payment: string }; Returns: undefined };
+      reject_payment_report: { Args: { p_payment: string }; Returns: undefined };
+      add_session_comment: { Args: { p_session: string; p_body: string }; Returns: string };
       save_health_form: { Args: { p: Json }; Returns: undefined };
       set_health_clearance: { Args: { p_path: string | null }; Returns: undefined };
       set_cardio_goal: {
@@ -818,8 +878,12 @@ export type Database = {
           sort: number;
         }[];
       };
-      personal_directory: {
+      my_personal_logo: {
         Args: Record<string, never>;
+        Returns: { personal_id: string; full_name: string; logo_path: string }[];
+      };
+      personal_directory: {
+        Args: { p_city?: number | null };
         Returns: {
           id: string;
           full_name: string;
@@ -828,6 +892,7 @@ export type Database = {
           phone: string;
           packages: { name: string; kind: "por_aula" | "mensal"; classes_per_week: number | null; price: number }[];
           min_class_price: number | null;
+          cities?: number[];
         }[];
       };
       find_student_for_link: {

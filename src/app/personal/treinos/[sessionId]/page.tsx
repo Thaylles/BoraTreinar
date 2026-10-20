@@ -7,6 +7,7 @@ import { ConfirmSubmit } from "@/components/confirm-submit";
 import { requireRole } from "@/lib/auth";
 import { loadSession } from "@/lib/sessions-server";
 import { deleteSession } from "@/app/treino-actions";
+import { SessionComments } from "@/components/workout/session-comments";
 
 export const metadata: Metadata = { title: "Treino do aluno" };
 
@@ -23,6 +24,7 @@ export default async function PersonalSessaoPage({ params }: { params: Promise<{
         <ArrowLeft className="size-4" aria-hidden /> Aluno
       </Link>
       <SessionDetail data={data} exerciseHref={(id) => `/personal/alunos/${studentId}/exercicios/${id}`} />
+      <SessionComments sessionId={sessionId} meId={profile.id} placeholder="Dê um retorno sobre o treino: elogio, ajuste de carga, técnica…" />
       {data.session.logged_by === profile.id && (
         <form action={deleteSession} className="mt-8">
           <input type="hidden" name="id" value={sessionId} />

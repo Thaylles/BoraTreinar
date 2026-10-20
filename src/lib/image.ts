@@ -56,6 +56,10 @@ export async function compressImage(file: File, maxSize = 1024, quality = 0.8): 
     new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
   const webp = await toBlob("image/webp");
   if (webp && webp.type === "image/webp") return webp;
+  // JPEG não tem transparência: fundo branco (senão logos PNG ficam com fundo preto).
+  ctx.globalCompositeOperation = "destination-over";
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, w, h);
   const jpeg = await toBlob("image/jpeg");
   if (!jpeg) throw new Error("Não foi possível processar a imagem");
   return jpeg;

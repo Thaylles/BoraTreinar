@@ -4,6 +4,7 @@ import { Logo } from "@/components/brand/Logo";
 import { NavLinks, type NavItem } from "./nav-links";
 import { firstName } from "@/lib/format";
 import { Avatar } from "@/components/avatar";
+import { avatarUrl } from "@/lib/avatar";
 
 export function AppShell({
   name,
@@ -14,6 +15,7 @@ export function AppShell({
   isAdmin = false,
   canTrain = false,
   profileHref,
+  brand = null,
   children,
 }: {
   name: string;
@@ -28,21 +30,21 @@ export function AppShell({
   canTrain?: boolean;
   /** Link do perfil (padrão: `${root}/perfil`). */
   profileHref?: string;
+  /** Marca do Personal (Premium): logo no lugar do BoraTreinar no app do aluno. */
+  brand?: { logoPath: string; name: string } | null;
   children: React.ReactNode;
 }) {
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[240px_1fr]">
       <aside className="hidden border-r border-border bg-surface p-4 md:flex md:flex-col md:gap-6">
-        <Link href={root}>
-          <Logo size={32} />
-        </Link>
+        <Link href={root}>{brand ? <BrandLogo brand={brand} size="lg" /> : <Logo size={32} />}</Link>
         <NavLinks items={items} root={root} />
       </aside>
 
       <div className="flex min-h-dvh flex-col">
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-background/90 px-4 py-3 backdrop-blur">
-          <Link href={root} className="md:hidden">
-            <Logo size={28} />
+          <Link href={root} className="min-w-0 md:hidden">
+            {brand ? <BrandLogo brand={brand} /> : <Logo size={28} />}
           </Link>
           <div className="ml-auto flex items-center gap-3">
             <Link
@@ -112,5 +114,26 @@ function ModeSwitcher({ root, modes, label = "Modo:" }: { root: string; modes: {
         </Link>
       ))}
     </nav>
+  );
+}
+
+/** Logo do Personal num fundo claro (funciona no tema escuro), com "via BoraTreinar" discreto. */
+function BrandLogo({ brand, size = "md" }: { brand: { logoPath: string; name: string }; size?: "md" | "lg" }) {
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <span className={size === "lg" ? "flex h-12 items-center rounded-xl bg-white px-2 py-1" : "flex h-9 items-center rounded-lg bg-white px-2 py-1"}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- logo do bucket público */}
+        <img
+          src={avatarUrl(brand.logoPath)!}
+          alt={brand.name}
+          className={size === "lg" ? "max-h-10 max-w-[180px] object-contain" : "max-h-7 max-w-[140px] object-contain"}
+        />
+      </span>
+      <span className="hidden text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted min-[380px]:block">
+        via
+        <br />
+        BoraTreinar
+      </span>
+    </span>
   );
 }

@@ -4,7 +4,25 @@ import { PageTitle } from "@/components/ui/card";
 import { AvatarUploader } from "./avatar-uploader";
 import { ProfileForm } from "./profile-form";
 import { DirectoryToggle } from "./directory-toggle";
+import { LogoUploader } from "./logo-uploader";
+import { ServiceCitiesForm } from "./service-cities-form";
 import type { Profile } from "@/lib/auth";
+
+/** Aviso do recurso Premium em teste gratuito. */
+export function PremiumNotice() {
+  return (
+    <div>
+      <p className="flex flex-wrap items-center gap-2 font-display text-lg font-bold">
+        ✨ Sua marca no app
+        <span className="rounded-full bg-ipe-500 px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-wide text-anil-900">Premium</span>
+      </p>
+      <p className="mt-2 rounded-2xl bg-ipe-100 px-3 py-2 text-sm text-anil-900 dark:bg-ipe-500/15 dark:text-ipe-400">
+        <strong>Teste grátis por tempo limitado.</strong> Este é um recurso da versão Premium e o acesso gratuito pode não ficar
+        disponível por muito tempo. Aproveite para testar agora!
+      </p>
+    </div>
+  );
+}
 
 /** "Meu perfil": foto, nome e WhatsApp (igual para Personal, aluno e admin). */
 export function ProfilePage({ profile }: { profile: Profile }) {
@@ -15,7 +33,7 @@ export function ProfilePage({ profile }: { profile: Profile }) {
         <AvatarUploader userId={profile.id} name={profile.full_name} path={profile.avatar_path} />
       </section>
       <section className="rounded-3xl border border-border bg-surface p-5">
-        <ProfileForm name={profile.full_name} phone={profile.phone} birthDate={profile.birth_date} />
+        <ProfileForm name={profile.full_name} phone={profile.phone} birthDate={profile.birth_date} requireBirth={profile.role === "personal"} />
       </section>
       {profile.role !== "personal" && (
         <Link
@@ -31,9 +49,22 @@ export function ProfilePage({ profile }: { profile: Profile }) {
         </Link>
       )}
       {profile.role === "personal" && (
-        <section className="mt-6 rounded-3xl border border-border bg-surface p-5">
-          <DirectoryToggle listed={profile.directory_listed} />
-        </section>
+        <>
+          <section id="cidades" className="mt-6 scroll-mt-20 rounded-3xl border border-border bg-surface p-5">
+            <ServiceCitiesForm cities={profile.service_cities ?? []} />
+          </section>
+          <section className="mt-6 rounded-3xl border border-border bg-surface p-5">
+            <DirectoryToggle listed={profile.directory_listed} />
+          </section>
+          <section id="marca" className="mt-6 scroll-mt-20 rounded-3xl border-2 border-ipe-500 bg-surface p-5">
+            <PremiumNotice />
+            <p className="mb-4 mt-3 text-sm">
+              Coloque o <strong>seu logo</strong> e o app dos seus alunos passa a mostrar a sua marca no topo de todas as telas, no
+              lugar do logo do BoraTreinar. Seus alunos treinam com a cara da sua consultoria.
+            </p>
+            <LogoUploader userId={profile.id} name={profile.full_name} path={profile.logo_path ?? null} />
+          </section>
+        </>
       )}
     </>
   );

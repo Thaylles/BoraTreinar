@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { cn } from "@/lib/cn";
 import { cardioSetLine, type IntensityUnit } from "@/lib/cardio";
+import { BARS, guessBar, platesFor, platesLabel, warmupSets } from "@/lib/plates";
 
 export type RunnerExercise = {
   equipment: {
@@ -519,6 +520,14 @@ function ExerciseCard({
         </p>
       )}
 
+      {!isCardio && (
+        <WarmupPanel
+          equipmentId={exercise.equipment.id}
+          name={exercise.equipment.name}
+          loads={state.sets.map((s) => parseNum(s.load))}
+        />
+      )}
+
       {isCardio ? (
         <ul className="mt-3 space-y-2">
           {state.sets.map((s, si) => (
@@ -803,5 +812,156 @@ function CardioSetRow({
         </button>
       </div>
     </li>
+  );
+}
+
+const fmtKg = (n: number) => `${fmtNum(n)} kg`;
+
+/** Barra escolhida para o exercício (fica guardada no aparelho do aluno). */
+function useBar(equipmentId: string, name: string) {
+  const key = `bt:barra:${equipmentId}`;
+  const [bar, setBar] = useState(() => guessBar(name));
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved != null && BARS.includes(Number(saved))) setBar(Number(saved));
+    } catch {
+      /* armazenamento indisponível */
+    }
+  }, [key]);
+  const choose = (b: number) => {
+    setBar(b);
+    try {
+      localStorage.setItem(key, String(b));
+    } catch {
+      /* armazenamento indisponível */
+    }
+  };
+  return [bar, choose] as const;
+}
+
+/**
+ * Antes de cada exercício: até 2 séries de aquecimento (opcionais, não entram no registro)
+ * e a calculadora de anilhas para as cargas do exercício.
+ */
+function WarmupPanel({ equipmentId, name, loads }: { equipmentId: string; name: string; loads: number[] }) {
+  const [bar, setBar] = useBar(equipmentId, name);
+  const [status, setStatus] = useState<"aberto" | "feito" | "pulado">("aberto");
+  const [done, setDone] = useState<boolean[]>([]);
+  const [showPlates, setShowPlates] = useState(false);
+  const work = Math.max(0, ...loads);
+  const sets = warmupSets(work, bar);
+  if (work <= 0) return null;
+  const allLoads = [...new Set([...sets.map((s) => s.load), ...loads.filter((l) => l > 0)])].sort((a, b) => a - b);
+
+  function toggle(i: number) {
+    const next = sets.map((_, k) => (k === i ? !done[k] : !!done[k]));
+    setDone(next);
+    if (next.every(Boolean)) setStatus("feito");
+  }
+
+  const open = status === "aberto" && sets.length > 0;
+  return (
+    <div className="mt-3 rounded-2xl border border-dashed border-ipe-500/70 bg-ipe-100/40 p-3 text-sm dark:bg-ipe-500/10">
+      {open ? (
+        <>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="font-bold">🔥 Aquecimento <span className="font-normal text-muted">(opcional)</span></p>
+            <button type="button" onClick={() => setStatus("pulado")} className="rounded-lg px-2 py-1 text-xs font-semibold text-muted hover:bg-border/50">
+              Pular
+            </button>
+          </div>
+          <ul className="space-y-1.5">
+            {sets.map((w, i) => (
+              <li key={i} className="flex items-center gap-2">
+                <span className="w-5 text-center font-display font-bold text-muted">{i + 1}</span>
+                <span className="flex-1 font-semibold">
+                  {fmtKg(w.load)} × {w.reps}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => toggle(i)}
+                  aria-pressed={!!done[i]}
+                  aria-label={`Aquecimento ${i + 1} feito`}
+                  className={cn(
+                    "flex h-9 w-12 items-center justify-center rounded-xl border-2 transition",
+                    done[i] ? "border-bandeira-500 bg-bandeira-500 text-white" : "border-border text-muted",
+                  )}
+                >
+                  <Check className="size-4" aria-hidden />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-muted">
+            {status === "feito" ? "🔥 Aquecimento feito ✓" : sets.length ? "🔥 Aquecimento pulado" : "Carga leve: sem aquecimento"}
+          </p>
+          {sets.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setStatus("aberto");
+                setDone([]);
+              }}
+              className="rounded-lg px-2 py-1 text-xs font-semibold text-muted hover:bg-border/50"
+            >
+              Mostrar
+            </button>
+          )}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setShowPlates((v) => !v)}
+        aria-expanded={showPlates}
+        className="mt-2 text-xs font-semibold text-anil-700 hover:underline dark:text-ipe-400"
+      >
+        🏋️ {showPlates ? "Esconder anilhas" : "Quais anilhas colocar?"}
+      </button>
+      {showPlates && (
+        <div className="mt-2 space-y-2">
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Barra">
+            {BARS.map((b) => (
+              <button
+                key={b}
+                type="button"
+                onClick={() => setBar(b)}
+                aria-pressed={bar === b}
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-xs font-semibold",
+                  bar === b ? "border-anil-700 bg-anil-700 text-white" : "border-border text-muted",
+                )}
+              >
+                {b ? `Barra ${b} kg` : "Sem barra"}
+              </button>
+            ))}
+          </div>
+          <ul className="space-y-1">
+            {allLoads.map((l) => {
+              const { perSide, remainder } = platesFor(l, bar);
+              return (
+                <li key={l} className="flex flex-wrap gap-x-2">
+                  <span className="w-16 font-semibold">{fmtKg(l)}</span>
+                  <span className="text-muted">
+                    {l < bar
+                      ? "menos que a barra"
+                      : perSide.length
+                        ? `cada lado: ${platesLabel(perSide)}`
+                        : bar
+                          ? "só a barra"
+                          : "—"}
+                    {remainder > 0 && l >= bar && ` (faltam ${fmtKg(remainder)}: sem anilha para isso)`}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }

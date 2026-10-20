@@ -1,17 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Play, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Loader2, Play, Plus, Save, Trash2 } from "lucide-react";
 import { ExercisePicker, type CatalogItem } from "@/components/plans/exercise-picker";
 import { Button } from "@/components/ui/button";
 import { equipmentImageSrc, groupLabel } from "@/lib/catalog";
 import { draftStore } from "@/lib/outbox";
+import { saveFreeAsPlan } from "@/app/aluno/fichas/actions";
+import { inputClass } from "@/components/ui/field";
+import { Alert } from "@/components/ui/alert";
 
 const KEY = "bt:livre:ultimo";
 
 /** Monta o treino livre do dia escolhendo apenas exercícios do catálogo. */
-export function FreeBuilder({ catalog, max }: { catalog: CatalogItem[]; max: number }) {
+export function FreeBuilder({ catalog, max, canSave = false }: { catalog: CatalogItem[]; max: number; canSave?: boolean }) {
   const router = useRouter();
   const [ids, setIds] = useState<string[]>([]);
   const [picking, setPicking] = useState(false);
@@ -87,6 +91,8 @@ export function FreeBuilder({ catalog, max }: { catalog: CatalogItem[]; max: num
       </button>
       {ids.length >= max && <p className="text-center text-xs text-muted">Máximo de {max} exercícios por treino.</p>}
 
+      {canSave && ids.length > 0 && <SaveAsPlan ids={ids} />}
+
       <div className="sticky bottom-20 z-10 md:bottom-4">
         <Button size="lg" className="w-full shadow-xl" disabled={!ids.length} onClick={start}>
           <Play className="size-5" aria-hidden /> Começar treino livre
@@ -94,8 +100,65 @@ export function FreeBuilder({ catalog, max }: { catalog: CatalogItem[]; max: num
       </div>
 
       {picking && (
-        <ExercisePicker catalog={catalog} selectedIds={ids} onPick={toggle} onClose={() => setPicking(false)} />
+        <ExercisePicker catalog={catalog} selectedIds={ids} onPick={toggle} onClose={() => setPicking(false)} allowRequest={canSave} />
       )}
     </div>
+  );
+}
+
+/** Opcional: guardar a seleção do dia como ficha para repetir depois (o treino de hoje não muda). */
+function SaveAsPlan({ ids }: { ids: string[] }) {
+  const [name, setName] = useState("");
+  const [saved, setSaved] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  if (saved) {
+    return (
+      <Alert kind="success">
+        Ficha salva! Ela aparece em &quot;Suas fichas&quot; na tela inicial.{" "}
+        <Link href={`/aluno/fichas/${saved}`} className="font-semibold underline">
+          Ver ficha
+        </Link>
+      </Alert>
+    );
+  }
+  return (
+    <details className="rounded-3xl border border-border bg-surface p-4">
+      <summary className="flex cursor-pointer items-center gap-2 font-semibold">
+        <Save className="size-4 text-bandeira-600" aria-hidden /> Salvar como ficha <span className="text-sm font-normal text-muted">(opcional)</span>
+      </summary>
+      <p className="mt-2 text-sm text-muted">Vai repetir este treino outras vezes? Salve como ficha. Se for só hoje, não precisa.</p>
+      <div className="mt-3 flex gap-2">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={60}
+          placeholder="Nome da ficha (ex.: Treino A)"
+          aria-label="Nome da ficha"
+          className={inputClass}
+        />
+        <button
+          type="button"
+          disabled={pending || !name.trim()}
+          onClick={() =>
+            startTransition(async () => {
+              setError(null);
+              const res = await saveFreeAsPlan(name, ids);
+              if (res.error) setError(res.error);
+              else if (res.id) setSaved(res.id);
+            })
+          }
+          className="flex shrink-0 items-center gap-1 rounded-2xl bg-anil-700 px-4 font-semibold text-white disabled:opacity-50 dark:bg-ipe-500 dark:text-anil-900"
+        >
+          {pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Save className="size-4" aria-hidden />} Salvar
+        </button>
+      </div>
+      {error && (
+        <Alert className="mt-2">
+          {error}
+        </Alert>
+      )}
+    </details>
   );
 }

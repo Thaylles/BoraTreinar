@@ -34,7 +34,7 @@ export default async function AlunoHome({
   const [{ data: plans }, { count: personals }, { data: requests }, { data: achievements }, { data: templates }, { data: health }] = await Promise.all([
     supabase
       .from("workout_plans")
-      .select("id, name, goal, items:workout_plan_items(count)")
+      .select("id, name, goal, created_by, items:workout_plan_items(count)")
       .eq("student_id", profile.id)
       .is("archived_at", null)
       .order("name"),
@@ -191,7 +191,9 @@ export default async function AlunoHome({
                   <div className="min-w-0 flex-1">
                     <p className="font-display text-lg font-bold leading-tight">{p.name}</p>
                     <p className="text-sm text-white/85">
-                      {p.items[0]?.count ?? 0} exercícios{p.goal && ` · ${p.goal}`}
+                      {p.items[0]?.count ?? 0} {p.items[0]?.count === 1 ? "exercício" : "exercícios"}
+                      {p.goal && ` · ${p.goal}`}
+                      {p.created_by === profile.id && " · criada por você"}
                     </p>
                   </div>
                   <ChevronRight className="size-5" aria-hidden />
@@ -199,19 +201,25 @@ export default async function AlunoHome({
               </li>
             ))}
           </ul>
+          <NewPlanLink />
         </section>
       ) : (
-        <Card className="mb-8 flex items-center gap-4 bg-gradient-to-br from-bandeira-500 to-bandeira-700 text-white">
-          <Dumbbell className="size-10 shrink-0 text-ipe-400" aria-hidden />
-          <div>
-            <p className="font-display text-xl font-bold">Seus treinos aparecem aqui</p>
-            <p className="text-sm text-white/85">
-              {personals
-                ? "Assim que seu Personal montar suas fichas, é só escolher a do dia e mandar ver."
-                : "Sem Personal? Use o treino livre para registrar seus exercícios, ou encontre um Personal para montar suas fichas."}
-            </p>
+        <>
+          <Card className="mb-3 flex items-center gap-4 bg-gradient-to-br from-bandeira-500 to-bandeira-700 text-white">
+            <Dumbbell className="size-10 shrink-0 text-ipe-400" aria-hidden />
+            <div>
+              <p className="font-display text-xl font-bold">Seus treinos aparecem aqui</p>
+              <p className="text-sm text-white/85">
+                {personals
+                  ? "Assim que seu Personal montar suas fichas, é só escolher a do dia e mandar ver."
+                  : "Sem Personal? Monte suas próprias fichas, use o treino livre ou encontre um Personal."}
+              </p>
+            </div>
+          </Card>
+          <div className="mb-8">
+            <NewPlanLink />
           </div>
-        </Card>
+        </>
       )}
 
       {nextClass && (
@@ -257,5 +265,17 @@ export default async function AlunoHome({
       {/* O Personal vê os avisos (dos alunos) no início da área dele. */}
       {!coach && <NotificationsList />}
     </>
+  );
+}
+
+/** Atalho para o aluno montar uma ficha própria (salva na conta). */
+function NewPlanLink() {
+  return (
+    <Link
+      href="/aluno/fichas/nova"
+      className="mt-2 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-bandeira-500/50 py-3 font-display font-bold text-bandeira-600 hover:bg-bandeira-50 dark:text-bandeira-100 dark:hover:bg-bandeira-500/10"
+    >
+      + Criar minha ficha
+    </Link>
   );
 }

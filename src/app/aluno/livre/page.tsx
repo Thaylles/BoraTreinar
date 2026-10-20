@@ -17,10 +17,10 @@ export default async function TreinoLivrePage() {
       <Link href="/aluno" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-foreground">
         <ArrowLeft className="size-4" aria-hidden /> Início
       </Link>
-      <PageTitle sub="Monte o treino de hoje com exercícios do catálogo. Seu Personal vai ver tudo depois.">
+      <PageTitle sub="Monte o treino de hoje com exercícios do catálogo. Se quiser repetir depois, salve como ficha.">
         Treino livre
       </PageTitle>
-      <FreeBuilder catalog={catalog} max={FREE_MAX_EXERCISES} />
+      <FreeBuilder catalog={catalog} max={FREE_MAX_EXERCISES} canSave={profile.role !== "personal"} />
     </>
   );
 }

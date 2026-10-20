@@ -514,6 +514,23 @@ export type Database = {
         };
         Relationships: [];
       };
+      exercise_requests: {
+        Row: {
+          created_at: string;
+          equipment_id: string | null;
+          id: string;
+          name: string;
+          name_key: string;
+          note: string | null;
+          requested_by: string;
+          resolved_at: string | null;
+          resolved_by: string | null;
+          status: "aberto" | "adicionado" | "descartado";
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       session_comments: {
         Row: {
           author_id: string;
@@ -931,6 +948,24 @@ export type Database = {
         Returns: undefined;
       };
       can_view_session: { Args: { p_session: string }; Returns: boolean };
+      save_my_plan: {
+        Args: { p_plan: string | null; p_name: string; p_goal: string | null; p_notes: string | null; p_items: Json };
+        Returns: string;
+      };
+      request_exercise: { Args: { p_name: string; p_note?: string | null }; Returns: string };
+      add_requested_exercise: {
+        Args: {
+          p_key: string;
+          p_name: string;
+          p_group: Database["public"]["Enums"]["muscle_group"];
+          p_bodyweight?: boolean;
+          p_description?: string | null;
+          p_intensity?: string | null;
+        };
+        Returns: string;
+      };
+      link_requested_exercise: { Args: { p_key: string; p_equipment: string }; Returns: number };
+      dismiss_exercise_request: { Args: { p_key: string }; Returns: number };
       save_workout_plan: {
         Args: {
           p_plan: string | null;

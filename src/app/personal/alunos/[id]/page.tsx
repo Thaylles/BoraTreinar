@@ -116,7 +116,8 @@ export default async function AlunoPage({
                       <p className="font-semibold">{p.name}</p>
                       <p className="text-xs text-muted">
                         {p.items[0]?.count ?? 0} exercícios
-                        {p.goal && ` · ${p.goal}`} · por {p.created_by === me.id ? "você" : (p.creator?.full_name ?? "—")}
+                        {p.goal && ` · ${p.goal}`} · por{" "}
+                        {p.created_by === me.id ? "você" : p.created_by === id ? "o próprio aluno" : (p.creator?.full_name ?? "—")}
                       </p>
                     </div>
                     {p.valid_until && p.valid_until < today && <Badge tone="red">Vencida</Badge>}

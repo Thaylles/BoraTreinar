@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { RequestsBanner } from "@/components/exercise-requests/requests-panel";
+import { loadOpenRequests } from "@/lib/exercise-requests-server";
 import Link from "next/link";
 import { Plus, Search, SearchX } from "lucide-react";
 import { Badge, EmptyState, PageTitle } from "@/components/ui/card";
@@ -48,6 +50,7 @@ export default async function ExerciciosPage({
           </LinkButton>
         )}
       </div>
+      <RequestsBanner requests={await loadOpenRequests()} href="/personal/exercicios/pedidos" />
       {profile.catalog_blocked && (
         <p className="mb-3 rounded-2xl bg-border/40 px-3 py-2 text-sm text-muted">
           🔒 Sua conta está sem permissão para criar ou editar exercícios. Você continua usando o catálogo nas fichas.

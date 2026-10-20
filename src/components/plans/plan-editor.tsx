@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, Loader2, Minus, Plus, Trash2 } from "lucide-react";
 import { equipmentImageSrc, groupLabel } from "@/lib/catalog";
 import { parseReps, REST_OPTIONS, TECHNIQUES, formatRest, techniqueInfo, type Technique } from "@/lib/plans";
 import { savePlan, type PlanPayload } from "@/app/personal/fichas/actions";
+import { saveMyPlan } from "@/app/aluno/fichas/actions";
 import { Field, inputClass } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
@@ -48,9 +49,12 @@ export function PlanEditor({
   initial,
   catalog,
   cautions = {},
+  mode = "personal",
 }: {
   initial: EditorInitial;
   catalog: CatalogItem[];
+  /** "aluno": ficha montada pelo próprio aluno (sem validade nem substituto; pode pedir exercício). */
+  mode?: "personal" | "aluno";
   /** Anamnese do aluno: motivos de cuidado por grupo muscular (ex.: quadríceps → dor no joelho). */
   cautions?: Record<string, string[]>;
 }) {
@@ -100,15 +104,18 @@ export function PlanEditor({
       });
     }
     startTransition(async () => {
-      const res = await savePlan({
-        planId: initial.planId,
-        studentId: initial.studentId,
-        name,
-        goal,
-        notes,
-        validUntil,
-        items: payloadItems,
-      });
+      const res =
+        mode === "aluno"
+          ? await saveMyPlan({ planId: initial.planId, name, goal, notes, items: payloadItems })
+          : await savePlan({
+              planId: initial.planId,
+              studentId: initial.studentId,
+              name,
+              goal,
+              notes,
+              validUntil,
+              items: payloadItems,
+            });
       if (res?.error) setError(res.error);
     });
   }
@@ -116,15 +123,15 @@ export function PlanEditor({
   return (
     <div className="space-y-6">
       <section className="space-y-4 rounded-3xl border border-border bg-surface p-5">
-        <Field label="Nome da ficha" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} placeholder="Ex.: Treino A — Peito e tríceps" required />
-        <Field label="Objetivo" value={goal} onChange={(e) => setGoal(e.target.value)} maxLength={200} placeholder="Ex.: Hipertrofia, resistência…" />
+        <Field id="plan-name" label="Nome da ficha" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} placeholder="Ex.: Treino A — Peito e tríceps" required />
+        <Field id="plan-goal" label="Objetivo" value={goal} onChange={(e) => setGoal(e.target.value)} maxLength={200} placeholder="Ex.: Hipertrofia, resistência…" />
         <div className="space-y-1.5">
           <label htmlFor="plan-notes" className="block text-sm font-semibold">
             Observações gerais
           </label>
           <textarea id="plan-notes" rows={2} maxLength={2000} value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} placeholder="Aquecimento, cadência, cuidados…" />
         </div>
-        {initial.studentId !== null ? (
+        {mode === "personal" && initial.studentId !== null ? (
           <Field label="Válida até (opcional)" type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
         ) : null}
       </section>
@@ -247,7 +254,9 @@ export function PlanEditor({
                 />
               </div>
               {it.technique && <p className="mt-1.5 text-xs text-muted">{techniqueInfo(it.technique)?.hint}</p>}
-              <SubstituteSelect item={it} catalog={catalog} cautions={cautions} onChange={(substitute) => update(it.key, { substitute })} />
+              {mode === "personal" && (
+                <SubstituteSelect item={it} catalog={catalog} cautions={cautions} onChange={(substitute) => update(it.key, { substitute })} />
+              )}
             </article>
           );
         })}
@@ -272,6 +281,7 @@ export function PlanEditor({
 
       {picking && (
         <ExercisePicker
+          allowRequest={mode === "aluno"}
           cautions={cautions}
           catalog={catalog}
           selectedIds={items.map((i) => i.equipment.id)}

@@ -1,8 +1,10 @@
 import { AppShell } from "@/components/shell/app-shell";
 import { requireRole } from "@/lib/auth";
+import { loadOpenRequests } from "@/lib/exercise-requests-server";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { profile } = await requireRole("admin");
+  const requests = await loadOpenRequests();
   return (
     <AppShell
       name={profile.full_name}
@@ -15,6 +17,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         { href: "/admin/personais", label: "Personais", icon: "user" },
         { href: "/admin/alunos", label: "Alunos", icon: "users" },
         { href: "/admin/exercicios", label: "Exercícios", icon: "dumbbell" },
+        { href: "/admin/pedidos", label: "Pedidos", icon: "inbox", badge: requests.length },
       ]}
     >
       {children}

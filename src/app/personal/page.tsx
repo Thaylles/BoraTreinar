@@ -11,6 +11,8 @@ import { createClient } from "@/lib/supabase/server";
 import { firstName } from "@/lib/format";
 import { PersonalOverview } from "@/components/dashboard/personal-overview";
 import { AchievementsCard } from "@/components/achievements/achievements-card";
+import { RequestsBanner } from "@/components/exercise-requests/requests-panel";
+import { loadOpenRequests } from "@/lib/exercise-requests-server";
 
 export const metadata: Metadata = { title: "Início" };
 
@@ -52,6 +54,8 @@ export default async function PersonalHome({ searchParams }: { searchParams: Pro
 
       <InstallPrompt />
       <PushToggle />
+
+      <RequestsBanner requests={await loadOpenRequests()} href="/personal/exercicios/pedidos" />
 
       {(!profile.birth_date || !profile.service_cities?.length) && (
         <Link

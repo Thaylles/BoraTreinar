@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Search, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Check, Loader2, MessageSquarePlus, Search, X } from "lucide-react";
+import { requestExercise } from "@/app/aluno/fichas/actions";
+import { FormMessage } from "@/components/ui/alert";
 import { MUSCLE_GROUPS, equipmentImageSrc, groupLabel, type MuscleGroup } from "@/lib/catalog";
 import { inputClass } from "@/components/ui/field";
 import { cn } from "@/lib/cn";
@@ -27,6 +29,7 @@ export function ExercisePicker({
   onClose,
   multiple = true,
   cautions = {},
+  allowRequest = false,
 }: {
   catalog: CatalogItem[];
   selectedIds: string[];
@@ -35,6 +38,8 @@ export function ExercisePicker({
   multiple?: boolean;
   /** Anamnese do aluno: motivos de cuidado por grupo muscular. */
   cautions?: Record<string, string[]>;
+  /** Aluno: "Não encontrou o exercício?" envia um pedido para Personais e admins. */
+  allowRequest?: boolean;
 }) {
   const [q, setQ] = useState("");
   const [group, setGroup] = useState<MuscleGroup | null>(null);
@@ -137,6 +142,11 @@ export function ExercisePicker({
             );
           })}
           {!filtered.length && <li className="p-6 text-center text-sm text-muted">Nada encontrado.</li>}
+          {allowRequest && (
+            <li className="p-2">
+              <RequestExercise key={q} initialName={filtered.length ? "" : q.trim()} highlight={!filtered.length} />
+            </li>
+          )}
         </ul>
 
         {multiple && (
@@ -167,5 +177,58 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
     >
       {children}
     </button>
+  );
+}
+
+/** "Não encontrou o exercício?": o aluno escreve o nome e Personais/admins adicionam ao catálogo. */
+function RequestExercise({ initialName, highlight }: { initialName: string; highlight: boolean }) {
+  const [open, setOpen] = useState(highlight);
+  const [name, setName] = useState(initialName);
+  const [note, setNote] = useState("");
+  const [state, setState] = useState<{ error?: string; ok?: string }>();
+  const [pending, startTransition] = useTransition();
+
+  if (state?.ok) return <FormMessage state={state} />;
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border p-3 text-sm font-semibold text-muted hover:border-bandeira-500 hover:text-foreground"
+      >
+        <MessageSquarePlus className="size-4" aria-hidden /> Não encontrou o exercício?
+      </button>
+    );
+  }
+  return (
+    <div className="space-y-2 rounded-2xl border-2 border-ipe-500 bg-ipe-100/50 p-3 text-sm dark:bg-ipe-500/10">
+      <p className="font-display text-base font-bold">Não encontrou o exercício?</p>
+      <p className="text-muted">Escreva o nome do exercício ou da máquina para que os administradores possam adicionar ao catálogo.</p>
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        maxLength={80}
+        placeholder="Ex.: Remada cavalinho na máquina"
+        aria-label="Nome do exercício ou máquina"
+        className={cn(inputClass, "py-2")}
+      />
+      <input
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        maxLength={300}
+        placeholder="Detalhe opcional (como é a máquina, para que serve…)"
+        aria-label="Detalhe opcional"
+        className={cn(inputClass, "py-2 text-sm")}
+      />
+      <FormMessage state={state} />
+      <button
+        type="button"
+        disabled={pending || name.trim().length < 2}
+        onClick={() => startTransition(async () => setState(await requestExercise(name, note)))}
+        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-anil-700 py-2.5 font-semibold text-white disabled:opacity-50 dark:bg-ipe-500 dark:text-anil-900"
+      >
+        {pending && <Loader2 className="size-4 animate-spin" aria-hidden />} Enviar pedido
+      </button>
+    </div>
   );
 }

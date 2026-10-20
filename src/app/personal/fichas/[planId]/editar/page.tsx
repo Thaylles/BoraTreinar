@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { PageTitle } from "@/components/ui/card";
 import { PlanEditor } from "@/components/plans/plan-editor";
@@ -17,6 +17,8 @@ export default async function EditarFichaPage({ params }: { params: Promise<{ pl
   const loaded = await loadPlan(planId);
   if (!loaded) notFound();
   const { plan, items } = loaded;
+  // Ficha montada pelo próprio aluno: só ele edita.
+  if (!plan.is_template && plan.created_by === plan.student_id) redirect(`/personal/fichas/${planId}`);
   const catalog = await loadCatalogFor(plan.student_id);
 
   return (

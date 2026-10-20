@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { RequestsBanner } from "@/components/exercise-requests/requests-panel";
+import { loadOpenRequests } from "@/lib/exercise-requests-server";
 import Link from "next/link";
 import { Activity, CalendarDays, ClipboardList, Dumbbell, FileBarChart, Lock, Ticket, UserRound, Users } from "lucide-react";
 import { Card, PageTitle } from "@/components/ui/card";
@@ -50,6 +52,7 @@ export default async function AdminHome() {
   return (
     <>
       <PageTitle sub="Visão geral do BoraTreinar.">Painel do admin</PageTitle>
+      <RequestsBanner requests={await loadOpenRequests()} href="/admin/pedidos" />
       <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {stats.map(({ label, value, icon: Icon, href }) => {
           const body = (

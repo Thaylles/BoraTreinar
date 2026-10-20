@@ -43,6 +43,7 @@ export default async function FichaPage({
 
   const back = plan.is_template ? "/personal/modelos" : `/personal/alunos/${plan.student_id}`;
   const expired = plan.valid_until && plan.valid_until < new Date().toISOString().slice(0, 10);
+  const byStudent = !plan.is_template && !!plan.student_id && plan.created_by === plan.student_id;
 
   return (
     <>
@@ -59,6 +60,7 @@ export default async function FichaPage({
           {plan.is_template && <Badge tone="yellow">Modelo</Badge>}
           {plan.archived_at && <Badge>Arquivada</Badge>}
           {expired && <Badge tone="red">Vencida</Badge>}
+          {byStudent && <Badge tone="blue">Criada pelo aluno</Badge>}
         </div>
         <h1 className="mt-1 font-display text-3xl font-extrabold leading-tight">{plan.name}</h1>
         {plan.goal && <p className="text-muted">🎯 {plan.goal}</p>}
@@ -70,14 +72,20 @@ export default async function FichaPage({
 
       {plan.notes && <Card className="mb-4 whitespace-pre-line text-sm">{plan.notes}</Card>}
 
-      <div className="mb-6 flex flex-wrap gap-2">
-        <Link
-          href={`/personal/fichas/${planId}/editar`}
-          className="inline-flex items-center gap-2 rounded-2xl bg-bandeira-500 px-4 py-2.5 font-display font-bold text-white hover:bg-bandeira-600"
-        >
-          <Pencil className="size-4" aria-hidden /> Editar
-        </Link>
-      </div>
+      {byStudent ? (
+        <p className="mb-6 rounded-2xl bg-anil-700/5 px-4 py-3 text-sm text-muted dark:bg-white/5">
+          Ficha montada pelo próprio aluno: só ele edita. Para propor mudanças, duplique abaixo para o mesmo aluno e ajuste a cópia.
+        </p>
+      ) : (
+        <div className="mb-6 flex flex-wrap gap-2">
+          <Link
+            href={`/personal/fichas/${planId}/editar`}
+            className="inline-flex items-center gap-2 rounded-2xl bg-bandeira-500 px-4 py-2.5 font-display font-bold text-white hover:bg-bandeira-600"
+          >
+            <Pencil className="size-4" aria-hidden /> Editar
+          </Link>
+        </div>
+      )}
       <div className="mb-6 -mt-3">
         <PlanExportButtons planId={planId} />
       </div>

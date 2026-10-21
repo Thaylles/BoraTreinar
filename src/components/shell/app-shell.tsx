@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LogOut } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { NavLinks, type NavItem } from "./nav-links";
+import { ScrollReset } from "./scroll-reset";
 import { firstName } from "@/lib/format";
 import { Avatar } from "@/components/avatar";
 import { avatarUrl } from "@/lib/avatar";
@@ -35,14 +36,16 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-dvh md:grid md:grid-cols-[240px_1fr]">
+    // Celular: altura da tela com só o conteúdo rolando (topo e barra inferior ficam no lugar; o
+    // Safari do iPhone desloca elementos "fixed" enquanto a barra de endereço encolhe ao rolar).
+    <div className="flex h-dvh flex-col md:grid md:h-auto md:min-h-dvh md:grid-cols-[240px_1fr]">
       <aside className="hidden border-r border-border bg-surface p-4 md:flex md:flex-col md:gap-6">
         <Link href={root}>{brand ? <BrandLogo brand={brand} size="lg" /> : <Logo size={32} />}</Link>
         <NavLinks items={items} root={root} />
       </aside>
 
-      <div className="flex min-h-dvh flex-col">
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-background/90 px-4 py-3 backdrop-blur">
+      <div className="flex min-h-0 flex-1 flex-col md:min-h-dvh">
+        <header className="z-20 flex shrink-0 items-center md:sticky md:top-0 justify-between border-b border-border bg-background/90 px-4 py-3 backdrop-blur">
           <Link href={root} className="min-w-0 md:hidden">
             {brand ? <BrandLogo brand={brand} /> : <Logo size={28} />}
           </Link>
@@ -73,9 +76,12 @@ export function AppShell({
         </header>
         {isAdmin ? <ModeSwitcher root={root} modes={ADMIN_MODES} /> : canTrain && <ModeSwitcher root={root} modes={PERSONAL_MODES} label="Área:" />}
 
-        <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-28 pt-5 md:pb-10">{children}</main>
+        <div id="conteudo" className="min-h-0 flex-1 overflow-y-auto overscroll-contain md:overflow-visible">
+          <ScrollReset />
+          <main className="mx-auto w-full max-w-3xl px-4 pb-8 pt-5 md:pb-10">{children}</main>
+        </div>
 
-        <div className="md:hidden">
+        <div className="shrink-0 md:hidden">
           <NavLinks items={items} root={root} />
         </div>
       </div>
@@ -97,7 +103,7 @@ const PERSONAL_MODES = [
 /** Troca de modo da conta: as áreas usam a mesma conta (admin: três; Personal: alunos e o próprio treino). */
 function ModeSwitcher({ root, modes, label = "Modo:" }: { root: string; modes: { href: string; label: string }[]; label?: string }) {
   return (
-    <nav aria-label="Modo da conta" className="sticky top-[57px] z-10 flex items-center gap-2 border-b border-border bg-anil-700 px-4 py-1.5 text-xs text-white">
+    <nav aria-label="Modo da conta" className="z-10 flex shrink-0 items-center gap-2 border-b border-border bg-anil-700 px-4 py-1.5 text-xs text-white md:sticky md:top-[57px]">
       <span className="font-semibold text-white/75">{label}</span>
       {modes.map((m) => (
         <Link

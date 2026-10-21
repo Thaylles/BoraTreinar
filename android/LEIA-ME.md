@@ -20,3 +20,11 @@ Precisa do JDK 17+, do Android SDK (platform 36 e build-tools 35) e da chave de 
    `apksigner sign --ks boratreinar.keystore --ks-key-alias boratreinar --out BoraTreinar.apk alinhado.apk`
 
 Atualizações precisam ser assinadas com a MESMA chave; sem ela, o Android não aceita a atualização.
+
+## Health Connect (versão 1.1.0)
+
+`HealthSyncActivity` (Kotlin) sincroniza com o Health Connect quando o site abre
+`boratreinar://sync?api=…&token=…` (página Perfil → Health Connect):
+lê as atividades de outros apps (Samsung Health, Google Fit, relógios) e envia para
+`/api/saude/sincronizar`; grava os treinos do BoraTreinar no Health Connect (o GymRats lê de lá).
+`HealthPrivacyActivity` abre os termos (exigência do Health Connect).

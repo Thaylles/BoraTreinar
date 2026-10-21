@@ -37,6 +37,19 @@ export function ProfilePage({ profile }: { profile: Profile }) {
       </section>
       {profile.role !== "personal" && (
         <Link
+          href="/aluno/saude-conectada"
+          className="mt-6 flex items-center gap-3 rounded-3xl border border-border bg-surface p-4 transition hover:border-bandeira-500"
+        >
+          <span className="text-2xl" aria-hidden>❤️</span>
+          <span className="flex-1">
+            <span className="block font-display font-bold">Health Connect (app Android)</span>
+            <span className="text-sm text-muted">Samsung Health, Google Fit, relógios e GymRats.</span>
+          </span>
+          <ChevronRight className="size-5 text-muted" aria-hidden />
+        </Link>
+      )}
+      {profile.role !== "personal" && (
+        <Link
           href="/aluno/saude"
           className="mt-6 flex items-center gap-3 rounded-3xl border border-border bg-surface p-4 transition hover:border-bandeira-500"
         >

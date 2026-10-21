@@ -22,7 +22,13 @@ export function SessionDetail({ data, exerciseHref }: { data: Loaded; exerciseHr
     <>
       <div className="mb-4">
         <div className="mb-1 flex flex-wrap gap-2">
-          {session.kind === "livre" ? <Badge tone="blue">Treino livre</Badge> : <Badge tone="green">Ficha</Badge>}
+          {session.imported_from ? (
+            <Badge tone="blue">📲 Importado{session.source_app ? ` · ${session.source_app}` : " do Health Connect"}</Badge>
+          ) : session.kind === "livre" ? (
+            <Badge tone="blue">Treino livre</Badge>
+          ) : (
+            <Badge tone="green">Ficha</Badge>
+          )}
           {byInstructor && (
             <Badge tone="yellow">
               <UserCheck className="mr-1 size-3" aria-hidden /> Registrado pelo instrutor

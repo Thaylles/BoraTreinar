@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Download, Share, X } from "lucide-react";
+import { isIos, isStandalone } from "@/lib/ios";
 
 type BeforeInstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 
@@ -20,12 +21,10 @@ export function InstallPrompt() {
     } catch {
       /* sem armazenamento */
     }
-    const standalone =
-      window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone;
-    if (dismissed || standalone) return;
-    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent) && !/crios|fxios/i.test(navigator.userAgent);
-    setIos(isIos);
-    setHidden(!isIos);
+    if (dismissed || isStandalone()) return;
+    const ios = isIos() && !/crios|fxios/i.test(navigator.userAgent);
+    setIos(ios);
+    setHidden(!ios);
     const onPrompt = (e: Event) => {
       e.preventDefault();
       setEvent(e as BeforeInstallPromptEvent);

@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { Bell, BellOff, Loader2 } from "lucide-react";
 import { deletePushSubscription, savePushSubscription } from "@/app/push-actions";
+import { isIos, isStandalone } from "@/lib/ios";
 
 
 type State = "loading" | "unsupported" | "ios-install" | "denied" | "off" | "on";
@@ -23,9 +24,7 @@ export function PushToggle() {
     const supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
     if (!supported) {
       // iPhone/iPad: só funciona com o app instalado na tela de início (iOS 16.4+).
-      const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
-      const standalone = window.matchMedia("(display-mode: standalone)").matches;
-      setState(ios && !standalone ? "ios-install" : "unsupported");
+      setState(isIos() && !isStandalone() ? "ios-install" : "unsupported");
       return;
     }
     if (Notification.permission === "denied") return setState("denied");

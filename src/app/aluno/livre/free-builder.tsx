@@ -93,7 +93,7 @@ export function FreeBuilder({ catalog, max, canSave = false }: { catalog: Catalo
 
       {canSave && ids.length > 0 && <SaveAsPlan ids={ids} />}
 
-      <div className="sticky bottom-20 z-10 md:bottom-4">
+      <div className="sticky bottom-4 z-10">
         <Button size="lg" className="w-full shadow-xl" disabled={!ids.length} onClick={start}>
           <Play className="size-5" aria-hidden /> Começar treino livre
         </Button>

@@ -13,7 +13,7 @@ function isActive(pathname: string, href: string, root: string) {
   return href === root ? pathname === root : pathname.startsWith(href);
 }
 
-/** Navegação inferior fixa no celular, lateral no desktop. */
+/** Navegação inferior no celular (no rodapé do layout, sem "fixed"), lateral no desktop. */
 export function NavLinks({ items, root }: { items: NavItem[]; root: string }) {
   const pathname = usePathname();
   // Durante o treino a tela é só do treino (o timer ocupa o rodapé).
@@ -21,7 +21,7 @@ export function NavLinks({ items, root }: { items: NavItem[]; root: string }) {
   return (
     <nav
       aria-label="Navegação principal"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:static md:z-auto md:border-0 md:bg-transparent md:pb-0 md:backdrop-blur-none"
+      className="border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:border-0 md:bg-transparent md:pb-0"
     >
       <ul className="mx-auto flex max-w-md justify-around md:max-w-none md:flex-col md:gap-1">
         {items.map(({ href, label, icon, badge }) => {

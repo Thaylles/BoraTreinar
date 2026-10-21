@@ -87,7 +87,7 @@ export function BulkApplyForm({ plans, students, preselected }: { plans: PlanOpt
         </span>
       </label>
 
-      <div className="sticky bottom-20 rounded-3xl border border-border bg-surface/95 p-4 shadow-lg backdrop-blur md:bottom-4">
+      <div className="sticky bottom-4 rounded-3xl border border-border bg-surface/95 p-4 shadow-lg backdrop-blur">
         <p className="mb-3 text-sm" aria-live="polite">
           {total ? (
             <>

@@ -272,7 +272,7 @@ export function PlanEditor({
 
       {error && <Alert>{error}</Alert>}
 
-      <div className="sticky bottom-20 z-10 md:bottom-4">
+      <div className="sticky bottom-4 z-10">
         <Button size="lg" className="w-full shadow-xl" onClick={save} disabled={pending}>
           {pending && <Loader2 className="size-4 animate-spin" aria-hidden />}
           {pending ? "Salvando…" : "Salvar ficha"}

@@ -375,7 +375,7 @@ export function WorkoutRunner({
 
   return (
     <div className="pb-40">
-      <div className="sticky top-[57px] z-10 -mx-4 mb-4 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
+      <div className="sticky top-0 z-10 -mx-4 mb-4 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:top-[57px]">
         <div className="min-w-0 flex-1">
           <p className="truncate font-display text-lg font-bold leading-tight">{planName}</p>
           <p className="text-xs text-muted">

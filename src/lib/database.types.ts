@@ -362,6 +362,9 @@ export type Database = {
           pain: boolean;
           feedback: string | null;
           rated_at: string | null;
+          /** Treino importado de outro app (Health Connect). */
+          imported_from?: "health_connect" | null;
+          source_app?: string | null;
         };
         Insert: never;
         Update: never;
@@ -512,6 +515,21 @@ export type Database = {
           pix_key?: string;
           updated_at?: string;
         };
+        Relationships: [];
+      };
+      app_tokens: {
+        Row: {
+          created_at: string;
+          id: string;
+          label: string;
+          last_exported: number | null;
+          last_imported: number | null;
+          last_sync_at: string | null;
+          token_hash: string;
+          user_id: string;
+        };
+        Insert: { token_hash: string; label?: string; user_id?: string };
+        Update: { last_sync_at?: string | null; last_imported?: number | null; last_exported?: number | null };
         Relationships: [];
       };
       exercise_media: {
@@ -993,6 +1011,8 @@ export type Database = {
         Returns: undefined;
       };
       can_view_session: { Args: { p_session: string }; Returns: boolean };
+      import_health_sessions: { Args: { p_student: string; p_items: Json }; Returns: number };
+      my_app_token_count: { Args: Record<string, never>; Returns: number };
       save_my_plan: {
         Args: { p_plan: string | null; p_name: string; p_goal: string | null; p_notes: string | null; p_items: Json };
         Returns: string;

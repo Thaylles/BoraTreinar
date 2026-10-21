@@ -24,6 +24,16 @@
 
     
         <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <!-- Health Connect: ler atividades (Samsung Health, Google Fit, relógios) e gravar os treinos do BoraTreinar -->
+    <uses-permission android:name="android.permission.health.READ_EXERCISE"/>
+    <uses-permission android:name="android.permission.health.READ_DISTANCE"/>
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE"/>
+    <uses-permission android:name="android.permission.health.WRITE_DISTANCE"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <queries>
+        <package android:name="com.google.android.apps.healthdata"/>
+    </queries>
     
 
     
@@ -71,6 +81,41 @@
                 </intent-filter>
             </activity>
         
+
+        <!-- Sincronização com o Health Connect (aberta pelo site: boratreinar://sync) -->
+        <activity android:name=".HealthSyncActivity"
+            android:exported="true"
+            android:label="Sincronizar saúde"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.boratreinar.app.sync"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="boratreinar" android:host="sync"/>
+            </intent-filter>
+        </activity>
+
+        <!-- Política de privacidade exigida pelo Health Connect (Android 13 ou menor) -->
+        <activity android:name=".HealthPrivacyActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE"/>
+            </intent-filter>
+        </activity>
+        <!-- … e no Android 14 ou mais novo -->
+        <activity-alias android:name="ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity=".HealthPrivacyActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE"/>
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS"/>
+            </intent-filter>
+        </activity-alias>
 
         <activity android:name="LauncherActivity"
             android:alwaysRetainTaskState="true"

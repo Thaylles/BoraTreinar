@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.boratreinar.app",
+      "sha256_cert_fingerprints": ["97:77:8A:08:AD:BA:45:60:29:F4:B3:1A:A0:02:CD:31:FF:85:F4:24:4D:AB:AC:25:F1:11:E6:02:82:CE:79:47"]
+    }
+  }
+]

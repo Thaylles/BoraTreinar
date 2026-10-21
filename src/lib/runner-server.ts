@@ -6,6 +6,8 @@ import type { RunnerExercise, SwapOption } from "@/components/workout/workout-ru
 import type { CatalogItem } from "@/components/plans/exercise-picker";
 import { rankAlternatives } from "@/lib/swaps";
 import { groupedWithNext } from "@/lib/plans";
+import { createClient } from "@/lib/supabase/server";
+import { mediaUrl } from "@/lib/exercise-media";
 
 /** Monta os exercícios da tela de execução a partir de uma ficha do aluno. */
 export async function loadRunnerForPlan(planId: string, studentId: string) {
@@ -49,6 +51,7 @@ async function buildRunner(loaded: NonNullable<Awaited<ReturnType<typeof loadPla
     groupedNext: grouped[idx],
   }));
   await attachSwaps(exercises, studentId, items.map((i) => i.substitute ?? null));
+  await attachDemos(exercises);
   return { plan: loaded.plan, exercises };
 }
 
@@ -77,6 +80,7 @@ export async function loadRunnerForFree(studentId: string, equipmentIds: string[
     history: history[c.id] ?? { last: null, best: null },
   }));
   await attachSwaps(exercises, studentId, exercises.map(() => null), catalog);
+  await attachDemos(exercises);
   return { exercises, ignored: equipmentIds.length - chosen.length };
 }
 
@@ -107,4 +111,19 @@ async function attachSwaps(exercises: RunnerExercise[], studentId: string, subst
     if (substitutes[i]) e.substitute = option(substitutes[i]!);
     else e.alternatives = picks[i].map(option);
   });
+}
+
+/** Execução aprovada pelo admin (GIF/vídeo) de cada exercício, inclusive substitutos e alternativas. */
+async function attachDemos(exercises: RunnerExercise[]) {
+  const all = exercises.flatMap((e) => [e.equipment, e.substitute?.equipment, ...(e.alternatives ?? []).map((a) => a.equipment)]);
+  const eqs = all.filter((x): x is RunnerExercise["equipment"] => !!x);
+  if (!eqs.length) return;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("exercise_media")
+    .select("equipment_id, path, kind")
+    .eq("status", "aprovado")
+    .in("equipment_id", [...new Set(eqs.map((x) => x.id))]);
+  const byId = new Map((data ?? []).filter((m) => m.path).map((m) => [m.equipment_id, { url: mediaUrl(m.path!), kind: m.kind }]));
+  for (const x of eqs) x.demo = byId.get(x.id) ?? null;
 }

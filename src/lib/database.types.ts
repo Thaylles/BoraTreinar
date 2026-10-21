@@ -514,6 +514,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      exercise_media: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          credit: string | null;
+          equipment_id: string;
+          error: string | null;
+          id: string;
+          kind: "gif" | "video";
+          operation: string | null;
+          path: string | null;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          source: "banco_publico" | "ia";
+          status: "gerando" | "rascunho" | "aprovado" | "rejeitado" | "erro";
+        };
+        Insert: {
+          created_by?: string | null;
+          credit?: string | null;
+          equipment_id: string;
+          error?: string | null;
+          kind: "gif" | "video";
+          operation?: string | null;
+          path?: string | null;
+          source: "banco_publico" | "ia";
+          status?: "gerando" | "rascunho" | "aprovado" | "rejeitado" | "erro";
+        };
+        Update: {
+          error?: string | null;
+          operation?: string | null;
+          path?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          status?: "gerando" | "rascunho" | "aprovado" | "rejeitado" | "erro";
+        };
+        Relationships: [
+          {
+            foreignKeyName: "exercise_media_equipment_id_fkey";
+            columns: ["equipment_id"];
+            isOneToOne: false;
+            referencedRelation: "equipment";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       exercise_requests: {
         Row: {
           created_at: string;

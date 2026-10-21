@@ -15,6 +15,8 @@
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.3",
     "clsx": "^2.1.1",
+    "gifenc": "^1.0.3",
+    "jpeg-js": "^0.4.4",
     "lucide-react": "^1.55.0",
     "next": "15.5.27",
     "nodemailer": "^6.9.16",

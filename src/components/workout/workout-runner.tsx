@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { equipmentImageSrc, groupLabel, type MuscleGroup } from "@/lib/catalog";
+import { MediaPreview } from "@/components/exercise-media/media-preview";
 import { formatRest, formatKg, techniqueInfo, type Technique } from "@/lib/plans";
 import { suggestProgression } from "@/lib/progression";
 import { draftStore, outbox, type SessionPayload } from "@/lib/outbox";
@@ -38,6 +39,8 @@ export type RunnerExercise = {
     is_bodyweight: boolean;
     /** Cardio: velocidade/inclinação (esteira) ou nível (bicicleta, elíptico). */
     intensity_unit?: IntensityUnit | null;
+    /** Execução aprovada pelo admin (GIF ou vídeo curto). */
+    demo?: { url: string; kind: "gif" | "video" } | null;
   };
   notes: string | null;
   restSeconds: number;
@@ -517,6 +520,7 @@ function ExerciseCard({
           )}
         </div>
       </div>
+      {exercise.equipment.demo && <DemoToggle key={exercise.equipment.id} demo={exercise.equipment.demo} name={exercise.equipment.name} />}
 
       <SwapBar original={original} studentId={studentId} state={state} onSwap={onSwap} />
 
@@ -1117,6 +1121,28 @@ function SwapBar({
             ))}
           </ul>
         </>
+      )}
+    </div>
+  );
+}
+
+/** "▶ Ver execução": GIF ou vídeo curto aprovado pelo admin, aberto só quando o aluno pede. */
+function DemoToggle({ demo, name }: { demo: { url: string; kind: "gif" | "video" }; name: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="inline-flex items-center gap-1 rounded-xl border border-border px-3 py-1.5 text-xs font-semibold text-muted hover:border-bandeira-500 hover:text-foreground"
+      >
+        {open ? "Fechar execução" : "▶ Ver execução"}
+      </button>
+      {open && (
+        <div className="mt-2 max-w-sm">
+          <MediaPreview url={demo.url} kind={demo.kind} alt={`Execução de ${name}`} />
+        </div>
       )}
     </div>
   );

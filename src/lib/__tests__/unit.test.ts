@@ -491,3 +491,29 @@ test("cidades do RS e idade", async () => {
   assert.ok(birthDateError("2015-01-01", "2026-10-20"));
   assert.ok(birthDateError("abc", "2026-10-20"));
 });
+
+test("execuções: todo exercício do catálogo padrão tem correspondência no banco público", async () => {
+  const { publicDbMatch, mediaKey, videoPrompt, PUBLIC_DB_MATCH } = await import("../exercise-media.ts");
+  const catalog = [
+    "Crossover", "Crucifixo inclinado com halteres", "Crucifixo reto com halteres", "Flexão de braço", "Peck deck (voador)",
+    "Supino declinado com barra", "Supino inclinado com barra", "Supino inclinado com halteres", "Supino inclinado no Smith",
+    "Supino máquina", "Supino reto com barra", "Supino reto com halteres", "Barra fixa", "Levantamento terra",
+    "Low row pegada neutra", "Pulldown na polia", "Puxada com triângulo", "Puxada frontal", "Puxada supinada",
+    "Remada articulada pronada", "Remada baixa", "Remada cavalinho", "Remada curvada com barra",
+    "Remada unilateral com halter (serrote)", "Crucifixo inverso (voador inverso)", "Desenvolvimento com barra",
+    "Desenvolvimento com halteres", "Desenvolvimento máquina", "Elevação frontal", "Elevação lateral",
+    "Encolhimento com halteres", "Face pull", "Remada alta", "Rosca alternada com halteres", "Rosca concentrada",
+    "Rosca direta com barra", "Rosca martelo", "Rosca na polia", "Rosca Scott", "Mergulho nas paralelas", "Tríceps coice",
+    "Tríceps corda", "Tríceps francês", "Tríceps pulley", "Tríceps testa", "Rosca de punho", "Afundo com halteres",
+    "Agachamento búlgaro", "Agachamento hack", "Agachamento livre", "Agachamento no smith", "Cadeira extensora",
+    "Leg press 45°", "Cadeira flexora", "Mesa flexora", "Stiff", "Cadeira abdutora", "Elevação pélvica",
+    "Glúteo na polia (coice)", "Agachamento sumô com halter", "Cadeira adutora", "Panturrilha em pé",
+    "Panturrilha no leg press", "Panturrilha sentado", "Abdominal (crunch)", "Abdominal infra (elevação de pernas)",
+    "Abdominal na polia", "Abdominal oblíquo", "Prancha", "Bicicleta ergométrica", "Elíptico", "Esteira",
+  ];
+  assert.deepEqual(catalog.filter((n) => !publicDbMatch(n)), []);
+  assert.equal(Object.keys(PUBLIC_DB_MATCH).length, catalog.length);
+  assert.equal(mediaKey("  Tríceps   Francês "), "triceps frances");
+  const prompt = videoPrompt({ name: "Rosca martelo", group: "Bíceps", description: "Cotovelos fixos." });
+  assert.ok(prompt.includes("Rosca martelo") && prompt.includes("Cotovelos fixos.") && prompt.includes("No text"));
+});

@@ -1,0 +1,9 @@
+# Saídas do build e configuração local
+.gradle/
+build/
+app/build/
+local.properties
+# A chave de assinatura NUNCA vai para o repositório
+*.keystore
+*.jks
+senha*.txt

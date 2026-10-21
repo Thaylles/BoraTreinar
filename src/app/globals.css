@@ -8,6 +8,7 @@
   --foreground: #10213f;
   --muted: #5b6577;
   --border: #eadfc4;
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -17,6 +18,7 @@
     --foreground: #f4f1e8;
     --muted: #a5adbd;
     --border: #22324f;
+    color-scheme: dark;
   }
 }
 
@@ -55,6 +57,48 @@ body {
   color: var(--foreground);
   font-family: var(--font-inter), system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
+  /* iPhone deitado: não deixa o conteúdo sob o recorte da câmera */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* ── Safari / iPhone ──────────────────────────────────────────── */
+/* Toque rápido nos botões (+/−, séries) sem o atraso nem o zoom do toque duplo */
+@layer base {
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  label,
+  summary,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+}
+
+/* No app (só o #conteudo rola) a página inteira não "quica" ao puxar o topo ou a barra */
+html:has(#conteudo) {
+  overscroll-behavior-y: none;
+}
+
+@supports (-webkit-touch-callout: none) {
+  /* O iPhone dá zoom ao tocar num campo com letra menor que 16px */
+  :is(input, select, textarea):is(.text-xs, .text-sm) {
+    font-size: 16px;
+  }
+  /* Data e hora vazias no iPhone ficam achatadas e centralizadas */
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 3.125rem;
+    text-align: left;
+  }
+  input::-webkit-date-and-time-value {
+    text-align: left;
+  }
 }
 
 /* Ondas do calçadão de Copacabana, bem sutis */

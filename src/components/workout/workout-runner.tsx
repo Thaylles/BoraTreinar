@@ -127,14 +127,21 @@ function initialSets(ex: RunnerExercise): SetState[] {
 function useBeeper() {
   const ctx = useRef<AudioContext | null>(null);
   const unlock = useCallback(() => {
-    if (!ctx.current && typeof window !== "undefined" && "AudioContext" in window) {
-      ctx.current = new AudioContext();
+    if (!ctx.current && typeof window !== "undefined") {
+      // iPhone: "playback" faz o bipe tocar mesmo com a chave do silencioso (Safari 17+);
+      // webkitAudioContext cobre iOS antigos.
+      const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+      if (session) session.type = "playback";
+      const Ctor = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (Ctor) ctx.current = new Ctor();
     }
     void ctx.current?.resume();
   }, []);
   const beep = useCallback(() => {
     const ac = ctx.current;
     if (ac) {
+      // Safari "interrompe" o áudio quando o app vai para o fundo; retoma antes de tocar.
+      if (ac.state !== "running") void ac.resume();
       [0, 0.25, 0.5].forEach((t, i) => {
         const osc = ac.createOscillator();
         const gain = ac.createGain();

@@ -5,6 +5,7 @@ import { ArrowLeft, Trash2 } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge, Card } from "@/components/ui/card";
 import { EquipmentImage } from "@/components/equipment-image";
+import { ExerciseDemo } from "@/components/exercise-media/exercise-demo";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { requireRole } from "@/lib/auth";
 import { groupLabel } from "@/lib/catalog";
@@ -55,6 +56,7 @@ export default async function ExercicioPage({
       ) : (
         <>
           <EquipmentImage equipment={eq} className="mb-4 max-h-80" />
+          <ExerciseDemo equipmentId={eq.id} name={eq.name} className="mb-4" />
           <h1 className="font-display text-3xl font-extrabold leading-tight">{eq.name}</h1>
           <div className="mt-2 flex flex-wrap gap-2">
             <Badge tone="green">{groupLabel(eq.muscle_group)}</Badge>

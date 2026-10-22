@@ -22,7 +22,7 @@ const STATUS = {
 export default async function AlunoAulasPage() {
   const { profile } = await requireStudent();
   const supabase = await createClient();
-  const [{ occurrences, today }, { data: payments }] = await Promise.all([
+  const [{ occurrences, today }, { data: payments }, { data: changes }] = await Promise.all([
     loadAgenda({ studentId: profile.id, days: 21 }),
     supabase
       .from("payments")
@@ -30,7 +30,19 @@ export default async function AlunoAulasPage() {
       .eq("student_id", profile.id)
       .order("month", { ascending: false })
       .limit(6),
+    supabase
+      .from("class_change_requests")
+      .select("id, schedule_id, on_date, new_date, new_time, status, reply, answered_at")
+      .eq("student_id", profile.id)
+      .order("created_at", { ascending: false })
+      .limit(20),
   ]);
+  const pendingChanges = new Map(
+    (changes ?? []).filter((c) => c.status === "pendente").map((c) => [`${c.schedule_id}|${c.on_date}`, c]),
+  );
+  // Respostas dos últimos 7 dias (aceitas aparecem na própria agenda; recusas ficam aqui).
+  const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString();
+  const refused = (changes ?? []).filter((c) => c.status === "recusado" && (c.answered_at ?? "") >= weekAgo);
   // Pix dos Personais com cobrança em aberto (sem a tabela ainda, só não mostra o QR Code).
   const open = (payments ?? []).filter((p) => !p.paid_at && Number(p.amount) > 0);
   const { data: pixRows } = open.length
@@ -78,7 +90,16 @@ export default async function AlunoAulasPage() {
           Quando seu Personal marcar aulas presenciais, elas aparecem aqui.
         </EmptyState>
       ) : (
-        <OccurrenceList occurrences={occurrences} today={today} showPersonal />
+        <>
+          {refused.map((c) => (
+            <p key={c.id} className="mb-3 rounded-2xl border border-border bg-surface p-3 text-sm">
+              ❌ A troca da aula de {c.on_date.slice(8, 10)}/{c.on_date.slice(5, 7)} não foi aceita
+              {c.reply ? <>: “{c.reply}”</> : "; a aula continua no horário de sempre."}
+            </p>
+          ))}
+          <p className="mb-3 text-sm text-muted">Precisa mudar uma aula? Toque em “Pedir troca” e escolha outro dia desta semana ou da próxima.</p>
+          <OccurrenceList occurrences={occurrences} today={today} showPersonal studentChanges={pendingChanges} />
+        </>
       )}
     </>
   );

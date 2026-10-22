@@ -1,8 +1,10 @@
 import { CalendarX2, RotateCcw } from "lucide-react";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { RescheduleButton } from "@/components/agenda/reschedule-button";
+import { ChangeRequestButton } from "@/components/agenda/change-request-button";
+import { cancelClassChange } from "@/app/aluno/aula-actions";
 import { WhatsAppButton } from "@/components/whatsapp-button";
-import { dayLabel, type Occurrence, type ScheduleLike } from "@/lib/schedule";
+import { WEEKDAYS_SHORT, dayLabel, weekdayOf, type Occurrence, type ScheduleLike } from "@/lib/schedule";
 import { toggleOccurrence } from "@/app/personal/agenda/actions";
 import { cn } from "@/lib/cn";
 
@@ -12,7 +14,12 @@ type S = ScheduleLike & {
   personal: { full_name: string } | null;
 };
 
-/** Próximas aulas agrupadas por dia. O Personal dono da aula pode remarcar, cancelar ou reativar uma data. */
+export type PendingChange = { id: string; new_date: string; new_time: string };
+
+/**
+ * Próximas aulas agrupadas por dia. O Personal dono da aula pode remarcar, cancelar ou reativar uma data.
+ * Com `studentChanges`, o aluno pode pedir a troca de uma data (e ver/desistir do pedido pendente).
+ */
 export function OccurrenceList({
   occurrences,
   today,
@@ -20,6 +27,7 @@ export function OccurrenceList({
   showStudent = false,
   showPersonal = false,
   hideDayHeader = false,
+  studentChanges,
 }: {
   occurrences: Occurrence<S>[];
   today: string;
@@ -27,6 +35,8 @@ export function OccurrenceList({
   showStudent?: boolean;
   showPersonal?: boolean;
   hideDayHeader?: boolean;
+  /** Pedidos de troca pendentes do aluno, por "scheduleId|data". */
+  studentChanges?: Map<string, PendingChange>;
 }) {
   if (!occurrences.length) return <p className="text-sm text-muted">Nenhuma aula nos próximos dias.</p>;
   const days = [...new Set(occurrences.map((o) => o.date))];
@@ -42,6 +52,8 @@ export function OccurrenceList({
               .filter((o) => o.date === day)
               .map((o) => {
                 const canManage = managerId && o.schedule.personal_id === managerId;
+                const pending = studentChanges?.get(`${o.schedule.id}|${o.date}`);
+                const canRequest = studentChanges && !o.cancelled && o.date >= today;
                 return (
                   <li
                     key={`${o.schedule.id}-${o.date}`}
@@ -62,7 +74,31 @@ export function OccurrenceList({
                             ? ` · ${o.reason?.toLowerCase() ?? "remarcada"}`
                             : ` · cancelada${o.reason ? `: ${o.reason}` : ""}`)}
                       </p>
+                      {canRequest && pending && (
+                        <p className="mt-1 text-xs font-semibold text-anil-700 dark:text-ipe-400">
+                          🔄 Troca pedida para {WEEKDAYS_SHORT[weekdayOf(pending.new_date)].toLowerCase()} {pending.new_date.slice(8, 10)}/
+                          {pending.new_date.slice(5, 7)} às {pending.new_time.slice(0, 5)} · aguardando o Personal
+                        </p>
+                      )}
                     </div>
+                    {canRequest &&
+                      (pending ? (
+                        <form action={cancelClassChange}>
+                          <input type="hidden" name="id" value={pending.id} />
+                          <ConfirmSubmit message="Desistir do pedido de troca?" className="shrink-0 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-muted hover:bg-border/50">
+                            Desistir
+                          </ConfirmSubmit>
+                        </form>
+                      ) : (
+                        <ChangeRequestButton
+                          scheduleId={o.schedule.id}
+                          date={o.date}
+                          time={o.time}
+                          weekday={o.schedule.weekday}
+                          today={today}
+                          personalName={o.schedule.personal?.full_name}
+                        />
+                      ))}
                     {showStudent && !o.cancelled && <WhatsAppButton phone={o.schedule.student?.phone} compact />}
                     {canManage && !o.cancelled && o.date >= today && (
                       <RescheduleButton

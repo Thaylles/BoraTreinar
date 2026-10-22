@@ -139,3 +139,57 @@ export async function checkVeo(operation: string): Promise<VeoStatus> {
 
 /** Baixa o MP4 gerado (o link do Google exige a chave). */
 export const downloadVeo = (uri: string) => download(uri, { "x-goog-api-key": key() }, 60_000);
+
+// ─── Foto do exercício com IA (Gemini Image), no estilo do catálogo ─────
+
+/** Modelos de imagem tentados em ordem. GEMINI_IMAGE_MODEL tem prioridade. */
+const IMAGE_MODELS = () =>
+  [process.env.GEMINI_IMAGE_MODEL, "gemini-2.5-flash-image", "gemini-3-pro-image-preview", "gemini-2.5-flash-image-preview"].filter(
+    (m, i, l): m is string => !!m && l.indexOf(m) === i,
+  );
+
+type ImagePart = { inlineData?: { mimeType?: string; data?: string }; text?: string };
+
+/**
+ * Gera a ilustração do exercício a partir do texto e de fotos de referência do catálogo
+ * (para copiar o estilo). Retorna a imagem em base64.
+ */
+export async function generateCatalogImage(
+  prompt: string,
+  references: { mimeType: string; base64: string }[],
+): Promise<{ mimeType: string; base64: string; model: string }> {
+  const parts = [
+    { text: prompt },
+    ...references.map((r) => ({ inline_data: { mime_type: r.mimeType, data: r.base64 } })),
+  ];
+  let last = "nenhum modelo de imagem disponível para esta chave";
+  const call = (model: string, withRatio: boolean) =>
+    fetch(`${GEMINI}/models/${encodeURIComponent(model)}:generateContent`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": key() },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts }],
+        generationConfig: { responseModalities: ["TEXT", "IMAGE"], ...(withRatio && { imageConfig: { aspectRatio: "4:3" } }) },
+      }),
+      signal: AbortSignal.timeout(90_000),
+    });
+  for (const model of IMAGE_MODELS()) {
+    let res = await call(model, true);
+    // Modelo que não aceita escolher a proporção: tenta sem (o navegador recorta em 4:3).
+    if (res.status === 400 && /image_?config|aspect/i.test(await res.clone().text())) res = await call(model, false);
+    if (res.ok) {
+      const body = (await res.json()) as {
+        candidates?: { content?: { parts?: ImagePart[] }; finishReason?: string }[];
+        promptFeedback?: { blockReason?: string };
+      };
+      const img = body.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data)?.inlineData;
+      if (img?.data) return { mimeType: img.mimeType ?? "image/png", base64: img.data, model };
+      const why = body.promptFeedback?.blockReason ?? body.candidates?.[0]?.finishReason ?? "sem imagem na resposta";
+      throw new Error(`a IA não gerou a imagem (${why})`);
+    }
+    last = await apiError(res);
+    if (/billing|paid|quota/i.test(last)) last = `a chave do Gemini precisa de faturamento ativo para gerar imagens (${last.slice(0, 160)})`;
+    if (res.status !== 404 && !/not found|not supported/i.test(last)) break;
+  }
+  throw new Error(last);
+}

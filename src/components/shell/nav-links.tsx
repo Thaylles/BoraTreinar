@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, CalendarDays, ChartLine, Dumbbell, Film, History, House, Inbox, Scale, Ticket, UserRound, Users, Wallet } from "lucide-react";
+import { Bell, CalendarDays, ChartLine, Dumbbell, Film, ImagePlus, History, House, Inbox, Scale, Ticket, UserRound, Users, Wallet } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-const ICONS = { chart: ChartLine, calendar: CalendarDays, scale: Scale, history: History, dumbbell: Dumbbell, house: House, users: Users, ticket: Ticket, inbox: Inbox, user: UserRound, bell: Bell, wallet: Wallet, film: Film };
+const ICONS = { chart: ChartLine, calendar: CalendarDays, scale: Scale, history: History, dumbbell: Dumbbell, house: House, users: Users, ticket: Ticket, inbox: Inbox, user: UserRound, bell: Bell, wallet: Wallet, film: Film, image: ImagePlus };
 export type NavIcon = keyof typeof ICONS;
 export type NavItem = { href: string; label: string; icon: NavIcon; badge?: number };
 
@@ -28,12 +28,12 @@ export function NavLinks({ items, root }: { items: NavItem[]; root: string }) {
           const Icon = ICONS[icon];
           const active = isActive(pathname, href, root);
           return (
-            <li key={href} className="flex-1 md:flex-none">
+            <li key={href} className="min-w-0 flex-1 md:flex-none">
               <Link
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative flex flex-col items-center gap-0.5 px-2 py-2 text-[11px] font-semibold transition md:flex-row md:gap-3 md:rounded-2xl md:px-4 md:py-3 md:text-sm",
+                  "relative flex flex-col items-center gap-0.5 px-0.5 py-2 text-[11px] font-semibold transition md:flex-row md:gap-3 md:rounded-2xl md:px-4 md:py-3 md:text-sm",
                   active
                     ? "text-bandeira-600 md:bg-bandeira-50 dark:text-bandeira-100 md:dark:bg-bandeira-500/15"
                     : "text-muted hover:text-foreground",
@@ -47,7 +47,7 @@ export function NavLinks({ items, root }: { items: NavItem[]; root: string }) {
                     </span>
                   )}
                 </span>
-                {label}
+                <span className="max-w-full truncate">{label}</span>
               </Link>
             </li>
           );

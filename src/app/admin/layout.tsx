@@ -19,6 +19,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         { href: "/admin/exercicios", label: "Exercícios", icon: "dumbbell" },
         { href: "/admin/pedidos", label: "Pedidos", icon: "inbox", badge: requests.length },
         { href: "/admin/execucoes", label: "Execuções", icon: "film" },
+        { href: "/admin/fotos", label: "Fotos", icon: "image" },
       ]}
     >
       {children}

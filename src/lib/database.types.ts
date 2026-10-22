@@ -835,6 +835,47 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      class_change_requests: {
+        Row: {
+          answered_at: string | null;
+          created_at: string;
+          id: string;
+          new_date: string;
+          new_time: string;
+          note: string | null;
+          on_date: string;
+          personal_id: string;
+          reply: string | null;
+          schedule_id: string;
+          status: "pendente" | "aceito" | "recusado" | "cancelado";
+          student_id: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: "class_change_requests_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "class_change_requests_personal_id_fkey";
+            columns: ["personal_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "class_change_requests_schedule_id_fkey";
+            columns: ["schedule_id"];
+            isOneToOne: false;
+            referencedRelation: "class_schedules";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -998,6 +1039,12 @@ export type Database = {
       set_payment_paid: { Args: { p_payment: string; p_paid: boolean }; Returns: undefined };
       set_payment_amount: { Args: { p_payment: string; p_amount: number }; Returns: undefined };
       payment_reminders: { Args: { p_date: string }; Returns: number };
+      request_class_change: {
+        Args: { p_schedule: string; p_date: string; p_new_date: string; p_new_time: string; p_note?: string | null };
+        Returns: string;
+      };
+      cancel_class_change: { Args: { p_request: string }; Returns: undefined };
+      answer_class_change: { Args: { p_request: string; p_accept: boolean; p_reply?: string | null }; Returns: undefined };
       reschedule_class_once: {
         Args: { p_schedule: string; p_date: string; p_new_date: string; p_new_time: string };
         Returns: string;

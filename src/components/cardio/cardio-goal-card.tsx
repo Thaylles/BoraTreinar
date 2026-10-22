@@ -7,7 +7,7 @@ import { CardioGoalForm } from "./cardio-goal-form";
 
 /**
  * Meta semanal de cardio (seg–dom, fuso SP) com barra de progresso.
- * `canEdit`: Personal vinculado, ou o próprio aluno quando não tem Personal.
+ * `canEdit`: Personal vinculado ou o próprio aluno (o Personal é avisado quando o aluno muda a meta).
  */
 export async function CardioGoalCard({ studentId, canEdit, audience }: { studentId: string; canEdit: boolean; audience: "aluno" | "personal" }) {
   const supabase = await createClient();
@@ -34,7 +34,7 @@ export async function CardioGoalCard({ studentId, canEdit, audience }: { student
         <p className="mb-3 text-sm text-muted">
           {canEdit
             ? you
-              ? "Defina quanto cardio você quer fazer por semana: tempo, distância ou minutos em ritmo forte."
+              ? "Escolha quanto cardio você quer fazer por semana: tempo, distância ou minutos em ritmo forte."
               : "Defina a meta de cardio do aluno: tempo, distância ou minutos em ritmo forte por semana."
             : "Seu Personal ainda não definiu uma meta de cardio."}
         </p>
@@ -58,7 +58,8 @@ export async function CardioGoalCard({ studentId, canEdit, audience }: { student
       </div>
       <p className="mb-2 text-xs text-muted">
         {goalLabel(week.goal)}
-        {week.goal.by_personal && you && " · definida pelo seu Personal"}
+        {week.goal.by_personal && you && " · definida pelo seu Personal (você pode ajustar)"}
+        {!week.goal.by_personal && !you && " · escolhida pelo aluno"}
       </p>
       <div
         className="h-3 overflow-hidden rounded-full bg-border/60"

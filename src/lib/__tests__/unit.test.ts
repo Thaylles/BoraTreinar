@@ -518,3 +518,16 @@ test("execuções: todo exercício do catálogo padrão tem correspondência no 
   const prompt = videoPrompt({ name: "Rosca martelo", group: "Bíceps", description: "Cotovelos fixos." });
   assert.ok(prompt.includes("Rosca martelo") && prompt.includes("Cotovelos fixos.") && prompt.includes("No text"));
 });
+
+test("fotos com IA: situação da foto e pedido para a IA", async () => {
+  const { STYLE_REFERENCES, catalogImagePrompt, photoStatus } = await import("../exercise-media.ts");
+  const { existsSync } = await import("node:fs");
+  for (const ref of STYLE_REFERENCES) assert.ok(existsSync(`public${ref}`), `referência existe: ${ref}`);
+  assert.equal(photoStatus({ image_url: null, image_path: null, image_credit: null }), "sem");
+  assert.equal(photoStatus({ image_url: "/catalogo/fotos/70-x.webp", image_path: null, image_credit: "Free Exercise DB (domínio público)" }), "fora");
+  assert.equal(photoStatus({ image_url: "/catalogo/fotos/51-mesa-flexora-v2.webp", image_path: null, image_credit: null }), "fora");
+  assert.equal(photoStatus({ image_url: "/catalogo/fotos/49-afundo-com-halteres.webp", image_path: null, image_credit: null }), "ok");
+  assert.equal(photoStatus({ image_url: null, image_path: "admin/ia-1.webp", image_credit: null }), "ok");
+  const p = catalogImagePrompt({ name: "RDL", group: "Glúteos", description: null, hint: "Romanian deadlift com barra" });
+  assert.ok(p.includes('"RDL"') && p.includes("Romanian deadlift com barra") && p.includes("No text") && !p.includes("Execution notes"));
+});

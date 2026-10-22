@@ -72,11 +72,15 @@ select pg_temp.assert(pg_temp.fails($$select public.set_cardio_goal((select beto
 select pg_temp.assert(pg_temp.fails($$insert into public.cardio_goals (student_id, kind, target) values (auth.uid(), 'minutos', 10)$$),
   'meta só pela função');
 
--- Com Personal, quem define é a Paula
+-- Com Personal, a aluna continua escolhendo a própria meta e a Paula é avisada
 reset role;
 insert into public.personal_students (personal_id, student_id, role) values ((select paula from c), (select ana from c), 'responsavel');
 select pg_temp.as_user('car.a@a.com');
-select pg_temp.assert(pg_temp.fails($$select public.set_cardio_goal(auth.uid(), 'minutos', 90)$$), 'com Personal, a aluna não define a meta');
+select public.set_cardio_goal(auth.uid(), 'minutos', 90);
+select pg_temp.assert((select target from public.cardio_goals where student_id = auth.uid()) = 90, 'com Personal, a aluna define a meta');
+reset role;
+select pg_temp.assert((select count(*) from public.notifications where user_id = (select paula from c) and title like 'Meta de cardio do aluno%') = 1,
+  'Personal é avisada da meta escolhida pela aluna');
 select pg_temp.as_user('car.p@p.com');
 select pg_temp.assert((public.cardio_week((select ana from c))->>'minutes')::numeric = 45, 'Personal vê o cardio da aluna');
 select public.set_cardio_goal((select ana from c), 'distancia', 12);

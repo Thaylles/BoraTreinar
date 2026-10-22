@@ -131,7 +131,7 @@ export default async function AlunoHome({
       )}
 
       <WeeklyGoal studentId={profile.id} />
-      <CardioGoalCard studentId={profile.id} canEdit={!personals} audience="aluno" />
+      <CardioGoalCard studentId={profile.id} canEdit audience="aluno" />
       <AchievementsCard rows={achievements ?? []} href="/aluno/conquistas" />
 
       {coach && (

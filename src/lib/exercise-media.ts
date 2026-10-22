@@ -115,3 +115,40 @@ export function videoPrompt(e: { name: string; group: string; description?: stri
     .filter(Boolean)
     .join(" ");
 }
+
+// ─── Foto do exercício com IA ───────────────────────────────────
+
+/** Fotos do catálogo no estilo padrão (ilustração 1024×764) que servem de referência para a IA. */
+export const STYLE_REFERENCES = [
+  "/catalogo/fotos/49-afundo-com-halteres.webp",
+  "/catalogo/fotos/48-cadeira-extensora.webp",
+  "/catalogo/fotos/15-remada-baixa.webp",
+];
+
+/**
+ * Situação da foto de um exercício em relação ao padrão do catálogo:
+ * "sem" (sem foto), "fora" (foto real ou recorte de baixa resolução) ou "ok".
+ */
+export function photoStatus(e: { image_url: string | null; image_path: string | null; image_credit: string | null }): "sem" | "fora" | "ok" {
+  if (!e.image_url && !e.image_path) return "sem";
+  if (e.image_path) return "ok";
+  if (/free exercise db/i.test(e.image_credit ?? "") || /\/5\d-[a-z-]+-v2\.webp$/.test(e.image_url ?? "")) return "fora";
+  return "ok";
+}
+
+/** Pedido para a IA desenhar o exercício no mesmo estilo das fotos de referência. */
+export function catalogImagePrompt(e: { name: string; group: string; description?: string | null; hint?: string | null }): string {
+  return [
+    `Create a new exercise illustration for a gym app catalog. Exercise: "${e.name}" (Brazilian Portuguese name; main muscle group: ${e.group}).`,
+    e.hint ? `How it is performed: ${e.hint.slice(0, 300)}` : "",
+    e.description ? `Execution notes (in Portuguese): ${e.description.slice(0, 400)}` : "",
+    "Copy EXACTLY the visual style of the attached reference images: semi-realistic grayscale anatomical render of the same shirtless",
+    "athletic man with short dark hair and visible muscle definition, wearing only black shorts; gym machines in light gray/white metal",
+    "with black pads, black dumbbells and plates; plain pure white background with a soft floor shadow.",
+    "Show two positions of the movement side by side (left: start, right: end), same camera angle, full body visible, nothing cut off at the edges.",
+    "Highlight only the main working muscles in red/orange, like the references.",
+    "Landscape 4:3. No text, no numbers, no titles, no labels, no arrows, no borders, no frames, no watermark, no logo.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}

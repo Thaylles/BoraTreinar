@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PageTitle } from "@/components/ui/card";
 import { OccurrenceList } from "@/components/agenda/occurrence-list";
 import { ScheduleForm } from "@/components/agenda/schedule-form";
+import { ChangeRequestCard } from "@/components/agenda/change-request-card";
 import { MonthGrid } from "@/components/agenda/month-grid";
 import { requireRole } from "@/lib/auth";
 import { loadAgenda } from "@/lib/agenda-server";
@@ -28,7 +29,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
   const selected = isDate(sp.dia) && sp.dia!.startsWith(month) ? sp.dia! : today.startsWith(month) ? today : `${month}-01`;
 
   const grid = monthGrid(month);
-  const [{ occurrences }, { data: links }] = await Promise.all([
+  const [{ occurrences }, { data: links }, { data: changeRequests }] = await Promise.all([
     loadAgenda({ personalId: profile.id, from: grid.start, days: grid.days }),
     supabase
       .from("personal_students")
@@ -36,6 +37,15 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
       .eq("personal_id", profile.id)
       .eq("status", "ativo")
       .is("archived_at", null),
+    supabase
+      .from("class_change_requests")
+      .select(
+        "id, on_date, new_date, new_time, note, student:profiles!class_change_requests_student_id_fkey(full_name), schedule:class_schedules!class_change_requests_schedule_id_fkey(start_time)",
+      )
+      .eq("personal_id", profile.id)
+      .eq("status", "pendente")
+      .gte("on_date", today)
+      .order("on_date"),
   ]);
   const students = (links ?? [])
     .map((l) => l.student)
@@ -62,6 +72,19 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
   return (
     <>
       <PageTitle sub="Aulas semanais se repetem todo mês até você remover. Toque num dia para ver e ajustar.">Agenda</PageTitle>
+
+      {!!changeRequests?.length && (
+        <section aria-labelledby="trocas" className="mb-6">
+          <h2 id="trocas" className="mb-2 font-display text-xl font-bold">
+            Pedidos de troca de aula ({changeRequests.length})
+          </h2>
+          <div className="space-y-3">
+            {changeRequests.map((r) => (
+              <ChangeRequestCard key={r.id} request={r} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section aria-label="Calendário do mês" className="mb-6 rounded-3xl border border-border bg-surface p-3 sm:p-4">
         <div className="mb-3 flex items-center justify-between gap-2">

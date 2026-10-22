@@ -108,3 +108,16 @@ export async function rescheduleClass(_: ActionState, fd: FormData): Promise<Act
   revalidatePath("/personal", "layout");
   return { ok: "Aula remarcada! O aluno foi avisado. 🔄" };
 }
+
+/** O Personal aceita (remarca a aula) ou recusa o pedido de troca do aluno. */
+export async function answerClassChange(_: ActionState, fd: FormData): Promise<ActionState> {
+  const id = String(fd.get("id") ?? "");
+  const accept = fd.get("accept") === "1";
+  const reply = String(fd.get("reply") ?? "").trim().slice(0, 300) || null;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("answer_class_change", { p_request: id, p_accept: accept, p_reply: reply });
+  if (error) return { error: friendlyError(error.message) };
+  revalidatePath("/personal", "layout");
+  revalidatePath("/aluno/aulas");
+  return { ok: accept ? "Aula remarcada! O aluno foi avisado. 🔄" : "Pedido recusado. O aluno foi avisado." };
+}

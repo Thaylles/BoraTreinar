@@ -44,6 +44,7 @@ export const TECHNIQUES: { value: Technique; label: string; hint: string; groupS
   { value: "dropset", label: "Drop-set", hint: "Na última série, reduza a carga e continue até a falha" },
   { value: "restpause", label: "Rest-pause", hint: "Na falha, pausa de 10–15 s e mais algumas repetições" },
   { value: "piramide", label: "Pirâmide", hint: "Aumente a carga e diminua as repetições a cada série" },
+  { value: "cluster", label: "Cluster", hint: "Divida cada série em blocos curtos com pausas de 10–20 s entre eles" },
 ];
 
 export const techniqueInfo = (t: Technique | null | undefined) => (t ? TECHNIQUES.find((x) => x.value === t) : undefined);

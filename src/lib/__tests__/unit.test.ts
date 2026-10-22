@@ -510,6 +510,7 @@ test("execuções: todo exercício do catálogo padrão tem correspondência no 
     "Glúteo na polia (coice)", "Agachamento sumô com halter", "Cadeira adutora", "Panturrilha em pé",
     "Panturrilha no leg press", "Panturrilha sentado", "Abdominal (crunch)", "Abdominal infra (elevação de pernas)",
     "Abdominal na polia", "Abdominal oblíquo", "Prancha", "Bicicleta ergométrica", "Elíptico", "Esteira",
+    "Flexão de joelhos em pé na máquina", "Serrote na máquina (low row)",
   ];
   assert.deepEqual(catalog.filter((n) => !publicDbMatch(n)), []);
   assert.equal(Object.keys(PUBLIC_DB_MATCH).length, catalog.length);

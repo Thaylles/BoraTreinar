@@ -323,7 +323,7 @@ export type Database = {
           suggested_load: number | null;
           /** Substituto indicado pelo Personal ("aparelho ocupado"). */
           substitute_equipment_id?: string | null;
-          technique: "biset" | "triset" | "dropset" | "restpause" | "piramide" | null;
+          technique: "biset" | "triset" | "dropset" | "restpause" | "piramide" | "cluster" | null;
         };
         Insert: never;
         Update: never;

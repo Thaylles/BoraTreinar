@@ -152,10 +152,13 @@ grant execute on function public.request_class_change(uuid, date, date, time, te
   public.cancel_class_change(uuid), public.answer_class_change(uuid, boolean, text) to authenticated;
 
 -- ─── Meta de cardio: o aluno sempre pode escolher a sua ─────────
-create or replace function private.can_edit_cardio_goal(p_student uuid) returns boolean
+-- Recriada (drop + create): em alguns bancos o parâmetro tem outro nome e o "or replace" falha.
+drop function private.can_edit_cardio_goal(uuid);
+create function private.can_edit_cardio_goal(p_student uuid) returns boolean
 language sql stable security definer set search_path = '' as $$
   select public.is_linked_personal(p_student) or (p_student = auth.uid() and public.can_train_self());
 $$;
+revoke execute on function private.can_edit_cardio_goal(uuid) from public, anon, authenticated;
 
 create or replace function public.set_cardio_goal(p_student uuid, p_kind text, p_target numeric,
                                                   p_min_speed numeric default null, p_min_level int default null)

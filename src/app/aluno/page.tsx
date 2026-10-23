@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronRight, Dumbbell } from "lucide-react";
+import { ChevronRight, Dumbbell, Play } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getWeighInStatus } from "@/lib/weight-server";
 import { loadAgenda } from "@/lib/agenda-server";
-import { dayLabel } from "@/lib/schedule";
+import { classEnd, classInProgress, dayLabel, nextPlan } from "@/lib/schedule";
+import { spTimeKey } from "@/lib/week";
+import { cn } from "@/lib/cn";
 import { Alert } from "@/components/ui/alert";
 import { Card, PageTitle } from "@/components/ui/card";
 import { NotificationsList } from "@/components/notifications";
@@ -30,8 +32,17 @@ export default async function AlunoHome({
   const welcome = (await searchParams).bemvindo === "1";
   const supabase = await createClient();
   const [weighIn, agenda] = await Promise.all([getWeighInStatus(profile.id), loadAgenda({ studentId: profile.id, days: 7 })]);
-  const nextClass = agenda.occurrences.find((o) => !o.cancelled);
-  const [{ data: plans }, { count: personals }, { data: requests }, { data: achievements }, { data: templates }, { data: health }] = await Promise.all([
+  const liveClass = classInProgress(agenda.occurrences, agenda.today, spTimeKey());
+  const nextClass = agenda.occurrences.find((o) => !o.cancelled && o !== liveClass);
+  const [
+    { data: plans },
+    { count: personals },
+    { data: requests },
+    { data: achievements },
+    { data: templates },
+    { data: health },
+    { data: recent },
+  ] = await Promise.all([
     supabase
       .from("workout_plans")
       .select("id, name, goal, created_by, items:workout_plan_items(count)")
@@ -59,7 +70,19 @@ export default async function AlunoHome({
           .order("name")
       : Promise.resolve({ data: null }),
     supabase.from("health_forms").select("parq_yes, clearance_path").eq("student_id", profile.id).maybeSingle(),
+    supabase
+      .from("workout_sessions")
+      .select("plan_id, started_at")
+      .eq("student_id", profile.id)
+      .not("plan_id", "is", null)
+      .order("started_at", { ascending: false })
+      .limit(200),
   ]);
+  // Ficha sugerida: a que está há mais tempo sem treinar.
+  const lastTrained = new Map<string, string>();
+  for (const r of recent ?? []) if (r.plan_id && !lastTrained.has(r.plan_id)) lastTrained.set(r.plan_id, r.started_at);
+  const suggested = nextPlan(plans ?? [], lastTrained);
+  const startHref = suggested ? `/aluno/treinar/${suggested.id}` : "/aluno/livre";
 
   return (
     <>
@@ -69,6 +92,49 @@ export default async function AlunoHome({
         <Alert kind="success" className="mb-4">
           Conta criada! Você já está vinculado ao seu Personal. Bem-vindo ao BoraTreinar! 🇧🇷
         </Alert>
+      )}
+
+      {!coach && (
+        <section
+          aria-label="Registrar treino"
+          className={cn(
+            "mb-6 rounded-3xl p-5 text-white shadow-lg",
+            liveClass ? "bg-gradient-to-br from-anil-700 to-anil-900" : "bg-gradient-to-br from-bandeira-500 to-bandeira-700",
+          )}
+        >
+          {liveClass && (
+            <p className="mb-2 flex items-center gap-2 text-sm font-bold text-ipe-400">
+              <span className="relative flex size-3" aria-hidden>
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-ipe-400 opacity-75" />
+                <span className="relative inline-flex size-3 rounded-full bg-ipe-500" />
+              </span>
+              Aula com {liveClass.schedule.personal?.full_name?.split(" ")[0] ?? "seu Personal"} agora · {liveClass.time}–{classEnd(liveClass)}
+            </p>
+          )}
+          <p className="font-display text-2xl font-extrabold leading-tight">
+            {liveClass ? "Bora registrar o início do treino?" : "Registrar treino de hoje"}
+          </p>
+          <p className="mt-1 text-sm text-white/85">
+            {suggested
+              ? `Sugestão: ${suggested.name}${lastTrained.has(suggested.id) ? " (a que está há mais tempo sem treinar)" : ""}.`
+              : "Monte o treino na hora com exercícios do catálogo."}
+          </p>
+          <Link
+            href={startHref}
+            className={cn(
+              "mt-4 flex w-full items-center justify-center gap-2 rounded-2xl py-4 font-display text-xl font-extrabold shadow-md transition hover:brightness-105 active:scale-[0.99]",
+              liveClass ? "bg-ipe-500 text-anil-900" : "bg-white text-bandeira-700",
+            )}
+          >
+            <Play className="size-6 fill-current" aria-hidden />
+            {liveClass ? "Registrar início do treino" : suggested ? `Começar ${suggested.name}` : "Começar treino livre"}
+          </Link>
+          {(plans?.length ?? 0) > 1 && (
+            <a href="#fichas" className="mt-3 block text-center text-sm font-semibold text-white/90 underline-offset-4 hover:underline">
+              Escolher outra ficha
+            </a>
+          )}
+        </section>
       )}
 
       <LinkRequestsCard requests={requests ?? []} />
@@ -178,14 +244,14 @@ export default async function AlunoHome({
       )}
 
       {coach ? null : plans?.length ? (
-        <section className="mb-8">
+        <section id="fichas" className="mb-8 scroll-mt-4">
           <h2 className="mb-3 font-display text-xl font-bold">Suas fichas</h2>
           <ul className="space-y-2">
             {plans.map((p) => (
-              <li key={p.id}>
+              <li key={p.id} className="flex items-stretch gap-2">
                 <Link
                   href={`/aluno/fichas/${p.id}`}
-                  className="flex items-center gap-3 rounded-3xl bg-gradient-to-br from-bandeira-500 to-bandeira-700 p-4 text-white shadow-md transition hover:brightness-110"
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-3xl bg-gradient-to-br from-bandeira-500 to-bandeira-700 p-4 text-white shadow-md transition hover:brightness-110"
                 >
                   <Dumbbell className="size-8 shrink-0 text-ipe-400" aria-hidden />
                   <div className="min-w-0 flex-1">
@@ -196,7 +262,15 @@ export default async function AlunoHome({
                       {p.created_by === profile.id && " · criada por você"}
                     </p>
                   </div>
-                  <ChevronRight className="size-5" aria-hidden />
+                  <ChevronRight className="size-5 shrink-0" aria-hidden />
+                </Link>
+                <Link
+                  href={`/aluno/treinar/${p.id}`}
+                  aria-label={`Treinar ${p.name}`}
+                  className="flex w-20 shrink-0 flex-col items-center justify-center gap-1 rounded-3xl bg-ipe-500 font-display font-extrabold text-anil-900 shadow-md transition hover:brightness-105 active:scale-95"
+                >
+                  <Play className="size-6 fill-current" aria-hidden />
+                  <span className="text-sm">Treinar</span>
                 </Link>
               </li>
             ))}

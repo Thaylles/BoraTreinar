@@ -531,3 +531,20 @@ test("fotos com IA: situação da foto e pedido para a IA", async () => {
   const p = catalogImagePrompt({ name: "RDL", group: "Glúteos", description: null, hint: "Romanian deadlift com barra" });
   assert.ok(p.includes('"RDL"') && p.includes("Romanian deadlift com barra") && p.includes("No text") && !p.includes("Execution notes"));
 });
+
+test("início: aula acontecendo agora e próxima ficha sugerida", async () => {
+  const { classInProgress, classEnd, nextPlan } = await import("../schedule.ts");
+  const s = { id: "s", weekday: 4, start_time: "18:00:00", duration_minutes: 60, starts_on: "2026-10-01", ends_on: null };
+  const occ = [{ date: "2026-10-22", time: "18:00", schedule: s, cancelled: false, reason: null, rescheduled: false }];
+  assert.equal(classInProgress(occ, "2026-10-22", "17:29"), undefined);
+  assert.ok(classInProgress(occ, "2026-10-22", "17:30"), "30 min antes já aparece");
+  assert.ok(classInProgress(occ, "2026-10-22", "18:59"));
+  assert.equal(classInProgress(occ, "2026-10-22", "19:00"), undefined, "depois do fim some");
+  assert.equal(classInProgress(occ, "2026-10-23", "18:10"), undefined, "outro dia não");
+  assert.equal(classInProgress([{ ...occ[0], cancelled: true }], "2026-10-22", "18:10"), undefined, "cancelada não");
+  assert.equal(classEnd(occ[0]), "19:00");
+  const plans = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  assert.equal(nextPlan(plans, new Map([["a", "2026-10-20"], ["b", "2026-10-18"], ["c", "2026-10-21"]]))?.id, "b");
+  assert.equal(nextPlan(plans, new Map([["a", "2026-10-20"]]))?.id, "b", "nunca treinada vem primeiro");
+  assert.equal(nextPlan([], new Map()), undefined);
+});

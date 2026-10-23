@@ -94,3 +94,37 @@ export function monthGrid(month: string): { start: string; days: number } {
   const days = Math.round((Date.parse(end) - Date.parse(start)) / 86_400_000) + 1;
   return { start, days };
 }
+
+const minutesOf = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+
+/**
+ * Aula acontecendo agora: hoje, não cancelada, de `earlyMin` minutos antes do início até o fim.
+ * `now` é o horário local "HH:MM" (fuso de São Paulo).
+ */
+export function classInProgress<S extends ScheduleLike>(
+  occurrences: Occurrence<S>[],
+  today: string,
+  now: string,
+  earlyMin = 30,
+): Occurrence<S> | undefined {
+  const t = minutesOf(now);
+  return occurrences.find((o) => {
+    if (o.date !== today || o.cancelled) return false;
+    const start = minutesOf(o.time);
+    return t >= start - earlyMin && t < start + o.schedule.duration_minutes;
+  });
+}
+
+/** Horário em que a aula termina ("HH:MM"). */
+export function classEnd(o: { time: string; schedule: { duration_minutes: number } }): string {
+  const end = (minutesOf(o.time) + o.schedule.duration_minutes) % (24 * 60);
+  return `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`;
+}
+
+/**
+ * Ficha sugerida para o treino de hoje: a que está há mais tempo sem treinar
+ * (as nunca treinadas primeiro, na ordem da lista).
+ */
+export function nextPlan<P extends { id: string }>(plans: P[], lastTrained: Map<string, string>): P | undefined {
+  return [...plans].sort((a, b) => (lastTrained.get(a.id) ?? "").localeCompare(lastTrained.get(b.id) ?? ""))[0];
+}

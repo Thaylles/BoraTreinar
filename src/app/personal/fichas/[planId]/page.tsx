@@ -30,12 +30,15 @@ export default async function FichaPage({
   const { plan, items } = loaded;
 
   const supabase = await createClient();
-  const { data: myStudents } = await supabase
-    .from("personal_students")
-    .select("student:profiles!personal_students_student_id_fkey(id, full_name)")
-    .eq("personal_id", profile.id)
-    .eq("status", "ativo")
-    .is("archived_at", null);
+  const [{ data: myStudents }, { data: canEdit }] = await Promise.all([
+    supabase
+      .from("personal_students")
+      .select("student:profiles!personal_students_student_id_fkey(id, full_name)")
+      .eq("personal_id", profile.id)
+      .eq("status", "ativo")
+      .is("archived_at", null),
+    supabase.rpc("can_edit_plan", { p_plan: planId }),
+  ]);
   const others = (myStudents ?? [])
     .map((s) => s.student)
     .filter((s): s is { id: string; full_name: string } => !!s && s.id !== plan.student_id)
@@ -60,7 +63,7 @@ export default async function FichaPage({
           {plan.is_template && <Badge tone="yellow">Modelo</Badge>}
           {plan.archived_at && <Badge>Arquivada</Badge>}
           {expired && <Badge tone="red">Vencida</Badge>}
-          {byStudent && <Badge tone="blue">Criada pelo aluno</Badge>}
+          {byStudent && <Badge tone="blue">Criada pelo aluno{canEdit && " · edição liberada"}</Badge>}
         </div>
         <h1 className="mt-1 font-display text-3xl font-extrabold leading-tight">{plan.name}</h1>
         {plan.goal && <p className="text-muted">🎯 {plan.goal}</p>}
@@ -72,9 +75,10 @@ export default async function FichaPage({
 
       {plan.notes && <Card className="mb-4 whitespace-pre-line text-sm">{plan.notes}</Card>}
 
-      {byStudent ? (
+      {!canEdit ? (
         <p className="mb-6 rounded-2xl bg-anil-700/5 px-4 py-3 text-sm text-muted dark:bg-white/5">
-          Ficha montada pelo próprio aluno: só ele edita. Para propor mudanças, duplique abaixo para o mesmo aluno e ajuste a cópia.
+          Ficha montada pelo próprio aluno: só ele edita (o aluno pode liberar a edição para você em “Privacidade”). Para propor
+          mudanças, duplique abaixo para o mesmo aluno e ajuste a cópia.
         </p>
       ) : (
         <div className="mb-6 flex flex-wrap gap-2">

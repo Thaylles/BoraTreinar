@@ -73,6 +73,9 @@ export default async function AlunoFichaPage({
               <Trash2 className="size-4" aria-hidden /> Excluir
             </ConfirmSubmit>
           </form>
+          <Link href="/aluno/privacidade#fichas" className="w-full text-xs font-semibold text-muted underline-offset-4 hover:underline">
+            Quer que seu Personal possa ajustar suas fichas? Libere aqui.
+          </Link>
         </div>
       )}
     </>

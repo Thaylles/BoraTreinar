@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireStudent } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -16,4 +17,18 @@ export async function deleteMyAccount(_: ActionState, fd: FormData): Promise<Act
   if (error) return { error: friendlyError(error.message) };
   await supabase.auth.signOut();
   redirect("/?conta=excluida");
+}
+
+/** Libera (ou não) o Personal para editar as fichas que o próprio aluno montou. */
+export async function setPersonalEditsPlans(fd: FormData) {
+  const { profile } = await requireStudent();
+  const allow = fd.get("allow") === "1";
+  const supabase = await createClient();
+  const { data: updated } = await supabase
+    .from("student_settings")
+    .update({ personal_edits_plans: allow })
+    .eq("student_id", profile.id)
+    .select("student_id");
+  if (!updated?.length) await supabase.from("student_settings").insert({ student_id: profile.id, personal_edits_plans: allow });
+  revalidatePath("/aluno", "layout");
 }

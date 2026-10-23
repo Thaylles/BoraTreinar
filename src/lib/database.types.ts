@@ -658,17 +658,20 @@ export type Database = {
           weigh_in_frequency: Database["public"]["Enums"]["weigh_in_frequency"];
           weight_visible_to_personal: boolean;
           weekly_goal: number | null;
+          personal_edits_plans: boolean;
         };
         Insert: {
           student_id: string;
           weigh_in_frequency?: Database["public"]["Enums"]["weigh_in_frequency"];
           weight_visible_to_personal?: boolean;
           weekly_goal?: number | null;
+          personal_edits_plans?: boolean;
         };
         Update: {
           weigh_in_frequency?: Database["public"]["Enums"]["weigh_in_frequency"];
           weight_visible_to_personal?: boolean;
           weekly_goal?: number | null;
+          personal_edits_plans?: boolean;
         };
         Relationships: [];
       };
@@ -1100,6 +1103,7 @@ export type Database = {
       };
       can_view_plan: { Args: { p_plan: string }; Returns: boolean };
       can_edit_plan: { Args: { p_plan: string }; Returns: boolean };
+      student_allows_plan_edit: { Args: { p_student: string }; Returns: boolean };
       set_student_archived: {
         Args: { p_archived: boolean; p_student: string };
         Returns: undefined;

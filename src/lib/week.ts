@@ -42,3 +42,8 @@ export function daysAgoLabel(days: number): string {
 export function spMidnightISO(date: string): string {
   return new Date(`${date}T00:00:00${spOffset(new Date(`${date}T12:00:00Z`))}`).toISOString();
 }
+
+/** Horário atual "HH:MM" no fuso de São Paulo. */
+export function spTimeKey(d: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-GB", { timeZone: TIMEZONE, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
+}

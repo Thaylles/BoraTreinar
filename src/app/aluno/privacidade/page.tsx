@@ -1,14 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Download, ShieldCheck, Trash2 } from "lucide-react";
+import { Download, PencilLine, ShieldCheck, Trash2 } from "lucide-react";
 import { Card, PageTitle } from "@/components/ui/card";
 import { requireStudent } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/cn";
+import { setPersonalEditsPlans } from "./actions";
 import { DeleteAccountForm } from "./delete-form";
 
 export const metadata: Metadata = { title: "Privacidade e meus dados" };
 
 export default async function PrivacidadePage() {
-  await requireStudent();
+  const { profile } = await requireStudent();
+  const supabase = await createClient();
+  const { data: settings } = await supabase.from("student_settings").select("personal_edits_plans").eq("student_id", profile.id).maybeSingle();
+  const allow = !!settings?.personal_edits_plans;
   return (
     <>
       <PageTitle sub="Seus direitos pela LGPD (Lei Geral de Proteção de Dados).">Privacidade e meus dados</PageTitle>
@@ -28,6 +34,28 @@ export default async function PrivacidadePage() {
           </Link>
           .
         </p>
+      </Card>
+
+      <Card className="mb-4" id="fichas">
+        <h2 className="mb-1 flex items-center gap-2 font-display text-lg font-bold">
+          <PencilLine className="size-5 text-bandeira-500" aria-hidden /> Fichas que você montou
+        </h2>
+        <p className="mb-3 text-sm text-muted">
+          {allow
+            ? "Seu Personal pode editar e excluir as fichas que você montou. Você também continua editando."
+            : "Só você edita as fichas que montou; seu Personal apenas vê. Libere para ele poder ajustar seus treinos."}
+        </p>
+        <form action={setPersonalEditsPlans}>
+          <input type="hidden" name="allow" value={allow ? "0" : "1"} />
+          <button
+            className={cn(
+              "inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 font-display font-bold transition",
+              allow ? "border-2 border-border bg-surface hover:border-pitanga-500" : "bg-bandeira-500 text-white hover:bg-bandeira-600",
+            )}
+          >
+            {allow ? "Tirar a permissão do Personal" : "Permitir que meu Personal edite"}
+          </button>
+        </form>
       </Card>
 
       <Card className="mb-4">

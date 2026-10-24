@@ -28,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { cn } from "@/lib/cn";
 import { cardioSetLine, type IntensityUnit } from "@/lib/cardio";
-import { BARS, guessBar, platesFor, platesLabel, warmupSets } from "@/lib/plates";
+import { guessBar, warmupSets } from "@/lib/plates";
 import { cardioOnlyMinutes, sessionWindow } from "@/lib/session-window";
 
 export type RunnerExercise = {
@@ -672,7 +672,7 @@ function ExerciseCard({
 
       {!isCardio && (
         <WarmupPanel
-          equipmentId={exercise.equipment.id}
+          key={exercise.equipment.id}
           name={exercise.equipment.name}
           loads={state.sets.map((s) => parseNum(s.load))}
         />
@@ -1019,42 +1019,17 @@ function CardioSetRow({
 
 const fmtKg = (n: number) => `${fmtNum(n)} kg`;
 
-/** Barra escolhida para o exercício (fica guardada no aparelho do aluno). */
-function useBar(equipmentId: string, name: string) {
-  const key = `bt:barra:${equipmentId}`;
-  const [bar, setBar] = useState(() => guessBar(name));
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(key);
-      if (saved != null && BARS.includes(Number(saved))) setBar(Number(saved));
-    } catch {
-      /* armazenamento indisponível */
-    }
-  }, [key]);
-  const choose = (b: number) => {
-    setBar(b);
-    try {
-      localStorage.setItem(key, String(b));
-    } catch {
-      /* armazenamento indisponível */
-    }
-  };
-  return [bar, choose] as const;
-}
-
 /**
- * Antes de cada exercício: até 2 séries de aquecimento (opcionais, não entram no registro)
- * e a calculadora de anilhas para as cargas do exercício.
+ * Antes de cada exercício: até 2 séries de aquecimento (opcionais, não entram no registro).
  */
-function WarmupPanel({ equipmentId, name, loads }: { equipmentId: string; name: string; loads: number[] }) {
-  const [bar, setBar] = useBar(equipmentId, name);
+function WarmupPanel({ name, loads }: { name: string; loads: number[] }) {
+  const bar = guessBar(name);
   const [status, setStatus] = useState<"aberto" | "feito" | "pulado">("aberto");
   const [done, setDone] = useState<boolean[]>([]);
-  const [showPlates, setShowPlates] = useState(false);
   const work = Math.max(0, ...loads);
   const sets = warmupSets(work, bar);
-  if (work <= 0) return null;
-  const allLoads = [...new Set([...sets.map((s) => s.load), ...loads.filter((l) => l > 0)])].sort((a, b) => a - b);
+  // Sem aquecimento sugerido (carga leve), não mostra nada.
+  if (!sets.length) return null;
 
   function toggle(i: number) {
     const next = sets.map((_, k) => (k === i ? !done[k] : !!done[k]));
@@ -1062,7 +1037,7 @@ function WarmupPanel({ equipmentId, name, loads }: { equipmentId: string; name: 
     if (next.every(Boolean)) setStatus("feito");
   }
 
-  const open = status === "aberto" && sets.length > 0;
+  const open = status === "aberto";
   return (
     <div className="mt-3 rounded-2xl border border-dashed border-ipe-500/70 bg-ipe-100/40 p-3 text-sm dark:bg-ipe-500/10">
       {open ? (
@@ -1099,69 +1074,18 @@ function WarmupPanel({ equipmentId, name, loads }: { equipmentId: string; name: 
       ) : (
         <div className="flex items-center justify-between gap-2">
           <p className="text-muted">
-            {status === "feito" ? "🔥 Aquecimento feito ✓" : sets.length ? "🔥 Aquecimento pulado" : "Carga leve: sem aquecimento"}
+            {status === "feito" ? "🔥 Aquecimento feito ✓" : "🔥 Aquecimento pulado"}
           </p>
-          {sets.length > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                setStatus("aberto");
-                setDone([]);
-              }}
-              className="rounded-lg px-2 py-1 text-xs font-semibold text-muted hover:bg-border/50"
-            >
-              Mostrar
-            </button>
-          )}
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={() => setShowPlates((v) => !v)}
-        aria-expanded={showPlates}
-        className="mt-2 text-xs font-semibold text-anil-700 hover:underline dark:text-ipe-400"
-      >
-        🏋️ {showPlates ? "Esconder anilhas" : "Quais anilhas colocar?"}
-      </button>
-      {showPlates && (
-        <div className="mt-2 space-y-2">
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Barra">
-            {BARS.map((b) => (
-              <button
-                key={b}
-                type="button"
-                onClick={() => setBar(b)}
-                aria-pressed={bar === b}
-                className={cn(
-                  "rounded-full border px-2.5 py-1 text-xs font-semibold",
-                  bar === b ? "border-anil-700 bg-anil-700 text-white" : "border-border text-muted",
-                )}
-              >
-                {b ? `Barra ${b} kg` : "Sem barra"}
-              </button>
-            ))}
-          </div>
-          <ul className="space-y-1">
-            {allLoads.map((l) => {
-              const { perSide, remainder } = platesFor(l, bar);
-              return (
-                <li key={l} className="flex flex-wrap gap-x-2">
-                  <span className="w-16 font-semibold">{fmtKg(l)}</span>
-                  <span className="text-muted">
-                    {l < bar
-                      ? "menos que a barra"
-                      : perSide.length
-                        ? `cada lado: ${platesLabel(perSide)}`
-                        : bar
-                          ? "só a barra"
-                          : "—"}
-                    {remainder > 0 && l >= bar && ` (faltam ${fmtKg(remainder)}: sem anilha para isso)`}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+          <button
+            type="button"
+            onClick={() => {
+              setStatus("aberto");
+              setDone([]);
+            }}
+            className="rounded-lg px-2 py-1 text-xs font-semibold text-muted hover:bg-border/50"
+          >
+            Mostrar
+          </button>
         </div>
       )}
     </div>

@@ -77,11 +77,19 @@ export function PlanEditor({
       return next;
     });
 
-  function addFromCatalog(c: CatalogItem) {
-    setItems((list) => [
-      ...list,
-      { key: newKey(), equipment: c, sets: 3, reps: c.muscle_group === "cardio" ? "20" : "10–12", load: "", rest: c.muscle_group === "cardio" ? 0 : 60, notes: "", technique: "", substitute: null },
-    ]);
+  /** No catálogo, tocar de novo num exercício já marcado tira ele da ficha (não duplica). */
+  function toggleFromCatalog(c: CatalogItem) {
+    setItems((list) => {
+      let last = -1;
+      list.forEach((i, k) => {
+        if (i.equipment.id === c.id) last = k;
+      });
+      if (last >= 0) return list.filter((_, k) => k !== last);
+      return [
+        ...list,
+        { key: newKey(), equipment: c, sets: 3, reps: c.muscle_group === "cardio" ? "20" : "10–12", load: "", rest: c.muscle_group === "cardio" ? 0 : 60, notes: "", technique: "", substitute: null },
+      ];
+    });
   }
 
   function save() {
@@ -285,7 +293,7 @@ export function PlanEditor({
           cautions={cautions}
           catalog={catalog}
           selectedIds={items.map((i) => i.equipment.id)}
-          onPick={addFromCatalog}
+          onPick={toggleFromCatalog}
           onClose={() => setPicking(false)}
         />
       )}

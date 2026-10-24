@@ -70,7 +70,10 @@ export function ExercisePicker({
       <div className="flex h-full flex-col">
         <div className="space-y-3 border-b border-border p-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-display text-xl font-bold">Escolher exercício</h2>
+            <div>
+              <h2 className="font-display text-xl font-bold">Escolher exercício</h2>
+              {multiple && <p className="text-xs text-muted">Toque para marcar; toque de novo para desmarcar.</p>}
+            </div>
             <button
               type="button"
               onClick={() => dialogRef.current?.close()}
@@ -115,7 +118,11 @@ export function ExercisePicker({
                     onPick(c);
                     if (!multiple) dialogRef.current?.close();
                   }}
-                  className="flex w-full items-center gap-3 rounded-2xl p-2 text-left hover:bg-surface"
+                  aria-pressed={multiple ? selected : undefined}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-2xl p-2 text-left transition hover:bg-surface",
+                    multiple && selected && "bg-bandeira-50 dark:bg-bandeira-500/10",
+                  )}
                 >
                   {src ? (
                     // eslint-disable-next-line @next/next/no-img-element -- miniatura
@@ -132,10 +139,22 @@ export function ExercisePicker({
                       <span className="block text-xs font-semibold text-pitanga-600">⚠️ {cautions[c.muscle_group].join(", ")}</span>
                     )}
                   </span>
-                  {selected && (
-                    <span className="rounded-full bg-bandeira-500 p-1 text-white" aria-label="Já na ficha">
-                      <Check className="size-4" aria-hidden />
+                  {multiple ? (
+                    <span
+                      className={cn(
+                        "flex size-7 shrink-0 items-center justify-center rounded-full border-2 transition",
+                        selected ? "border-bandeira-500 bg-bandeira-500 text-white" : "border-border",
+                      )}
+                      aria-hidden
+                    >
+                      {selected && <Check className="size-4" />}
                     </span>
+                  ) : (
+                    selected && (
+                      <span className="rounded-full bg-bandeira-500 p-1 text-white" aria-label="Já na ficha">
+                        <Check className="size-4" aria-hidden />
+                      </span>
+                    )
                   )}
                 </button>
               </li>
@@ -156,7 +175,7 @@ export function ExercisePicker({
               onClick={() => dialogRef.current?.close()}
               className="w-full rounded-2xl bg-bandeira-500 py-3 font-display font-bold text-white"
             >
-              Pronto
+              Pronto{selectedIds.length > 0 && ` · ${selectedIds.length} ${selectedIds.length === 1 ? "exercício" : "exercícios"}`}
             </button>
           </div>
         )}

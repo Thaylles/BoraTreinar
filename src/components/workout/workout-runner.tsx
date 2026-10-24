@@ -461,7 +461,7 @@ export function WorkoutRunner({
 
       {backdate && (
         <Alert kind="info" className="mb-4">
-          Registrando um treino que já aconteceu ({backdate.label}, {backdate.minutes} min). Marque o que você fez e finalize.
+          Registrando um treino que já aconteceu ({backdate.label}, {backdate.minutes} min). Marque o que {loggedByInstructor ? "o aluno" : "você"} fez e finalize.
         </Alert>
       )}
       {resumed && (

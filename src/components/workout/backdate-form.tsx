@@ -8,20 +8,30 @@ import { inputClass } from "@/components/ui/field";
 
 const DURATIONS = [20, 30, 40, 45, 50, 60, 75, 90, 120];
 
-/** Escolhe a ficha (ou treino livre), o dia, o horário de início e a duração do treino que já aconteceu. */
+/**
+ * Escolhe a ficha (ou treino livre), o dia, o horário de início e a duração do treino que já aconteceu.
+ * Leva para `${planBase}/{ficha}?passado=…&min=…` (ou `freeHref?…` no treino livre, se houver).
+ */
 export function BackdateForm({
   plans,
   days,
   today,
   nowTime,
+  planBase,
+  freeHref,
+  who = "você",
 }: {
   plans: { id: string; name: string }[];
   days: { value: string; label: string }[];
   today: string;
   nowTime: string;
+  planBase: string;
+  freeHref?: string;
+  /** Quem treinou (para os textos): "você" ou o nome do aluno. */
+  who?: string;
 }) {
   const router = useRouter();
-  const [plan, setPlan] = useState(plans[0]?.id ?? "livre");
+  const [plan, setPlan] = useState(plans[0]?.id ?? (freeHref ? "livre" : ""));
   const [day, setDay] = useState(days[1]?.value ?? today);
   const [time, setTime] = useState("18:00");
   const [minutes, setMinutes] = useState(60);
@@ -29,22 +39,22 @@ export function BackdateForm({
 
   function go(e: React.FormEvent) {
     e.preventDefault();
-    if (future) return;
+    if (future || !plan) return;
     const q = `passado=${day}T${time}&min=${minutes}`;
-    router.push(plan === "livre" ? `/aluno/livre?${q}` : `/aluno/treinar/${plan}?${q}`);
+    router.push(plan === "livre" && freeHref ? `${freeHref}?${q}` : `${planBase}/${plan}?${q}`);
   }
 
   return (
     <form onSubmit={go} className="space-y-4 rounded-3xl border border-border bg-surface p-4">
       <label className="block space-y-1.5 text-sm font-semibold">
-        <span className="block">O que você treinou?</span>
+        <span className="block">O que {who} treinou?</span>
         <select value={plan} onChange={(e) => setPlan(e.target.value)} className={inputClass}>
           {plans.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
             </option>
           ))}
-          <option value="livre">Treino livre (escolher os exercícios)</option>
+          {freeHref && <option value="livre">Treino livre (escolher os exercícios)</option>}
         </select>
       </label>
       <label className="block space-y-1.5 text-sm font-semibold">
@@ -76,10 +86,10 @@ export function BackdateForm({
       </div>
       {future && <p className="text-sm font-semibold text-pitanga-600">Esse horário ainda não chegou hoje.</p>}
       <p className="text-xs text-muted">
-        Na próxima tela, marque as séries que você fez (com carga e repetições) e finalize. Se o treino foi só cardio, a duração
+        Na próxima tela, marque as séries que {who === "você" ? "você fez" : `${who} fez`} (com carga e repetições) e finalize. Se o treino foi só cardio, a duração
         vira o tempo do cardio.
       </p>
-      <Button type="submit" size="lg" className="w-full" disabled={future}>
+      <Button type="submit" size="lg" className="w-full" disabled={future || !plan}>
         <CalendarClock className="size-5" aria-hidden /> Continuar
       </Button>
     </form>

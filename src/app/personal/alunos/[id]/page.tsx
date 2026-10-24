@@ -189,6 +189,12 @@ export default async function AlunoPage({
                 ✍️ Registrar {p.name}
               </Link>
             ))}
+            <Link
+              href={`/personal/alunos/${id}/registrar-passado`}
+              className="rounded-xl border border-dashed border-bandeira-500/60 px-3 py-1.5 text-sm font-semibold text-bandeira-700 hover:bg-bandeira-50 dark:text-bandeira-100 dark:hover:bg-bandeira-500/10"
+            >
+              📅 Treino esquecido
+            </Link>
           </div>
         )}
         {sessions.length ? (

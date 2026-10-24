@@ -129,11 +129,16 @@ export default async function AlunoHome({
             <Play className="size-6 fill-current" aria-hidden />
             {liveClass ? "Registrar início do treino" : suggested ? `Começar ${suggested.name}` : "Começar treino livre"}
           </Link>
-          {(plans?.length ?? 0) > 1 && (
-            <a href="#fichas" className="mt-3 block text-center text-sm font-semibold text-white/90 underline-offset-4 hover:underline">
-              Escolher outra ficha
-            </a>
-          )}
+          <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm font-semibold text-white/90">
+            {(plans?.length ?? 0) > 1 && (
+              <a href="#fichas" className="underline-offset-4 hover:underline">
+                Escolher outra ficha
+              </a>
+            )}
+            <Link href="/aluno/registrar-passado" className="underline-offset-4 hover:underline">
+              Esqueceu de registrar um treino?
+            </Link>
+          </div>
         </section>
       )}
 

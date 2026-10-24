@@ -83,6 +83,16 @@ export function PlanEditor({
       { key: newKey(), equipment: c, sets: 3, reps: c.muscle_group === "cardio" ? "20" : "10–12", load: "", rest: c.muscle_group === "cardio" ? 0 : 60, notes: "", technique: "", substitute: null },
     ]);
   }
+  /** Retirar pelo catálogo: tira a última vez que o exercício aparece na ficha. */
+  function removeFromCatalog(c: CatalogItem) {
+    setItems((list) => {
+      let last = -1;
+      list.forEach((i, k) => {
+        if (i.equipment.id === c.id) last = k;
+      });
+      return last < 0 ? list : list.filter((_, k) => k !== last);
+    });
+  }
 
   function save() {
     setError(null);
@@ -286,6 +296,8 @@ export function PlanEditor({
           catalog={catalog}
           selectedIds={items.map((i) => i.equipment.id)}
           onPick={addFromCatalog}
+          onRepeat={addFromCatalog}
+          onRemove={removeFromCatalog}
           onClose={() => setPicking(false)}
         />
       )}

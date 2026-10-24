@@ -26,6 +26,8 @@ export function ExercisePicker({
   catalog,
   selectedIds,
   onPick,
+  onRepeat,
+  onRemove,
   onClose,
   multiple = true,
   cautions = {},
@@ -34,6 +36,12 @@ export function ExercisePicker({
   catalog: CatalogItem[];
   selectedIds: string[];
   onPick: (item: CatalogItem) => void;
+  /**
+   * Ficha: ao tocar num exercício já marcado, pergunta se é para fazer de novo (onRepeat)
+   * ou retirar (onRemove). Sem eles, tocar de novo chama onPick (o chamador alterna).
+   */
+  onRepeat?: (item: CatalogItem) => void;
+  onRemove?: (item: CatalogItem) => void;
   onClose: () => void;
   multiple?: boolean;
   /** Anamnese do aluno: motivos de cuidado por grupo muscular. */
@@ -43,6 +51,7 @@ export function ExercisePicker({
 }) {
   const [q, setQ] = useState("");
   const [group, setGroup] = useState<MuscleGroup | null>(null);
+  const [ask, setAsk] = useState<CatalogItem | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -67,10 +76,17 @@ export function ExercisePicker({
       aria-label="Escolher exercício"
       className="m-0 h-dvh max-h-none w-full max-w-none bg-background p-0 text-foreground backdrop:bg-black/40 sm:m-auto sm:h-[85vh] sm:max-w-lg sm:rounded-3xl"
     >
-      <div className="flex h-full flex-col">
+      <div className="relative flex h-full flex-col">
         <div className="space-y-3 border-b border-border p-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-display text-xl font-bold">Escolher exercício</h2>
+            <div>
+              <h2 className="font-display text-xl font-bold">Escolher exercício</h2>
+              {multiple && (
+                <p className="text-xs text-muted">
+                  {onRepeat ? "Toque para marcar; toque num marcado para repetir ou retirar." : "Toque para marcar; toque de novo para desmarcar."}
+                </p>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => dialogRef.current?.close()}
@@ -106,16 +122,22 @@ export function ExercisePicker({
         <ul className="flex-1 overflow-y-auto p-2">
           {filtered.map((c) => {
             const src = equipmentImageSrc(c);
-            const selected = selectedIds.includes(c.id);
+            const count = selectedIds.filter((id) => id === c.id).length;
+            const selected = count > 0;
             return (
               <li key={c.id}>
                 <button
                   type="button"
                   onClick={() => {
+                    if (selected && onRepeat && onRemove) return setAsk(c);
                     onPick(c);
                     if (!multiple) dialogRef.current?.close();
                   }}
-                  className="flex w-full items-center gap-3 rounded-2xl p-2 text-left hover:bg-surface"
+                  aria-pressed={multiple ? selected : undefined}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-2xl p-2 text-left transition hover:bg-surface",
+                    multiple && selected && "bg-bandeira-50 dark:bg-bandeira-500/10",
+                  )}
                 >
                   {src ? (
                     // eslint-disable-next-line @next/next/no-img-element -- miniatura
@@ -132,10 +154,22 @@ export function ExercisePicker({
                       <span className="block text-xs font-semibold text-pitanga-600">⚠️ {cautions[c.muscle_group].join(", ")}</span>
                     )}
                   </span>
-                  {selected && (
-                    <span className="rounded-full bg-bandeira-500 p-1 text-white" aria-label="Já na ficha">
-                      <Check className="size-4" aria-hidden />
+                  {multiple ? (
+                    <span
+                      className={cn(
+                        "flex size-7 shrink-0 items-center justify-center rounded-full border-2 transition",
+                        selected ? "border-bandeira-500 bg-bandeira-500 text-white" : "border-border",
+                      )}
+                      aria-hidden
+                    >
+                      {count > 1 ? <span className="text-xs font-bold">{count}×</span> : selected && <Check className="size-4" />}
                     </span>
+                  ) : (
+                    selected && (
+                      <span className="rounded-full bg-bandeira-500 p-1 text-white" aria-label="Já na ficha">
+                        <Check className="size-4" aria-hidden />
+                      </span>
+                    )
                   )}
                 </button>
               </li>
@@ -149,6 +183,46 @@ export function ExercisePicker({
           )}
         </ul>
 
+        {ask && (
+          <div className="absolute inset-0 z-10 flex items-end bg-black/40 sm:items-center sm:justify-center" onClick={() => setAsk(null)}>
+            <div
+              role="alertdialog"
+              aria-labelledby="repetir-titulo"
+              className="w-full space-y-3 rounded-t-3xl bg-background p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl sm:max-w-sm sm:rounded-3xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p id="repetir-titulo" className="font-display text-lg font-bold leading-tight">
+                {ask.name} já está na ficha
+              </p>
+              <p className="text-sm text-muted">Você deseja fazer esse exercício novamente? Ou gostaria de retirá-lo?</p>
+              <button
+                type="button"
+                autoFocus
+                onClick={() => {
+                  onRemove?.(ask);
+                  setAsk(null);
+                }}
+                className="w-full rounded-2xl bg-pitanga-500 py-3 font-display font-bold text-white"
+              >
+                Retirar da ficha
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onRepeat?.(ask);
+                  setAsk(null);
+                }}
+                className="w-full rounded-2xl border-2 border-border bg-surface py-3 font-display font-bold hover:border-bandeira-500"
+              >
+                Fazer novamente (adicionar outra vez)
+              </button>
+              <button type="button" onClick={() => setAsk(null)} className="w-full py-2 text-sm font-semibold text-muted">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
         {multiple && (
           <div className="border-t border-border p-4">
             <button
@@ -156,7 +230,7 @@ export function ExercisePicker({
               onClick={() => dialogRef.current?.close()}
               className="w-full rounded-2xl bg-bandeira-500 py-3 font-display font-bold text-white"
             >
-              Pronto
+              Pronto{selectedIds.length > 0 && ` · ${selectedIds.length} ${selectedIds.length === 1 ? "exercício" : "exercícios"}`}
             </button>
           </div>
         )}

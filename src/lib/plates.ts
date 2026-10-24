@@ -1,38 +1,8 @@
-/** Calculadora de anilhas e séries de aquecimento (funções puras). */
+/** Séries de aquecimento (funções puras). */
 
-/** Anilhas padrão da academia (kg), da maior para a menor. */
-export const DEFAULT_PLATES = [25, 20, 15, 10, 5, 2.5, 1.25];
-/** Barras para escolher na calculadora (0 = sem barra: máquina, halter, polia). */
-export const BARS = [20, 15, 10, 0];
 export const DEFAULT_BAR = 20;
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
-
-/**
- * Anilhas de CADA lado da barra para chegar à carga total (método guloso, da maior para a menor).
- * `remainder` é o que sobra por não existir anilha pequena o bastante (0 quando fecha certinho).
- */
-export function platesFor(total: number, bar = DEFAULT_BAR, plates = DEFAULT_PLATES): { perSide: number[]; remainder: number } {
-  let side = round2((total - bar) / 2);
-  if (!Number.isFinite(side) || side <= 0) return { perSide: [], remainder: Math.max(0, round2(total - bar)) };
-  const perSide: number[] = [];
-  for (const p of [...plates].sort((a, b) => b - a)) {
-    while (side >= p - 1e-9) {
-      perSide.push(p);
-      side = round2(side - p);
-    }
-  }
-  return { perSide, remainder: round2(side * 2) };
-}
-
-/** "2×20 + 10" a partir da lista de anilhas de um lado. */
-export function platesLabel(perSide: number[]): string {
-  const counts = new Map<number, number>();
-  for (const p of perSide) counts.set(p, (counts.get(p) ?? 0) + 1);
-  return [...counts]
-    .map(([p, n]) => `${n > 1 ? `${n}×` : ""}${p.toLocaleString("pt-BR")}`)
-    .join(" + ");
-}
 
 /** Arredonda para o múltiplo de `step` mais próximo (padrão 2,5 kg: um par das menores anilhas). */
 export const roundTo = (n: number, step = 2.5) => round2(Math.round(n / step) * step);
@@ -57,7 +27,7 @@ export function warmupSets(workLoad: number, bar = 0): WarmupSet[] {
   return out;
 }
 
-/** Barra provável pelo nome do exercício (o aluno pode trocar na calculadora). */
+/** Barra provável pelo nome do exercício (o aquecimento nunca fica abaixo dela). */
 export function guessBar(name: string): number {
   return /\bbarra\b|levantamento terra|agachamento livre|stiff|remada curvada|desenvolvimento militar/i.test(name) && !/barra fixa/i.test(name)
     ? DEFAULT_BAR

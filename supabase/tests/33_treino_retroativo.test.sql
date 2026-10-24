@@ -50,6 +50,25 @@ select pg_temp.assert(pg_temp.fails($$select public.save_workout_session(pg_temp
 select pg_temp.assert(pg_temp.fails($$select public.save_workout_session(pg_temp.livre_em(now() + interval '2 hours', 30))$$),
   'treino no futuro é recusado');
 
+-- O Personal vinculado também registra treino esquecido do aluno (mesmo limite de 7 dias)
+reset role;
+insert into auth.users (email, raw_user_meta_data) values ('retro.p@p.com', '{"role":"personal","full_name":"Pedro Retro"}');
+insert into public.personal_students (personal_id, student_id, role)
+  values ((select id from auth.users where email = 'retro.p@p.com'), (select id from auth.users where email = 'retro.a@a.com'), 'responsavel');
+create temp table rp as select id from auth.users where email = 'retro.a@a.com';
+grant all on rp to authenticated;
+create or replace function pg_temp.livre_de(p_start timestamptz) returns jsonb language sql as $$
+  select pg_temp.livre_em(p_start, 40) || jsonb_build_object('student_id', (select id from rp))
+$$;
+select pg_temp.as_user('retro.p@p.com');
+select pg_temp.assert(not pg_temp.fails($$select public.save_workout_session(pg_temp.livre_de(now() - interval '3 days'))$$),
+  'Personal registra treino de 3 dias atrás');
+select pg_temp.assert(pg_temp.fails($$select public.save_workout_session(pg_temp.livre_de(now() - interval '9 days'))$$),
+  'Personal também não passa de 7 dias');
+reset role;
+select pg_temp.assert((select count(*) from public.workout_sessions s join auth.users u on u.id = s.logged_by
+  where u.email = 'retro.p@p.com') = 1, 'treino fica marcado como registrado pelo Personal');
+
 -- Cargas internas (sem usuário) e importações não passam pela trava
 reset role;
 select set_config('request.jwt.claims', '{}', false);

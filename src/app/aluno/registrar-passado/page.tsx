@@ -8,7 +8,7 @@ import { dayLabel } from "@/lib/schedule";
 import { BACKDATE_MAX_DAYS, backdateDays } from "@/lib/session-window";
 import { createClient } from "@/lib/supabase/server";
 import { spDateKey, spTimeKey } from "@/lib/week";
-import { BackdateForm } from "./backdate-form";
+import { BackdateForm } from "@/components/workout/backdate-form";
 
 export const metadata: Metadata = { title: "Treino esquecido" };
 
@@ -37,7 +37,7 @@ export default async function RegistrarPassadoPage({ searchParams }: { searchPar
           Só dá para registrar treinos de hoje até {BACKDATE_MAX_DAYS} dias atrás, sem horário no futuro. Escolha de novo.
         </Alert>
       )}
-      <BackdateForm plans={plans ?? []} days={days} today={today} nowTime={spTimeKey()} />
+      <BackdateForm plans={plans ?? []} days={days} today={today} nowTime={spTimeKey()} planBase="/aluno/treinar" freeHref="/aluno/livre" />
     </>
   );
 }

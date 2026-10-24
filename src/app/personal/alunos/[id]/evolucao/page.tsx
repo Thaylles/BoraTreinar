@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { PageTitle } from "@/components/ui/card";
 import { DashboardView } from "@/components/dashboard/dashboard-view";
+import { CoachInsights } from "@/components/dashboard/coach-insights";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { loadDashboard } from "@/lib/dashboard-server";
@@ -26,7 +27,7 @@ export default async function PersonalEvolucaoPage({
   const { data: student } = await supabase.from("profiles").select("full_name").eq("id", id).in("role", ["aluno", "admin"]).maybeSingle();
   if (!student) notFound();
   const [data, settings] = await Promise.all([
-    loadDashboard(id, sp.periodo === "mes" ? "mes" : "semana", sp.ref),
+    loadDashboard(id, sp.periodo === "mes" ? "mes" : "semana", sp.ref, { insights: true }),
     getStudentSettings(id),
   ]);
   return (
@@ -34,7 +35,10 @@ export default async function PersonalEvolucaoPage({
       <Link href={`/personal/alunos/${id}`} className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-foreground">
         <ArrowLeft className="size-4" aria-hidden /> Aluno
       </Link>
-      <PageTitle sub="Semana e mês, com comparação ao período anterior.">Evolução de {student.full_name}</PageTitle>
+      <PageTitle sub="Alertas, volume por grupo, força estimada e o resumo da semana ou do mês.">Evolução de {student.full_name}</PageTitle>
+      {data.insights && data.hasAnySession && (
+        <CoachInsights insights={data.insights} names={data.names} exerciseHref={(eid) => `/personal/alunos/${id}/exercicios/${eid}`} />
+      )}
       <DashboardView
         data={data}
         basePath={`/personal/alunos/${id}/evolucao`}

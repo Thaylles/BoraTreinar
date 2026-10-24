@@ -7,6 +7,7 @@ import { NotificationsList } from "@/components/notifications";
 import { requireRole } from "@/lib/auth";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { PushToggle } from "@/components/pwa/push-toggle";
+import { OpenWorkouts } from "@/components/workout/open-workouts";
 import { createClient } from "@/lib/supabase/server";
 import { firstName } from "@/lib/format";
 import { PersonalOverview } from "@/components/dashboard/personal-overview";
@@ -52,6 +53,7 @@ export default async function PersonalHome({ searchParams }: { searchParams: Pro
     <>
       <PageTitle sub="Bora acompanhar a galera?">Fala, {firstName(profile.full_name)}! 👋</PageTitle>
 
+      <OpenWorkouts prefixes={[`bt:registro:${profile.id}:`, `bt:treino:${profile.id}:`, `bt:livre:${profile.id}:`]} />
       <InstallPrompt />
       <PushToggle />
 

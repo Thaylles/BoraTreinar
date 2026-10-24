@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Archive, ArchiveRestore, ArrowLeft, Copy, Pencil, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Copy, Pencil, RefreshCw, Trash2 } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,10 @@ import { PlanExportButtons } from "@/components/plans/export-buttons";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { requireRole } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
+import { spDateKey } from "@/lib/week";
 import { loadPlan } from "@/lib/plans-server";
 import { createClient } from "@/lib/supabase/server";
-import { archivePlan, deletePlan, duplicatePlan } from "../actions";
+import { archivePlan, deletePlan, duplicatePlan, renewPlan } from "../actions";
 
 export const metadata: Metadata = { title: "Ficha" };
 
@@ -22,7 +23,7 @@ export default async function FichaPage({
   searchParams,
 }: {
   params: Promise<{ planId: string }>;
-  searchParams: Promise<{ salvo?: string; duplicada?: string; erro?: string }>;
+  searchParams: Promise<{ salvo?: string; duplicada?: string; erro?: string; renovar?: string }>;
 }) {
   const [{ planId }, sp, { profile }] = await Promise.all([params, searchParams, requireRole("personal")]);
   const loaded = await loadPlan(planId);
@@ -45,7 +46,11 @@ export default async function FichaPage({
     .sort((a, b) => a.full_name.localeCompare(b.full_name, "pt-BR"));
 
   const back = plan.is_template ? "/personal/modelos" : `/personal/alunos/${plan.student_id}`;
-  const expired = plan.valid_until && plan.valid_until < new Date().toISOString().slice(0, 10);
+  const today = spDateKey();
+  const expired = !!plan.valid_until && plan.valid_until < today;
+  const daysLeft = plan.valid_until ? Math.round((Date.parse(plan.valid_until) - Date.parse(today)) / 86_400_000) : null;
+  // Vencida ou vencendo em até 7 dias (ou vindo do aviso): atalho para renovar.
+  const renewable = !plan.is_template && !plan.archived_at && ((daysLeft !== null && daysLeft <= 7) || !!sp.renovar);
   const byStudent = !plan.is_template && !!plan.student_id && plan.created_by === plan.student_id;
 
   return (
@@ -72,6 +77,31 @@ export default async function FichaPage({
           {plan.valid_until && ` · válida até ${formatDate(`${plan.valid_until}T12:00:00`)}`}
         </p>
       </div>
+
+      {renewable && (
+        <Card className="mb-4 border-2 border-ipe-500 bg-ipe-100/60 dark:bg-ipe-500/10">
+          <h2 className="flex items-center gap-2 font-display text-lg font-bold">
+            <RefreshCw className="size-5" aria-hidden />
+            {daysLeft === null
+              ? "Renovar ficha"
+              : expired
+                ? "Ficha vencida"
+                : daysLeft === 0
+                  ? "Ficha vence hoje"
+                  : `Ficha vence em ${daysLeft} ${daysLeft === 1 ? "dia" : "dias"}`}
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            Duplique e ajuste para o próximo ciclo: abrimos a cópia no editor para você definir a nova validade
+            {canEdit ? " e a ficha atual vai para as arquivadas." : ". A ficha atual, montada pelo aluno, continua ativa."}
+          </p>
+          <form action={renewPlan} className="mt-3">
+            <input type="hidden" name="plan_id" value={planId} />
+            <Button type="submit" className="w-full sm:w-auto">
+              <RefreshCw className="size-4" aria-hidden /> Duplicar e ajustar
+            </Button>
+          </form>
+        </Card>
+      )}
 
       {plan.notes && <Card className="mb-4 whitespace-pre-line text-sm">{plan.notes}</Card>}
 

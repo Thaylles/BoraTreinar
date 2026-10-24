@@ -65,6 +65,16 @@ export async function duplicatePlan(fd: FormData) {
   redirect(`/personal/fichas/${id}?duplicada=1`);
 }
 
+/** Renovar ficha (duplicar e ajustar): cópia sem validade para o mesmo aluno; a antiga é arquivada. */
+export async function renewPlan(fd: FormData) {
+  const planId = String(fd.get("plan_id"));
+  const supabase = await createClient();
+  const { data: id, error } = await supabase.rpc("renew_workout_plan", { p_plan: planId });
+  if (error) redirect(`/personal/fichas/${planId}?erro=${encodeURIComponent(friendlyError(error.message))}`);
+  revalidatePath("/personal", "layout");
+  redirect(`/personal/fichas/${id}/editar`);
+}
+
 /** Aplica um modelo a um aluno e abre a ficha nova para ajustes. */
 export async function applyTemplate(fd: FormData) {
   const studentId = String(fd.get("student_id"));

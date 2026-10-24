@@ -659,6 +659,7 @@ export type Database = {
           weight_visible_to_personal: boolean;
           weekly_goal: number | null;
           personal_edits_plans: boolean;
+          training_reminders: boolean;
         };
         Insert: {
           student_id: string;
@@ -666,12 +667,14 @@ export type Database = {
           weight_visible_to_personal?: boolean;
           weekly_goal?: number | null;
           personal_edits_plans?: boolean;
+          training_reminders?: boolean;
         };
         Update: {
           weigh_in_frequency?: Database["public"]["Enums"]["weigh_in_frequency"];
           weight_visible_to_personal?: boolean;
           weekly_goal?: number | null;
           personal_edits_plans?: boolean;
+          training_reminders?: boolean;
         };
         Relationships: [];
       };
@@ -1095,6 +1098,10 @@ export type Database = {
       };
       duplicate_workout_plan: {
         Args: { p_plan: string; p_student: string | null; p_name?: string | null };
+        Returns: string;
+      };
+      renew_workout_plan: {
+        Args: { p_plan: string };
         Returns: string;
       };
       set_workout_plan_archived: {

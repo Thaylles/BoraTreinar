@@ -83,7 +83,8 @@ type SetState = {
 export type BackdateInfo = { startedAt: string; minutes: number; label: string };
 /** `swap`: exercício feito no lugar do da ficha (aparelho ocupado). */
 type ExerciseState = { rest: number; sets: SetState[]; swap?: { id: string; source: SwapSource } };
-type Draft = { v: 1; clientId: string; startedAt: string; exercises: ExerciseState[] };
+/** title/href: para o aviso "treino em aberto" na tela inicial poder retomar. */
+type Draft = { v: 1; clientId: string; startedAt: string; exercises: ExerciseState[]; title?: string; href?: string };
 type Timer = { endsAt: number; total: number; exercise: number } | null;
 type Summary = { duration: number; doneSets: number; volume: number; prs: string[]; offline: boolean; sessionId?: string };
 
@@ -197,6 +198,20 @@ function useWakeLock(active: boolean) {
   }, [active]);
 }
 
+function EmptyWorkoutWarning({ onDiscard }: { onDiscard: () => void }) {
+  return (
+    <div role="alert" className="mb-4 rounded-2xl border-2 border-pitanga-500/50 bg-pitanga-500/10 px-4 py-3 text-sm">
+      <p className="font-display font-bold text-pitanga-600">Nenhuma série marcada como feita</p>
+      <p className="mt-1 text-muted">
+        Toque em ✓ nas séries que você fez para salvar o treino. Se não treinou, descarte para não ficar um treino vazio no histórico.
+      </p>
+      <button type="button" onClick={onDiscard} className="mt-2 font-semibold text-pitanga-600 underline underline-offset-4">
+        Descartar treino
+      </button>
+    </div>
+  );
+}
+
 export function WorkoutRunner({
   studentId,
   planId,
@@ -225,6 +240,7 @@ export function WorkoutRunner({
   const [timer, setTimer] = useState<Timer>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emptyWarn, setEmptyWarn] = useState(false);
   const [summary, setSummary] = useState<Summary | null>(null);
   const { unlock, beep } = useBeeper();
   const beepedFor = useRef<number | null>(null);
@@ -241,8 +257,9 @@ export function WorkoutRunner({
   }, [storageKey, exercises]);
 
   useEffect(() => {
-    if (draft && !summary) draftStore.set(storageKey, draft);
-  }, [draft, storageKey, summary]);
+    if (draft && !summary)
+      draftStore.set(storageKey, { ...draft, title: planName, href: window.location.pathname + window.location.search });
+  }, [draft, storageKey, summary, planName]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 250);
@@ -279,6 +296,7 @@ export function WorkoutRunner({
     const current = draft?.exercises[ei].sets[si].done;
     const next = current === done ? null : done;
     updateSet(ei, si, { done: next, clock: undefined });
+    if (next === true) setEmptyWarn(false);
     const rest = draft?.exercises[ei].rest ?? 0;
     // Bi-set/tri-set: o descanso vem só depois do último exercício do grupo.
     if (next === true && rest > 0 && !exercises[ei].groupedNext && !backdate) {
@@ -352,7 +370,12 @@ export function WorkoutRunner({
 
   async function finish() {
     if (!draft) return;
-    if (stats.done === 0 && !confirm("Nenhuma série marcada como feita. Salvar mesmo assim?")) return;
+    // Treino vazio não é salvo: marque o que fez ou descarte.
+    if (stats.done === 0) {
+      setEmptyWarn(true);
+      return;
+    }
+    setEmptyWarn(false);
     if (stats.pending > 0 && stats.done > 0 && !confirm(`${stats.pending} série(s) sem marcação serão salvas como "não feita". Finalizar?`)) return;
 
     // Só cardio: a duração é o tempo do cardio. Treino esquecido: o horário informado.
@@ -470,6 +493,7 @@ export function WorkoutRunner({
         </Alert>
       )}
       {error && <Alert className="mb-4">{error}</Alert>}
+      {emptyWarn && <EmptyWorkoutWarning onDiscard={discard} />}
 
       <ol className="space-y-4">
         {exercises.map((ex, ei) => (
@@ -499,6 +523,7 @@ export function WorkoutRunner({
       </ol>
 
       <div className="mt-8 flex flex-col gap-3">
+        {emptyWarn && <EmptyWorkoutWarning onDiscard={discard} />}
         <Button size="lg" onClick={finish} disabled={saving}>
           {saving && <Loader2 className="size-4 animate-spin" aria-hidden />}
           Finalizar treino

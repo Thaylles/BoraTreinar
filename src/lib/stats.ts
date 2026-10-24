@@ -1,7 +1,7 @@
 import { addDays, addMonths, mondayOf, MONTHS } from "./schedule.ts";
 
 /** Exercício agregado de uma sessão (vem de `training_summary`). */
-export type SummaryExercise = { e: string; max: number; vol: number; sets: number; reps: number; pr: boolean };
+export type SummaryExercise = { e: string; max: number; vol: number; sets: number; reps: number; pr: boolean; rm?: number | null };
 export type SummarySession = {
   id: string;
   started_at: string;

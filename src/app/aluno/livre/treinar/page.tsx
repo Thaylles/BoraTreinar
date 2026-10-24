@@ -5,16 +5,20 @@ import { WeighInGate } from "@/components/weight/weigh-in-gate";
 import { requireRole } from "@/lib/auth";
 import { FREE_MAX_EXERCISES, loadRunnerForFree } from "@/lib/runner-server";
 import { getWeighInStatus } from "@/lib/weight-server";
+import { resolveBackdate } from "@/lib/backdate-server";
 
 export const metadata: Metadata = { title: "Treino livre" };
 
 export default async function TreinoLivreExecPage({
   searchParams,
 }: {
-  searchParams: Promise<{ e?: string }>;
+  searchParams: Promise<{ e?: string; passado?: string; min?: string }>;
 }) {
+  const sp = await searchParams;
   const { profile } = await requireRole("aluno");
-  const ids = ((await searchParams).e ?? "")
+  const backdate = resolveBackdate(sp.passado, sp.min);
+  if (sp.passado && !backdate) redirect("/aluno/registrar-passado?erro=data");
+  const ids = (sp.e ?? "")
     .split(",")
     .filter((x) => /^[0-9a-f-]{36}$/i.test(x))
     .slice(0, FREE_MAX_EXERCISES);
@@ -22,7 +26,7 @@ export default async function TreinoLivreExecPage({
 
   const [data, weighIn] = await Promise.all([loadRunnerForFree(profile.id, ids), getWeighInStatus(profile.id)]);
   if (!data.exercises.length) redirect("/aluno/livre");
-  if (weighIn.overdue) return <WeighInGate status={weighIn} next={`/aluno/livre/treinar?e=${ids.join(",")}`} />;
+  if (weighIn.overdue && !backdate) return <WeighInGate status={weighIn} next={`/aluno/livre/treinar?e=${ids.join(",")}`} />;
 
   return (
     <WorkoutRunner
@@ -31,8 +35,9 @@ export default async function TreinoLivreExecPage({
       planName="Treino livre"
       kind="livre"
       exercises={data.exercises}
-      storageKey={`bt:livre:${profile.id}:${data.exercises.map((e) => e.equipment.id).join(",")}`}
+      storageKey={`bt:livre:${profile.id}:${data.exercises.map((e) => e.equipment.id).join(",")}${backdate ? `:passado:${sp.passado}` : ""}`}
       backHref="/aluno"
+      backdate={backdate}
     />
   );
 }

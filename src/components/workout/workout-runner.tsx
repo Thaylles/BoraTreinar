@@ -9,6 +9,7 @@ import {
   Loader2,
   Minus,
   Pause,
+  Play,
   Plus,
   SkipForward,
   TrendingUp,
@@ -28,6 +29,7 @@ import { Alert } from "@/components/ui/alert";
 import { cn } from "@/lib/cn";
 import { cardioSetLine, type IntensityUnit } from "@/lib/cardio";
 import { BARS, guessBar, platesFor, platesLabel, warmupSets } from "@/lib/plates";
+import { cardioOnlyMinutes, sessionWindow } from "@/lib/session-window";
 
 export type RunnerExercise = {
   equipment: {
@@ -63,8 +65,22 @@ export type RunnerExercise = {
 export type SwapOption = { equipment: RunnerExercise["equipment"]; history: ExerciseHistoryInfo };
 type SwapSource = "personal" | "ia" | "regras";
 
-/** No cardio, `reps` guarda os minutos; os demais campos são do painel do aparelho. */
-type SetState = { load: string; reps: string; done: boolean | null; km?: string; speed?: string; incline?: string; level?: string };
+/**
+ * No cardio, `reps` guarda os minutos; os demais campos são do painel do aparelho.
+ * `clock`: cronômetro regressivo do cardio (total em segundos; rodando até `endsAt` ou pausado com `left`).
+ */
+type SetState = {
+  load: string;
+  reps: string;
+  done: boolean | null;
+  km?: string;
+  speed?: string;
+  incline?: string;
+  level?: string;
+  clock?: { total: number; endsAt?: number; left?: number };
+};
+/** Treino esquecido: quando começou (ISO), quanto durou e o rótulo ("Ontem às 18:30"). */
+export type BackdateInfo = { startedAt: string; minutes: number; label: string };
 /** `swap`: exercício feito no lugar do da ficha (aparelho ocupado). */
 type ExerciseState = { rest: number; sets: SetState[]; swap?: { id: string; source: SwapSource } };
 type Draft = { v: 1; clientId: string; startedAt: string; exercises: ExerciseState[] };
@@ -190,6 +206,7 @@ export function WorkoutRunner({
   storageKey,
   backHref,
   loggedByInstructor = false,
+  backdate = null,
 }: {
   studentId: string;
   planId: string | null;
@@ -199,6 +216,8 @@ export function WorkoutRunner({
   storageKey: string;
   backHref: string;
   loggedByInstructor?: boolean;
+  /** Registro de um treino que já aconteceu (sem cronômetros). */
+  backdate?: BackdateInfo | null;
 }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [resumed, setResumed] = useState(false);
@@ -259,10 +278,10 @@ export function WorkoutRunner({
     unlock();
     const current = draft?.exercises[ei].sets[si].done;
     const next = current === done ? null : done;
-    updateSet(ei, si, { done: next });
+    updateSet(ei, si, { done: next, clock: undefined });
     const rest = draft?.exercises[ei].rest ?? 0;
     // Bi-set/tri-set: o descanso vem só depois do último exercício do grupo.
-    if (next === true && rest > 0 && !exercises[ei].groupedNext) {
+    if (next === true && rest > 0 && !exercises[ei].groupedNext && !backdate) {
       setTimer({ endsAt: Date.now() + rest * 1000, total: rest, exercise: ei });
     }
   }
@@ -286,6 +305,40 @@ export function WorkoutRunner({
     updateExercise(ei, { sets: ex.sets.slice(0, -1) });
   }
 
+  // ─── Cronômetro do cardio ─────────────────────────────────────
+  const setAt = (ei: number, si: number) => draft?.exercises[ei]?.sets[si];
+  function startClock(ei: number, si: number) {
+    unlock();
+    const s = setAt(ei, si);
+    const total = s?.clock?.total ?? Math.round(parseNum(s?.reps ?? "") * 60);
+    if (!s || total <= 0) return;
+    updateSet(ei, si, { clock: { total, endsAt: Date.now() + (s.clock?.left ?? total) * 1000 } });
+  }
+  function pauseClock(ei: number, si: number) {
+    const c = setAt(ei, si)?.clock;
+    if (c?.endsAt) updateSet(ei, si, { clock: { total: c.total, left: Math.max(0, (c.endsAt - Date.now()) / 1000) } });
+  }
+  /** Concluir antes do fim: grava o tempo que de fato foi feito. */
+  function stopClock(ei: number, si: number) {
+    const c = setAt(ei, si)?.clock;
+    if (!c) return;
+    const left = c.endsAt ? Math.max(0, (c.endsAt - Date.now()) / 1000) : (c.left ?? 0);
+    const minutes = Math.max(0.1, Math.round((c.total - left) / 6) / 10);
+    updateSet(ei, si, { clock: undefined, done: true, reps: fmtNum(minutes) });
+  }
+  // Fim do tempo: apita e marca a série como feita.
+  useEffect(() => {
+    draft?.exercises.forEach((ex, ei) =>
+      ex.sets.forEach((s, si) => {
+        if (s.clock?.endsAt && s.clock.endsAt <= now) {
+          updateSet(ei, si, { clock: undefined, done: true });
+          beep();
+        }
+      }),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- confere a cada "tique" do relógio
+  }, [now]);
+
   const stats = useMemo(() => {
     if (!draft) return { done: 0, total: 0, pending: 0, volume: 0 };
     const all = draft.exercises.flatMap((e) => e.sets);
@@ -302,15 +355,25 @@ export function WorkoutRunner({
     if (stats.done === 0 && !confirm("Nenhuma série marcada como feita. Salvar mesmo assim?")) return;
     if (stats.pending > 0 && stats.done > 0 && !confirm(`${stats.pending} série(s) sem marcação serão salvas como "não feita". Finalizar?`)) return;
 
-    const finishedAt = new Date().toISOString();
+    // Só cardio: a duração é o tempo do cardio. Treino esquecido: o horário informado.
+    const flat = draft.exercises.flatMap((ex, i) => {
+      const cardio = isCardioEx(effectiveExercise(exercises[i], ex));
+      return ex.sets.map((st) => ({ cardio, done: st.done === true, minutes: cardio ? parseNum(st.reps) : 0 }));
+    });
+    const win = sessionWindow({
+      startedAt: draft.startedAt,
+      now: new Date().toISOString(),
+      cardioOnlyMinutes: cardioOnlyMinutes(flat),
+      backdate,
+    });
     const payload: SessionPayload = {
       client_id: draft.clientId,
       student_id: studentId,
       plan_id: planId,
       plan_name: planName,
       kind,
-      started_at: draft.startedAt,
-      finished_at: finishedAt,
+      started_at: win.started_at,
+      finished_at: win.finished_at,
       exercises: draft.exercises.map((ex, i) => ({
         equipment_id: effectiveExercise(exercises[i], ex).equipment.id,
         sets: ex.sets.map((s) => ({
@@ -331,7 +394,7 @@ export function WorkoutRunner({
       })),
     };
     const base = {
-      duration: (Date.parse(finishedAt) - Date.parse(draft.startedAt)) / 1000,
+      duration: (Date.parse(win.finished_at) - Date.parse(win.started_at)) / 1000,
       doneSets: stats.done,
       volume: stats.volume,
     };
@@ -386,7 +449,7 @@ export function WorkoutRunner({
         <div className="min-w-0 flex-1">
           <p className="truncate font-display text-lg font-bold leading-tight">{planName}</p>
           <p className="text-xs text-muted">
-            ⏱ {clock(elapsed)} · {stats.done}/{stats.total} séries
+            {backdate ? `📅 Treino de ${backdate.label}` : `⏱ ${clock(elapsed)}`} · {stats.done}/{stats.total} séries
             {loggedByInstructor && " · registro do instrutor"}
           </p>
         </div>
@@ -396,6 +459,11 @@ export function WorkoutRunner({
         </Button>
       </div>
 
+      {backdate && (
+        <Alert kind="info" className="mb-4">
+          Registrando um treino que já aconteceu ({backdate.label}, {backdate.minutes} min). Marque o que você fez e finalize.
+        </Alert>
+      )}
       {resumed && (
         <Alert kind="info" className="mb-4">
           Treino retomado de onde você parou. 💪
@@ -418,6 +486,9 @@ export function WorkoutRunner({
             onAdd={() => addSet(ei)}
             onRemove={() => removeSet(ei)}
             onRest={(rest) => updateExercise(ei, { rest })}
+            now={now}
+            live={!backdate}
+            onClock={(si, action) => (action === "start" ? startClock(ei, si) : action === "pause" ? pauseClock(ei, si) : stopClock(ei, si))}
             onUseLoad={(load) =>
               updateExercise(ei, {
                 sets: draft.exercises[ei].sets.map((s) => (s.done === null ? { ...s, load: fmtNum(load) } : s)),
@@ -463,6 +534,9 @@ function ExerciseCard({
   onRemove,
   onRest,
   onUseLoad,
+  now,
+  live,
+  onClock,
 }: {
   index: number;
   exercise: RunnerExercise;
@@ -477,6 +551,10 @@ function ExerciseCard({
   onRemove: () => void;
   onRest: (rest: number) => void;
   onUseLoad: (load: number) => void;
+  now: number;
+  /** Treino acontecendo agora (no treino esquecido não há cronômetro). */
+  live: boolean;
+  onClock: (si: number, action: "start" | "pause" | "stop") => void;
 }) {
   const src = equipmentImageSrc(exercise.equipment);
   const { last, best } = exercise.history;
@@ -585,6 +663,9 @@ function ExerciseCard({
               unit={exercise.equipment.intensity_unit ?? "nivel"}
               onChange={(patch) => onSet(si, patch)}
               onMark={(done) => onMark(si, done)}
+              now={now}
+              live={live}
+              onClock={(action) => onClock(si, action)}
             />
           ))}
         </ul>
@@ -792,13 +873,22 @@ function CardioSetRow({
   unit,
   onChange,
   onMark,
+  now,
+  live,
+  onClock,
 }: {
   index: number;
   set: SetState;
   unit: IntensityUnit;
   onChange: (patch: Partial<SetState>) => void;
   onMark: (done: boolean) => void;
+  now: number;
+  live: boolean;
+  onClock: (action: "start" | "pause" | "stop") => void;
 }) {
+  const planned = Math.round(parseNum(set.reps) * 60);
+  const c = set.clock;
+  const left = c ? (c.endsAt ? Math.max(0, (c.endsAt - now) / 1000) : (c.left ?? c.total)) : planned;
   const fields: { key: "reps" | "km" | "speed" | "incline" | "level"; label: string; mode: "decimal" | "numeric" }[] = [
     { key: "reps", label: "Tempo (min)", mode: "decimal" },
     { key: "km", label: "Distância (km)", mode: "decimal" },
@@ -825,6 +915,7 @@ function CardioSetRow({
               inputMode={f.mode}
               value={set[f.key] ?? ""}
               onChange={(e) => onChange({ [f.key]: e.target.value })}
+              disabled={f.key === "reps" && !!c}
               placeholder="—"
               aria-label={`${f.label} da série ${index + 1}`}
               className={cn(cardioInput, "mt-1 text-foreground")}
@@ -832,6 +923,45 @@ function CardioSetRow({
           </label>
         ))}
       </div>
+      {live && set.done === null && planned > 0 && (
+        <div
+          role="timer"
+          aria-label={`Cronômetro do cardio, série ${index + 1}`}
+          className={cn(
+            "mt-2 flex items-center gap-2 rounded-2xl p-2",
+            c?.endsAt ? "bg-anil-700 text-white" : "bg-anil-700/5 dark:bg-white/5",
+          )}
+        >
+          <span className="min-w-0 flex-1 pl-1">
+            <span className={cn("block text-[11px] font-semibold", c?.endsAt ? "text-white/80" : "text-muted")}>
+              {c ? (c.endsAt ? "Faltam" : "Pausado") : "Cronômetro"}
+            </span>
+            <span className="font-display text-3xl font-extrabold tabular-nums leading-none">{clock(left)}</span>
+          </span>
+          {c?.endsAt ? (
+            <button type="button" onClick={() => onClock("pause")} className="flex h-11 items-center gap-1 rounded-xl bg-white/15 px-3 text-sm font-bold">
+              <Pause className="size-4" aria-hidden /> Pausar
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onClock("start")}
+              className="flex h-11 items-center gap-1 rounded-xl bg-bandeira-500 px-3 text-sm font-bold text-white hover:bg-bandeira-600"
+            >
+              <Play className="size-4 fill-current" aria-hidden /> {c ? "Retomar" : "Iniciar"}
+            </button>
+          )}
+          {c && (
+            <button
+              type="button"
+              onClick={() => onClock("stop")}
+              className={cn("flex h-11 items-center gap-1 rounded-xl px-3 text-sm font-bold", c.endsAt ? "bg-ipe-500 text-anil-900" : "border-2 border-border")}
+            >
+              <Check className="size-4" aria-hidden /> Concluir
+            </button>
+          )}
+        </div>
+      )}
       <div className="mt-2 flex gap-2">
         <button
           type="button"

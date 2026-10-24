@@ -53,7 +53,12 @@ $$;
 
 select pg_temp.as_user('eva@a.com');
 insert into public.body_weights (student_id, weight_kg) values (auth.uid(), 60);
-select pg_temp.treino('00000000-0000-0000-0000-0000000000d1', 20, 8);
+select pg_temp.treino('00000000-0000-0000-0000-0000000000d1', 20, 0);
+-- Treino de 8 dias atrás (o app só registra até 7 dias; aqui a data é ajustada direto no banco).
+reset role;
+update public.workout_sessions set started_at = now() - interval '8 days 1 hour', finished_at = now() - interval '8 days'
+ where client_id = '00000000-0000-0000-0000-0000000000d1';
+select pg_temp.as_user('eva@a.com');
 select pg_temp.treino('00000000-0000-0000-0000-0000000000d2', 25, 1);
 
 create temp table d_sum as select public.training_summary(auth.uid()) as j;

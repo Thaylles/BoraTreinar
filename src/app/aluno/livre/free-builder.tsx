@@ -15,7 +15,18 @@ import { Alert } from "@/components/ui/alert";
 const KEY = "bt:livre:ultimo";
 
 /** Monta o treino livre do dia escolhendo apenas exercícios do catálogo. */
-export function FreeBuilder({ catalog, max, canSave = false }: { catalog: CatalogItem[]; max: number; canSave?: boolean }) {
+export function FreeBuilder({
+  catalog,
+  max,
+  canSave = false,
+  extraQuery = "",
+}: {
+  catalog: CatalogItem[];
+  max: number;
+  canSave?: boolean;
+  /** Treino esquecido: "passado=…&min=…" segue para a tela do treino. */
+  extraQuery?: string;
+}) {
   const router = useRouter();
   const [ids, setIds] = useState<string[]>([]);
   const [picking, setPicking] = useState(false);
@@ -42,7 +53,7 @@ export function FreeBuilder({ catalog, max, canSave = false }: { catalog: Catalo
 
   function start() {
     draftStore.set(KEY, ids);
-    router.push(`/aluno/livre/treinar?e=${ids.join(",")}`);
+    router.push(`/aluno/livre/treinar?e=${ids.join(",")}${extraQuery ? `&${extraQuery}` : ""}`);
   }
 
   return (

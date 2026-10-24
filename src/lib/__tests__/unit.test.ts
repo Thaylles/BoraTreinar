@@ -548,3 +548,33 @@ test("início: aula acontecendo agora e próxima ficha sugerida", async () => {
   assert.equal(nextPlan(plans, new Map([["a", "2026-10-20"]]))?.id, "b", "nunca treinada vem primeiro");
   assert.equal(nextPlan([], new Map()), undefined);
 });
+
+test("treino: duração do cardio e treino esquecido", async () => {
+  const { parseBackdate, backdateDays, sessionWindow, cardioOnlyMinutes } = await import("../session-window.ts");
+  // Treino esquecido
+  assert.deepEqual(parseBackdate("2026-10-20T18:30", "60", "2026-10-24", "10:00"), { date: "2026-10-20", time: "18:30", minutes: 60 });
+  assert.ok(parseBackdate("2026-10-17T07:00", "45", "2026-10-24", "10:00"), "7 dias atrás vale");
+  assert.equal(parseBackdate("2026-10-16T07:00", "45", "2026-10-24", "10:00"), null, "8 dias atrás não");
+  assert.equal(parseBackdate("2026-10-25T07:00", "45", "2026-10-24", "10:00"), null, "amanhã não");
+  assert.equal(parseBackdate("2026-10-24T11:00", "45", "2026-10-24", "10:00"), null, "hoje mais tarde não");
+  assert.equal(parseBackdate("2026-10-24T09:00", "2", "2026-10-24", "10:00"), null, "duração mínima");
+  assert.equal(parseBackdate("2026-10-24T25:00", "60", "2026-10-24", "10:00"), null);
+  assert.equal(parseBackdate(undefined, undefined, "2026-10-24", "10:00"), null);
+  assert.deepEqual(backdateDays("2026-10-02"), ["2026-10-02", "2026-10-01", "2026-09-30", "2026-09-29", "2026-09-28", "2026-09-27", "2026-09-26", "2026-09-25"]);
+  // Só cardio
+  assert.equal(cardioOnlyMinutes([{ cardio: true, done: true, minutes: 20 }, { cardio: true, done: true, minutes: 10 }]), 30);
+  assert.equal(cardioOnlyMinutes([{ cardio: true, done: true, minutes: 20 }, { cardio: false, done: true, minutes: 0 }]), null, "com musculação vale o relógio");
+  assert.equal(cardioOnlyMinutes([{ cardio: true, done: false, minutes: 20 }]), null);
+  assert.equal(cardioOnlyMinutes([{ cardio: true, done: true, minutes: 30 }, { cardio: false, done: false, minutes: 0 }]), 30, "musculação não feita não conta");
+  const now = "2026-10-24T12:00:00.000Z";
+  assert.deepEqual(sessionWindow({ startedAt: "2026-10-24T11:58:00.000Z", now, cardioOnlyMinutes: 30 }), {
+    started_at: "2026-10-24T11:30:00.000Z",
+    finished_at: now,
+  });
+  assert.deepEqual(sessionWindow({ startedAt: "2026-10-24T11:00:00.000Z", now, cardioOnlyMinutes: null }), { started_at: "2026-10-24T11:00:00.000Z", finished_at: now });
+  assert.deepEqual(sessionWindow({ startedAt: "x", now, cardioOnlyMinutes: null, backdate: { startedAt: "2026-10-20T21:00:00.000Z", minutes: 50 } }), {
+    started_at: "2026-10-20T21:00:00.000Z",
+    finished_at: "2026-10-20T21:50:00.000Z",
+  });
+  assert.equal(sessionWindow({ startedAt: "x", now, cardioOnlyMinutes: 25, backdate: { startedAt: "2026-10-20T21:00:00.000Z", minutes: 50 } }).finished_at, "2026-10-20T21:25:00.000Z");
+});

@@ -578,3 +578,84 @@ test("treino: duração do cardio e treino esquecido", async () => {
   });
   assert.equal(sessionWindow({ startedAt: "x", now, cardioOnlyMinutes: 25, backdate: { startedAt: "2026-10-20T21:00:00.000Z", minutes: 50 } }).finished_at, "2026-10-20T21:25:00.000Z");
 });
+
+// ─── Evolução para o Personal e resumo do mês ──────────────────
+import { estimateOneRm, stagnationAlerts, strengthTrends, weeklyVolumeByGroup } from "../evolution.ts";
+import { monthShareText, monthSummary } from "../month-summary.ts";
+
+const evoSession = (date: string, ex: { e: string; max: number; reps?: number; sets?: number; rm?: number; pr?: boolean }[], plan = "A"): SummarySession => ({
+  id: date + plan,
+  started_at: `${date}T10:00:00Z`,
+  date,
+  kind: "ficha",
+  plan,
+  duration: 3600,
+  ex: ex.map((x) => ({ e: x.e, max: x.max, vol: x.max * (x.reps ?? 10) * (x.sets ?? 3), sets: x.sets ?? 3, reps: (x.reps ?? 10) * (x.sets ?? 3), pr: !!x.pr, rm: x.rm ?? estimateOneRm(x.max, x.reps ?? 10) })),
+});
+
+test("1RM estimado (Epley) só para 1 a 12 repetições", () => {
+  assert.equal(estimateOneRm(100, 10), 133.3);
+  assert.equal(estimateOneRm(100, 1), 103.3);
+  assert.equal(estimateOneRm(100, 15), null);
+  assert.equal(estimateOneRm(0, 10), null);
+});
+
+test("séries por grupo muscular nas últimas 4 semanas, sem cardio", () => {
+  const today = "2026-10-22"; // quinta
+  const sessions = [
+    evoSession("2026-10-20", [{ e: "supino", max: 60 }, { e: "esteira", max: 0 }]),
+    evoSession("2026-10-13", [{ e: "supino", max: 60, sets: 4 }, { e: "remada", max: 50 }]),
+    evoSession("2026-09-01", [{ e: "supino", max: 50 }]), // fora da janela
+  ];
+  const { weeks, groups } = weeklyVolumeByGroup(sessions, { supino: "peito", remada: "costas", esteira: "cardio" }, today);
+  assert.deepEqual(weeks, ["2026-09-28", "2026-10-05", "2026-10-12", "2026-10-19"]);
+  assert.deepEqual(groups.map((g) => [g.group, g.weeks]), [["peito", [0, 0, 4, 3]], ["costas", [0, 0, 3, 0]]]);
+  assert.equal(groups[0].avg, 1.8);
+});
+
+test("força estimada: últimas 4 semanas × 4 anteriores", () => {
+  const t = strengthTrends([evoSession("2026-09-10", [{ e: "supino", max: 60 }]), evoSession("2026-10-20", [{ e: "supino", max: 66 }])], "2026-10-22");
+  assert.equal(t.length, 1);
+  assert.equal(t[0].current, 88);
+  assert.equal(t[0].previous, 80);
+  assert.equal(t[0].deltaPct, 10);
+});
+
+test("alerta de estagnação: 3+ semanas sem subir carga", () => {
+  const today = "2026-10-22";
+  const flat = ["2026-09-24", "2026-10-01", "2026-10-08", "2026-10-15", "2026-10-20"].map((d) => evoSession(d, [{ e: "supino", max: 60 }]));
+  const a = stagnationAlerts(flat, today);
+  assert.equal(a.length, 1);
+  assert.equal(a[0].weeks, 4);
+  assert.equal(a[0].sessions, 4);
+  // Subiu a carga na semana passada: sem alerta
+  assert.equal(stagnationAlerts([...flat.slice(0, 4), evoSession("2026-10-20", [{ e: "supino", max: 62.5 }])], today).length, 0);
+  // Mais repetições com a mesma carga também é evolução (força estimada subiu)
+  assert.equal(stagnationAlerts([...flat.slice(0, 4), evoSession("2026-10-20", [{ e: "supino", max: 60, reps: 12 }])], today).length, 0);
+  // Parou de fazer o exercício há mais de 2 semanas: sem alerta
+  assert.equal(stagnationAlerts(flat.slice(0, 3), "2026-10-23").length, 0);
+});
+
+test("resumo do mês e texto para compartilhar", () => {
+  const sessions = [
+    evoSession("2026-09-30", [{ e: "supino", max: 50 }]),
+    evoSession("2026-10-01", [{ e: "supino", max: 60, pr: true }], "LOWER"),
+    evoSession("2026-10-01", [{ e: "agacho", max: 80 }], "LOWER"),
+    evoSession("2026-10-08", [{ e: "agacho", max: 90, pr: true }], "UPPER"),
+  ];
+  const s = monthSummary(sessions, "2026-10", "2026-10-14", { minutes: 42.4, km: 5.04 });
+  assert.equal(s.label, "Outubro de 2026");
+  assert.equal(s.sessions, 3);
+  assert.equal(s.prevSessions, 1);
+  assert.deepEqual(s.activeDays, ["2026-10-01", "2026-10-08"]);
+  assert.equal(s.perWeek, 1.5); // 3 treinos em 14 dias
+  assert.equal(s.weeksActive, 2);
+  assert.deepEqual(s.prs.map((p) => p.id), ["agacho", "supino"]);
+  assert.deepEqual(s.topPlan, { name: "LOWER", count: 2 });
+  assert.deepEqual(s.cardio, { minutes: 42, km: 5 });
+  const text = monthShareText(s, { agacho: "Agachamento", supino: "Supino" });
+  assert.match(text, /Meu outubro no BoraTreinar/);
+  assert.match(text, /3 treinos em 2 dias/);
+  assert.match(text, /2 recordes: Agachamento 90 kg, Supino 60 kg/);
+  assert.match(text, /42 min de cardio · 5 km/);
+});

@@ -4,8 +4,8 @@ import { ChevronRight, Dumbbell, Play } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getWeighInStatus } from "@/lib/weight-server";
 import { loadAgenda } from "@/lib/agenda-server";
-import { classEnd, classInProgress, dayLabel, nextPlan } from "@/lib/schedule";
-import { spTimeKey } from "@/lib/week";
+import { addMonths, classEnd, classInProgress, dayLabel, MONTHS, nextPlan } from "@/lib/schedule";
+import { spDateKey, spTimeKey } from "@/lib/week";
 import { cn } from "@/lib/cn";
 import { Alert } from "@/components/ui/alert";
 import { Card, PageTitle } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { NotificationsList } from "@/components/notifications";
 import { requireRole } from "@/lib/auth";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { PushToggle } from "@/components/pwa/push-toggle";
+import { OpenWorkouts } from "@/components/workout/open-workouts";
 import { firstName } from "@/lib/format";
 import { WeeklyGoal } from "@/components/weekly-goal";
 import { LinkRequestsCard } from "@/components/link-requests-card";
@@ -83,6 +84,13 @@ export default async function AlunoHome({
   for (const r of recent ?? []) if (r.plan_id && !lastTrained.has(r.plan_id)) lastTrained.set(r.plan_id, r.started_at);
   const suggested = nextPlan(plans ?? [], lastTrained);
   const startHref = suggested ? `/aluno/treinar/${suggested.id}` : "/aluno/livre";
+  // Nos primeiros dias do mês: atalho para o resumo do mês anterior (se treinou nele).
+  const todayKey = spDateKey();
+  const recapMonth = addMonths(todayKey.slice(0, 7), -1);
+  const monthRecap =
+    Number(todayKey.slice(8)) <= 7 && (recent ?? []).some((r) => spDateKey(r.started_at).startsWith(recapMonth))
+      ? { month: recapMonth, name: MONTHS[Number(recapMonth.slice(5)) - 1].toLowerCase() }
+      : null;
 
   return (
     <>
@@ -93,6 +101,8 @@ export default async function AlunoHome({
           Conta criada! Você já está vinculado ao seu Personal. Bem-vindo ao BoraTreinar! 🇧🇷
         </Alert>
       )}
+
+      <OpenWorkouts prefixes={[`bt:treino:${profile.id}:`, `bt:livre:${profile.id}:`]} />
 
       {!coach && (
         <section
@@ -140,6 +150,20 @@ export default async function AlunoHome({
             </Link>
           </div>
         </section>
+      )}
+
+      {monthRecap && (
+        <Link
+          href={`/aluno/resumo?mes=${monthRecap.month}`}
+          className="mb-4 flex items-center gap-3 rounded-3xl border-2 border-anil-500/40 bg-surface p-4 transition hover:border-anil-500"
+        >
+          <span className="text-3xl" aria-hidden>📊</span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-display font-bold">Seu resumo de {monthRecap.name} chegou</span>
+            <span className="block text-sm text-muted">Treinos, recordes e frequência do mês, prontos para compartilhar.</span>
+          </span>
+          <ChevronRight className="size-5 text-muted" aria-hidden />
+        </Link>
       )}
 
       <LinkRequestsCard requests={requests ?? []} />

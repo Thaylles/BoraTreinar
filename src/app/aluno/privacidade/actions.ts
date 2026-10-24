@@ -32,3 +32,17 @@ export async function setPersonalEditsPlans(fd: FormData) {
   if (!updated?.length) await supabase.from("student_settings").insert({ student_id: profile.id, personal_edits_plans: allow });
   revalidatePath("/aluno", "layout");
 }
+
+/** Liga/desliga o lembrete do dia de treino (push 1h antes da aula ou do horário de costume). */
+export async function setTrainingReminders(fd: FormData) {
+  const { profile } = await requireStudent();
+  const on = fd.get("on") === "1";
+  const supabase = await createClient();
+  const { data: updated } = await supabase
+    .from("student_settings")
+    .update({ training_reminders: on })
+    .eq("student_id", profile.id)
+    .select("student_id");
+  if (!updated?.length) await supabase.from("student_settings").insert({ student_id: profile.id, training_reminders: on });
+  revalidatePath("/aluno", "layout");
+}

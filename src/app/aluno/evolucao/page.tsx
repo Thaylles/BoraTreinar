@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { PageTitle } from "@/components/ui/card";
 import { DashboardView } from "@/components/dashboard/dashboard-view";
 import { requireRole } from "@/lib/auth";
@@ -19,6 +21,17 @@ export default async function AlunoEvolucaoPage({ searchParams }: { searchParams
   return (
     <>
       <PageTitle sub="Seu progresso na semana e no mês.">Evolução</PageTitle>
+      <Link
+        href="/aluno/resumo"
+        className="mb-4 flex items-center gap-3 rounded-3xl bg-gradient-to-br from-bandeira-500 to-bandeira-700 p-4 text-white shadow-md transition hover:brightness-105"
+      >
+        <span className="text-3xl" aria-hidden>📊</span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-display font-bold">Resumo do mês</span>
+          <span className="block text-sm text-white/85">Treinos, recordes, frequência e cardio — para compartilhar no WhatsApp e Instagram.</span>
+        </span>
+        <ChevronRight className="size-5" aria-hidden />
+      </Link>
       <AchievementsCard rows={achievements ?? []} href="/aluno/conquistas" />
       <DashboardView
         data={data}

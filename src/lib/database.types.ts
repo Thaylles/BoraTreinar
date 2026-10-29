@@ -1100,6 +1100,10 @@ export type Database = {
         Args: { p_plan: string; p_student: string | null; p_name?: string | null };
         Returns: string;
       };
+      admin_delete_equipment: {
+        Args: { p_equipment: string; p_replacement?: string | null };
+        Returns: Json;
+      };
       renew_workout_plan: {
         Args: { p_plan: string };
         Returns: string;

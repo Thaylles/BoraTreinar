@@ -8,6 +8,10 @@ import { requireRole } from "@/lib/auth";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { PushToggle } from "@/components/pwa/push-toggle";
 import { OpenWorkouts } from "@/components/workout/open-workouts";
+import { WaterCard } from "@/components/water/water-card";
+import { loadWaterToday } from "@/lib/water-server";
+import { suggestedGoal } from "@/lib/water";
+import { listWeights } from "@/lib/weight-server";
 import { createClient } from "@/lib/supabase/server";
 import { firstName } from "@/lib/format";
 import { PersonalOverview } from "@/components/dashboard/personal-overview";
@@ -22,7 +26,7 @@ export default async function PersonalHome({ searchParams }: { searchParams: Pro
   const kind = (await searchParams).visao === "mes" ? "mes" : "semana";
   const supabase = await createClient();
   const nowIso = new Date().toISOString();
-  const [students, invites, requests, achievements] = await Promise.all([
+  const [students, invites, requests, achievements, water, lastWeight] = await Promise.all([
     supabase
       .from("personal_students")
       .select("id", { count: "exact", head: true })
@@ -41,6 +45,8 @@ export default async function PersonalHome({ searchParams }: { searchParams: Pro
       .eq("to_personal_id", profile.id)
       .eq("status", "pendente"),
     supabase.rpc("my_achievements", { p_audience: "personal" }),
+    loadWaterToday(profile.id),
+    listWeights(profile.id, 1),
   ]);
 
   const stats = [
@@ -56,6 +62,7 @@ export default async function PersonalHome({ searchParams }: { searchParams: Pro
       <OpenWorkouts prefixes={[`bt:registro:${profile.id}:`, `bt:treino:${profile.id}:`, `bt:livre:${profile.id}:`]} />
       <InstallPrompt />
       <PushToggle />
+      <WaterCard initial={water} suggestion={suggestedGoal(lastWeight[0]?.weight_kg)} />
 
       <RequestsBanner requests={await loadOpenRequests()} href="/personal/exercicios/pedidos" />
 

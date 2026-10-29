@@ -29,6 +29,7 @@ import { Alert } from "@/components/ui/alert";
 import { cn } from "@/lib/cn";
 import { cardioSetLine, type IntensityUnit } from "@/lib/cardio";
 import { guessBar, warmupSets } from "@/lib/plates";
+import { WaterQuickAdd } from "@/components/water/water-quick-add";
 import { cardioOnlyMinutes, sessionWindow } from "@/lib/session-window";
 
 export type RunnerExercise = {
@@ -476,6 +477,8 @@ export function WorkoutRunner({
             {loggedByInstructor && " · registro do instrutor"}
           </p>
         </div>
+        {/* Água: só no treino ao vivo de quem está treinando (não no registro pelo Personal nem no treino esquecido). */}
+        {!backdate && !loggedByInstructor && <WaterQuickAdd />}
         <Button onClick={finish} disabled={saving} size="sm">
           {saving ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Check className="size-4" aria-hidden />}
           Finalizar

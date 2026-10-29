@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CheckCircle2, Trash2, XCircle } from "lucide-react";
+import { CheckCheck, CheckCircle2, Trash2, XCircle } from "lucide-react";
 import { Badge, PageTitle } from "@/components/ui/card";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { MediaPreview } from "@/components/exercise-media/media-preview";
@@ -9,7 +9,7 @@ import { equipmentImageSrc, groupLabel } from "@/lib/catalog";
 import { formatDate } from "@/lib/format";
 import { PUBLIC_DB, mediaUrl, publicDbMatch } from "@/lib/exercise-media";
 import { cn } from "@/lib/cn";
-import { approveMedia, deleteMedia, rejectMedia } from "./actions";
+import { approveAllMedia, approveMedia, deleteMedia, rejectMedia } from "./actions";
 import { AiPoller, AiVideoButton, BatchGifs, GifForm } from "./media-tools";
 
 export const metadata: Metadata = { title: "Execuções · Admin" };
@@ -56,6 +56,7 @@ export default async function ExecucoesPage({ searchParams }: { searchParams: Pr
   });
   const approved = (eqs ?? []).filter((e) => (byEq.get(e.id) ?? []).some((m) => m.status === "aprovado")).length;
   const waiting = (media ?? []).filter((m) => m.status === "rascunho").length;
+  const waitingEqs = new Set((media ?? []).filter((m) => m.status === "rascunho").map((m) => m.equipment_id)).size;
   const generating = (media ?? []).filter((m) => m.status === "gerando").length;
   const missingWithMatch = (eqs ?? []).filter((e) => !live(e.id).length && publicDbMatch(e.name)).length;
 
@@ -96,6 +97,20 @@ export default async function ExecucoesPage({ searchParams }: { searchParams: Pr
           </li>
         </ul>
       </details>
+
+      {waitingEqs > 0 && (
+        <form action={approveAllMedia} className="mb-4">
+          <ConfirmSubmit
+            message={`Aprovar as execuções de ${waitingEqs} ${waitingEqs === 1 ? "exercício" : "exercícios"} de uma vez? Elas passam a aparecer para Personais e alunos.`}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-bandeira-500 px-4 py-3 font-display font-bold text-white hover:bg-bandeira-600"
+          >
+            <CheckCheck className="size-5" aria-hidden /> Aprovar todas ({waitingEqs} {waitingEqs === 1 ? "exercício" : "exercícios"})
+          </ConfirmSubmit>
+          {waiting > waitingEqs && (
+            <p className="mt-1 text-center text-xs text-muted">Onde houver mais de uma versão aguardando, a mais recente é aprovada.</p>
+          )}
+        </form>
+      )}
 
       <AiPoller pending={generating} />
       <BatchGifs missing={missingWithMatch} />

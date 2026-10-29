@@ -8,6 +8,7 @@ import { normalizePhoneBR } from "@/lib/phone";
 import { EQUIPMENT_BUCKET, isMuscleGroup } from "@/lib/catalog";
 import { escapeHtml, sendEmailDetailed } from "@/lib/email";
 import { appUrl } from "@/lib/env";
+import { MEDIA_BUCKET } from "@/lib/exercise-media";
 
 const isUuid = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
 
@@ -184,6 +185,28 @@ export async function adminSaveEquipment(
   revalidatePath(`/admin/exercicios/${id}`);
   revalidatePath("/personal/exercicios", "layout");
   return { ok: "Exercício salvo ✅" };
+}
+
+/**
+ * Exclui um exercício. Se estiver em fichas ou em treinos registrados, tudo passa para o
+ * substituto escolhido (o histórico continua). Apaga também a foto e as execuções do Storage.
+ */
+export async function adminDeleteEquipment(_: ActionState, fd: FormData): Promise<ActionState> {
+  const { db } = await requireAdmin();
+  const id = String(fd.get("id") ?? "");
+  const replacement = String(fd.get("replacement") ?? "");
+  if (!isUuid(id)) return { error: "Exercício inválido." };
+  if (replacement && !isUuid(replacement)) return { error: "Escolha o exercício substituto." };
+  const { data, error } = await db.rpc("admin_delete_equipment", {
+    p_equipment: id,
+    p_replacement: replacement || null,
+  });
+  if (error) return { error: friendlyError(error.message) };
+  const res = data as { image_path: string | null; media_paths: string[] };
+  if (res.image_path) await db.storage.from(EQUIPMENT_BUCKET).remove([res.image_path]);
+  if (res.media_paths?.length) await db.storage.from(MEDIA_BUCKET).remove(res.media_paths);
+  revalidatePath("/", "layout");
+  redirect(`/admin/exercicios?excluido=${encodeURIComponent(String(fd.get("name") ?? ""))}`);
 }
 
 /** Exclui um Personal (a conta e, em cascata, vínculos, convites, aulas e relatórios dele). */

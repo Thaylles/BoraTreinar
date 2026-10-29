@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Lock, LockOpen, Pencil, Search } from "lucide-react";
 import { EmptyState, PageTitle } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 import { EquipmentImage } from "@/components/equipment-image";
 import { inputClass } from "@/components/ui/field";
 import { adminSetEquipmentLocked } from "@/app/admin/actions";
@@ -21,7 +22,7 @@ const FILTERS = [
 export default async function AdminExerciciosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; filtro?: string }>;
+  searchParams: Promise<{ q?: string; filtro?: string; excluido?: string }>;
 }) {
   const { db } = await requireAdmin();
   const sp = await searchParams;
@@ -48,6 +49,11 @@ export default async function AdminExerciciosPage({
       <PageTitle sub="Toque num exercício para editar nome, foto e descrição. Travado, nenhum Personal edita, exclui ou troca a foto.">
         Exercícios e máquinas
       </PageTitle>
+      {sp.excluido && (
+        <Alert kind="success" className="mb-3">
+          Exercício “{sp.excluido}” excluído.
+        </Alert>
+      )}
       <form className="mb-3" role="search">
         <label className="relative block">
           <span className="sr-only">Buscar exercício</span>

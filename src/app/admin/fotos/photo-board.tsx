@@ -51,9 +51,15 @@ export function PhotoBoard({ items }: { items: PhotoItem[] }) {
 
   async function generate(id: string) {
     set(id, { pending: true });
-    const res = await generatePhoto(id, hints[id] ?? "");
-    set(id, res.image ? { image: res.image } : { error: res.error ?? "Erro ao gerar." });
-    return !res.error;
+    try {
+      const res = await generatePhoto(id, hints[id] ?? "");
+      set(id, res.image ? { image: res.image } : { error: res.error ?? "Erro ao gerar." });
+      return !res.error;
+    } catch {
+      // Página aberta antes de uma atualização do site (ação antiga) ou sem internet.
+      set(id, { error: "Não deu para falar com o servidor. Recarregue a página e tente de novo (o site pode ter sido atualizado)." });
+      return false;
+    }
   }
 
   async function approve(id: string) {

@@ -148,6 +148,29 @@ export async function approveMedia(fd: FormData) {
   refresh();
 }
 
+/**
+ * Aprova de uma vez tudo o que está aguardando: em cada exercício, a versão mais recente
+ * aguardando aprovação vira a aprovada (a aprovada anterior volta para rascunho, como no botão individual).
+ */
+export async function approveAllMedia() {
+  const { db, profile } = await requireAdmin();
+  const { data: drafts } = await db
+    .from("exercise_media")
+    .select("id, equipment_id")
+    .eq("status", "rascunho")
+    .order("created_at", { ascending: false });
+  const newest = new Map<string, string>();
+  for (const d of drafts ?? []) if (!newest.has(d.equipment_id)) newest.set(d.equipment_id, d.id);
+  if (!newest.size) return;
+  const eqIds = [...newest.keys()];
+  await db.from("exercise_media").update({ status: "rascunho" }).in("equipment_id", eqIds).eq("status", "aprovado");
+  await db
+    .from("exercise_media")
+    .update({ status: "aprovado", reviewed_by: profile.id, reviewed_at: new Date().toISOString() })
+    .in("id", [...newest.values()]);
+  refresh();
+}
+
 /** Rejeita (ou tira do ar, se estava aprovada). */
 export async function rejectMedia(fd: FormData) {
   const { db, profile } = await requireAdmin();

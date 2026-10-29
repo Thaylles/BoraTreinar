@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight, Dumbbell, Play } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getWeighInStatus } from "@/lib/weight-server";
+import { getWeighInStatus, listWeights } from "@/lib/weight-server";
 import { loadAgenda } from "@/lib/agenda-server";
 import { addMonths, classEnd, classInProgress, dayLabel, MONTHS, nextPlan } from "@/lib/schedule";
 import { spDateKey, spTimeKey } from "@/lib/week";
@@ -14,6 +14,9 @@ import { requireRole } from "@/lib/auth";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { PushToggle } from "@/components/pwa/push-toggle";
 import { OpenWorkouts } from "@/components/workout/open-workouts";
+import { WaterCard } from "@/components/water/water-card";
+import { loadWaterToday } from "@/lib/water-server";
+import { suggestedGoal } from "@/lib/water";
 import { firstName } from "@/lib/format";
 import { WeeklyGoal } from "@/components/weekly-goal";
 import { LinkRequestsCard } from "@/components/link-requests-card";
@@ -32,7 +35,12 @@ export default async function AlunoHome({
   const coach = profile.role === "personal";
   const welcome = (await searchParams).bemvindo === "1";
   const supabase = await createClient();
-  const [weighIn, agenda] = await Promise.all([getWeighInStatus(profile.id), loadAgenda({ studentId: profile.id, days: 7 })]);
+  const [weighIn, agenda, water, lastWeight] = await Promise.all([
+    getWeighInStatus(profile.id),
+    loadAgenda({ studentId: profile.id, days: 7 }),
+    loadWaterToday(profile.id),
+    listWeights(profile.id, 1),
+  ]);
   const liveClass = classInProgress(agenda.occurrences, agenda.today, spTimeKey());
   const nextClass = agenda.occurrences.find((o) => !o.cancelled && o !== liveClass);
   const [
@@ -213,6 +221,7 @@ export default async function AlunoHome({
 
       <InstallPrompt />
       <PushToggle />
+      <WaterCard initial={water} suggestion={suggestedGoal(lastWeight[0]?.weight_kg)} />
 
       {weighIn.overdue && (
         <Link

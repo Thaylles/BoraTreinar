@@ -651,3 +651,21 @@ test("resumo do mês e texto para compartilhar", () => {
   assert.match(text, /2 recordes: Agachamento 90 kg, Supino 60 kg/);
   assert.match(text, /42 min de cardio · 5 km/);
 });
+
+// ─── Meta de água ──────────────────────────────────────────────
+import { bottleLabel, liters, parseGoal, suggestedGoal } from "../water.ts";
+
+test("meta de água: garrafas, litros, sugestão e meta digitada", () => {
+  assert.equal(bottleLabel(500), "500 ml");
+  assert.equal(bottleLabel(1500), "1,5 L");
+  assert.equal(bottleLabel(2000), "2 L");
+  assert.equal(liters(1250), "1,3 L");
+  assert.equal(suggestedGoal(80), 2750, "35 ml/kg arredondado a 250 ml");
+  assert.equal(suggestedGoal(null), 2000);
+  assert.equal(suggestedGoal(30), 1500, "mínimo 1,5 L");
+  assert.equal(parseGoal("2,5"), 2500);
+  assert.equal(parseGoal("3"), 3000);
+  assert.equal(parseGoal("2500"), 2500, "aceita em ml");
+  assert.equal(parseGoal("0,2"), null);
+  assert.equal(parseGoal("abc"), null);
+});

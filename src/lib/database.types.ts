@@ -678,6 +678,18 @@ export type Database = {
         };
         Relationships: [];
       };
+      water_settings: {
+        Row: { user_id: string; daily_ml: number; reminders: boolean; updated_at: string };
+        Insert: { user_id: string; daily_ml: number; reminders?: boolean; updated_at?: string };
+        Update: { daily_ml?: number; reminders?: boolean; updated_at?: string };
+        Relationships: [];
+      };
+      water_logs: {
+        Row: { id: string; user_id: string; ml: number; logged_at: string };
+        Insert: { id?: string; user_id: string; ml: number; logged_at?: string };
+        Update: { ml?: number; logged_at?: string };
+        Relationships: [];
+      };
       body_weights: {
         Row: {
           created_at: string;

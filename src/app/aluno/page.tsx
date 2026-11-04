@@ -28,12 +28,13 @@ export const metadata: Metadata = { title: "Início" };
 export default async function AlunoHome({
   searchParams,
 }: {
-  searchParams: Promise<{ bemvindo?: string }>;
+  searchParams: Promise<{ bemvindo?: string; prontos?: string }>;
 }) {
   const { profile } = await requireRole("aluno");
   // Personal no "Meu treino": treina com os próprios modelos; não procura Personal.
   const coach = profile.role === "personal";
-  const welcome = (await searchParams).bemvindo === "1";
+  const sp = await searchParams;
+  const welcome = sp.bemvindo === "1";
   const supabase = await createClient();
   const [weighIn, agenda, water, lastWeight] = await Promise.all([
     getWeighInStatus(profile.id),
@@ -103,6 +104,14 @@ export default async function AlunoHome({
   return (
     <>
       <PageTitle sub="Partiu treino?">E aí, {firstName(profile.full_name)}! 💪</PageTitle>
+
+      {sp.prontos !== undefined && (
+        <Alert kind="success" className="mb-4">
+          {Number(sp.prontos) > 0
+            ? `Pronto! ${sp.prontos} treinos viraram fichas suas. Comece pelo primeiro e ajuste as cargas do seu jeito. 💪`
+            : "Esses treinos já estão nas suas fichas."}
+        </Alert>
+      )}
 
       {welcome && (
         <Alert kind="success" className="mb-4">
@@ -314,6 +323,7 @@ export default async function AlunoHome({
             ))}
           </ul>
           <NewPlanLink />
+          {!personals && <StarterLink />}
         </section>
       ) : (
         <>
@@ -329,6 +339,7 @@ export default async function AlunoHome({
             </div>
           </Card>
           <div className="mb-8">
+            {!personals && <StarterLink highlight />}
             <NewPlanLink />
           </div>
         </>
@@ -388,6 +399,27 @@ function NewPlanLink() {
       className="mt-2 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-bandeira-500/50 py-3 font-display font-bold text-bandeira-600 hover:bg-bandeira-50 dark:text-bandeira-100 dark:hover:bg-bandeira-500/10"
     >
       + Criar minha ficha
+    </Link>
+  );
+}
+
+function StarterLink({ highlight }: { highlight?: boolean }) {
+  return (
+    <Link
+      href="/aluno/treinos-prontos"
+      className={cn(
+        "mt-2 flex items-center gap-3 rounded-3xl p-4 text-sm transition",
+        highlight
+          ? "border-2 border-ipe-500 bg-ipe-100 text-anil-900 hover:brightness-95 dark:bg-ipe-500/15 dark:text-ipe-400"
+          : "border-2 border-dashed border-border hover:border-bandeira-500",
+      )}
+    >
+      <span className="text-2xl" aria-hidden>📚</span>
+      <span className="flex-1">
+        <span className="block font-display text-base font-bold">{highlight ? "Começando agora? Use treinos prontos" : "Treinos prontos por nível"}</span>
+        <span className={highlight ? "" : "text-muted"}>4 treinos para iniciante, intermediário ou avançado. Viram fichas suas na hora.</span>
+      </span>
+      <ChevronRight className="size-5" aria-hidden />
     </Link>
   );
 }

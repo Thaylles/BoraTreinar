@@ -678,6 +678,32 @@ export type Database = {
         };
         Relationships: [];
       };
+      starter_workouts: {
+        Row: { id: string; level: "iniciante" | "intermediario" | "avancado"; position: number; name: string; goal: string | null; notes: string | null };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      starter_workout_items: {
+        Row: {
+          id: string;
+          starter_id: string;
+          position: number;
+          equipment_id: string;
+          sets: number;
+          reps_min: number | null;
+          reps_max: number | null;
+          rest_seconds: number;
+          notes: string | null;
+          technique: string | null;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [
+          { foreignKeyName: "starter_workout_items_starter_id_fkey"; columns: ["starter_id"]; isOneToOne: false; referencedRelation: "starter_workouts"; referencedColumns: ["id"] },
+          { foreignKeyName: "starter_workout_items_equipment_id_fkey"; columns: ["equipment_id"]; isOneToOne: false; referencedRelation: "equipment"; referencedColumns: ["id"] },
+        ];
+      };
       water_settings: {
         Row: { user_id: string; daily_ml: number; reminders: boolean; updated_at: string };
         Insert: { user_id: string; daily_ml: number; reminders?: boolean; updated_at?: string };
@@ -1111,6 +1137,10 @@ export type Database = {
       duplicate_workout_plan: {
         Args: { p_plan: string; p_student: string | null; p_name?: string | null };
         Returns: string;
+      };
+      adopt_starter_workouts: {
+        Args: { p_level: string; p_as_templates?: boolean };
+        Returns: number;
       };
       admin_delete_equipment: {
         Args: { p_equipment: string; p_replacement?: string | null };

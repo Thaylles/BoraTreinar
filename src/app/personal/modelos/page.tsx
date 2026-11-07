@@ -2,13 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight, ClipboardList, Plus, Users } from "lucide-react";
 import { Card, EmptyState, PageTitle } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 import { LinkButton } from "@/components/ui/button";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Modelos de ficha" };
 
-export default async function ModelosPage() {
+export default async function ModelosPage({ searchParams }: { searchParams: Promise<{ prontos?: string }> }) {
+  const sp = await searchParams;
   const { profile } = await requireRole("personal");
   const supabase = await createClient();
   const { data: templates } = await supabase
@@ -26,6 +28,22 @@ export default async function ModelosPage() {
           <Plus className="size-4" aria-hidden /> Novo
         </LinkButton>
       </div>
+      {sp.prontos !== undefined && (
+        <Alert kind="success" className="mb-4">
+          {Number(sp.prontos) > 0 ? `${sp.prontos} modelos criados a partir dos treinos prontos ✅` : "Esses treinos prontos já estão nos seus modelos."}
+        </Alert>
+      )}
+      <Link
+        href="/personal/treinos-prontos"
+        className="mb-4 flex items-center gap-3 rounded-3xl border-2 border-dashed border-bandeira-500 p-4 text-sm transition hover:bg-bandeira-50 dark:hover:bg-bandeira-500/10"
+      >
+        <span className="text-2xl" aria-hidden>📚</span>
+        <span className="flex-1">
+          <span className="block font-display text-base font-bold">Treinos prontos por nível</span>
+          <span className="text-muted">4 treinos de iniciante, intermediário e avançado para copiar como modelos.</span>
+        </span>
+        <ChevronRight className="size-5 text-muted" aria-hidden />
+      </Link>
       {!!templates?.length && (
         <LinkButton href="/personal/modelos/aplicar" variant="secondary" className="mb-4 w-full">
           <Users className="size-5" aria-hidden /> Aplicar a vários alunos

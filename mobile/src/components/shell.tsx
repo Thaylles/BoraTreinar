@@ -96,13 +96,15 @@ export type TabItem = { name: string; label: string; icon: keyof typeof ICONS; h
 /** Barra inferior (as mesmas abas do site para cada área). */
 export function AreaTabs({ items, header, extra }: { items: TabItem[]; header: () => ReactNode; extra?: string[] }) {
   const t = useTheme();
+  // Android com tela inteira (edge-to-edge): o menu sobe acima dos botões/gesto do sistema.
+  const bottom = useSafeAreaInsets().bottom;
   return (
     <Tabs
       screenOptions={{
         header,
         tabBarActiveTintColor: t.bandeira500,
         tabBarInactiveTintColor: t.muted,
-        tabBarStyle: { backgroundColor: t.surface, borderTopColor: t.border, height: 64, paddingBottom: 8, paddingTop: 6 },
+        tabBarStyle: { backgroundColor: t.surface, borderTopColor: t.border, height: 64 + bottom, paddingBottom: 8 + bottom, paddingTop: 6 },
         tabBarLabelStyle: { fontFamily: "Inter_600SemiBold", fontSize: 11 },
         sceneStyle: { backgroundColor: t.background },
       }}

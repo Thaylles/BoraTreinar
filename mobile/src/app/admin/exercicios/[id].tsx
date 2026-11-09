@@ -26,7 +26,7 @@ function AdminEquipmentForm({ eq }: { eq: Eq["equipment"] }) {
   const [locked, setLocked] = useState(eq.locked);
   const [err, setErr] = useState<string | null>(null);
   const { state, pending, submit } = useFormAction("admin#adminSaveEquipment");
-  const preview = file?.uri ?? (remove ? (eq.image_url ?? null) : equipmentImageSrc(eq));
+  const preview = file?.uri ?? (remove ? equipmentImageSrc({ image_path: null, image_url: eq.image_url }) : equipmentImageSrc(eq));
   return (
     <View className="gap-4">
       <View className="gap-2">

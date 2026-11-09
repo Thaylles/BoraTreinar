@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Paleta BoraTreinar (canais RGB para permitir /opacidade) — igual ao site. */
+:root {
+  --background: 255 248 231;
+  --surface: 255 255 255;
+  --foreground: 16 33 63;
+  --muted: 91 101 119;
+  --border: 234 223 196;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: 11 20 36;
+    --surface: 19 32 58;
+    --foreground: 244 241 232;
+    --muted: 165 173 189;
+    --border: 34 50 79;
+  }
+}

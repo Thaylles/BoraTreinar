@@ -1,0 +1,107 @@
+{
+  "expo": {
+    "name": "BoraTreinar",
+    "slug": "boratreinar",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/bt-icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#009C3B",
+        "foregroundImage": "./assets/bt-adaptive-fg.png",
+        "monochromeImage": "./assets/bt-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.boratreinar.app",
+      "versionCode": 3,
+      "permissions": [
+        "android.permission.health.READ_EXERCISE",
+        "android.permission.health.WRITE_EXERCISE",
+        "android.permission.health.READ_DISTANCE",
+        "android.permission.health.WRITE_DISTANCE",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "bora-treinar-gamma.vercel.app",
+              "pathPrefix": "/convite"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-sharing",
+      "expo-image",
+      "expo-video",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/bt-icon.png",
+          "imageWidth": 160,
+          "backgroundColor": "#FFF8E7",
+          "dark": {
+            "image": "./assets/bt-icon.png",
+            "backgroundColor": "#0B1424"
+          }
+        }
+      ],
+      "expo-web-browser",
+      "expo-background-task",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26,
+            "buildArchs": [
+              "arm64-v8a",
+              "armeabi-v7a"
+            ],
+            "enableMinifyInReleaseBuilds": false,
+            "enableShrinkResourcesInReleaseBuilds": false
+          }
+        }
+      ],
+      "react-native-health-connect",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/bt-notification.png",
+          "color": "#009c3b",
+          "defaultChannel": "geral"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "O BoraTreinar usa a câmera para fotos de perfil, de exercícios e da liberação médica.",
+          "photosPermission": "O BoraTreinar usa suas fotos para foto de perfil, de exercícios e da liberação médica."
+        }
+      ],
+      "./plugins/with-release-signing.js"
+    ],
+    "scheme": "boratreinar"
+  }
+}

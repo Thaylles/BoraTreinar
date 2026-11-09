@@ -6,7 +6,7 @@ const STOP = new Set(["com", "de", "do", "da", "na", "no", "em", "e", "a", "o"])
 const words = (s: string) =>
   s
     .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .split(/[^a-z0-9]+/)
     .filter((w) => w.length > 1 && !STOP.has(w));

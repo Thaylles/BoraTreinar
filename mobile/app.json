@@ -4,17 +4,16 @@
     "slug": "boratreinar",
     "version": "2.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/bt-icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#009C3B",
+        "foregroundImage": "./assets/bt-adaptive-fg.png",
+        "monochromeImage": "./assets/bt-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.boratreinar.app",
@@ -25,8 +24,24 @@
         "android.permission.health.READ_DISTANCE",
         "android.permission.health.WRITE_DISTANCE",
         "android.permission.VIBRATE",
-        "android.permission.POST_NOTIFICATIONS",
-        "android.permission.SCHEDULE_EXACT_ALARM"
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "bora-treinar-gamma.vercel.app",
+              "pathPrefix": "/convite"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
       ]
     },
     "web": {
@@ -41,7 +56,18 @@
       "expo-image",
       "expo-video",
       "expo-font",
-      "expo-splash-screen",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/bt-icon.png",
+          "imageWidth": 160,
+          "backgroundColor": "#FFF8E7",
+          "dark": {
+            "image": "./assets/bt-icon.png",
+            "backgroundColor": "#0B1424"
+          }
+        }
+      ],
       "expo-web-browser",
       "expo-background-task",
       [
@@ -60,6 +86,7 @@
       [
         "expo-notifications",
         {
+          "icon": "./assets/bt-notification.png",
           "color": "#009c3b",
           "defaultChannel": "geral"
         }
@@ -70,7 +97,8 @@
           "cameraPermission": "O BoraTreinar usa a câmera para fotos de perfil, de exercícios e da liberação médica.",
           "photosPermission": "O BoraTreinar usa suas fotos para foto de perfil, de exercícios e da liberação médica."
         }
-      ]
+      ],
+      "./plugins/with-release-signing.js"
     ],
     "scheme": "boratreinar"
   }

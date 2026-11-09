@@ -10,7 +10,7 @@ import { Button, FormMessage, inputClass, Input, Text, useTheme } from "~/ui";
 import { cx as cn } from "~/ui/cn";
 
 export type { CatalogItem };
-const normalize = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 /** Tela cheia para escolher exercícios do catálogo (igual ao site). */
 export function ExercisePicker({

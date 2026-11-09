@@ -82,7 +82,7 @@ export function PlanExportButtons({ planId, name }: { planId: string; name: stri
   const t = useTheme();
   const [busy, setBusy] = useState<"pdf" | "csv" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const safe = name.replace(/[^\p{L}\p{N} _-]/gu, "").trim().replace(/\s+/g, "-") || "ficha";
+  const safe = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9 _-]/g, "").trim().replace(/\s+/g, "-") || "ficha";
   async function get(kind: "pdf" | "csv") {
     setBusy(kind);
     setError(null);

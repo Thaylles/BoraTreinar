@@ -1,5 +1,5 @@
 /**
- * Assina o APK de release com a chave do BoraTreinar (a mesma do app antigo, para atualizar por cima).
+ * Assina o APK de release com a chave do BoraTreinar .
  * A chave fica fora do repositório: informe o caminho e as senhas por variáveis de ambiente
  * BT_KEYSTORE, BT_KEYSTORE_PASSWORD, BT_KEY_ALIAS e BT_KEY_PASSWORD na hora do build.
  * Sem elas, o release usa a chave de debug (só para testes).

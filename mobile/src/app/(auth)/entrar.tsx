@@ -18,7 +18,12 @@ export default function EntrarScreen() {
     setError(null);
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setPending(false);
-    if (error) setError(friendlyError(error.message));
+    if (error)
+      setError(
+        error.status === 0 || error.name === "AuthRetryableFetchError" || /fetch|network/i.test(error.message)
+          ? "Sem conexão com a internet. Confira o Wi-Fi ou os dados móveis e tente de novo."
+          : friendlyError(error.message),
+      );
     // Com a sessão criada, o layout raiz abre a área de cada papel.
   }
 

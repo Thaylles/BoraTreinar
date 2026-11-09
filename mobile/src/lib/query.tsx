@@ -26,10 +26,14 @@ export function QueryProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const app = AppState.addEventListener("change", (s) => {
       focusManager.setFocused(s === "active");
-      if (s === "active") void flushQueue().then((n) => n && queryClient.invalidateQueries());
+      if (s === "active") void flushQueue().then((n) => {
+        if (n) void queryClient.invalidateQueries();
+      });
     });
     const unsub = onlineManager.subscribe((online) => {
-      if (online) void flushQueue().then((n) => n && queryClient.invalidateQueries());
+      if (online) void flushQueue().then((n) => {
+        if (n) void queryClient.invalidateQueries();
+      });
     });
     return () => {
       app.remove();

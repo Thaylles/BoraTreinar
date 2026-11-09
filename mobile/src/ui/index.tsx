@@ -1,3 +1,4 @@
+import type React from "react";
 import { forwardRef, type ReactNode } from "react";
 import {
   ActivityIndicator,
@@ -112,7 +113,7 @@ export function LinkButton({ href, ...props }: ButtonProps & { href: Href }) {
 
 export const inputClass = "w-full rounded-2xl border border-border bg-surface px-4 py-3 text-base text-foreground";
 
-export const Input = forwardRef<TextInput, TextInputProps & { className?: string }>(function Input({ className, style, ...props }, ref) {
+export const Input = forwardRef<React.ComponentRef<typeof TextInput>, TextInputProps & { className?: string }>(function Input({ className, style, ...props }, ref) {
   const t = useTheme();
   return (
     <TextInput

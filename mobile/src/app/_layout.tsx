@@ -9,6 +9,7 @@ import { Baloo2_600SemiBold, Baloo2_700Bold, Baloo2_800ExtraBold } from "@expo-g
 import { QueryProvider } from "~/lib/query";
 import { SessionProvider, useSession } from "~/lib/session";
 import { useTheme } from "~/ui";
+import { useDeviceNotifications } from "~/components/device-notifications";
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -26,6 +27,7 @@ function RootStack() {
     Baloo2_800ExtraBold,
   });
   const loaded = ready && fonts;
+  useDeviceNotifications(!!session && !!profile);
   useEffect(() => {
     if (loaded) void SplashScreen.hideAsync();
   }, [loaded]);

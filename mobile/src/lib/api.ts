@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { friendlyError } from "@/lib/errors";
 import { API_URL } from "./config";
 import { supabase } from "./supabase";
 
@@ -65,9 +66,21 @@ async function writeQueue(q: Queued[]) {
 }
 
 /** Tenta agora; sem internet, guarda na fila e devolve { queued: true }. */
+/** "rpc:nome" chama a função do banco direto (mais rápido); o resto vai pela ponte do site. */
+async function run<T>(action: string, args: unknown[]): Promise<ActionResponse<T>> {
+  if (!action.startsWith("rpc:")) return callAction<T>(action, ...args);
+  const { data, error } = await supabase.rpc(action.slice(4) as never, args[0] as never);
+  if (error) {
+    // Falha de rede do supabase-js vem como erro sem código.
+    if (/fetch|network/i.test(error.message) && !error.code) throw new OfflineError();
+    return { error: friendlyError(error.message) };
+  }
+  return { result: data as T };
+}
+
 export async function callOrQueue<T = unknown>(label: string, action: string, ...args: unknown[]) {
   try {
-    return { ...(await callAction<T>(action, ...args)), queued: false };
+    return { ...(await run<T>(action, args)), queued: false };
   } catch (e) {
     if (!(e instanceof OfflineError)) throw e;
     const q = await readQueue();
@@ -90,7 +103,7 @@ export async function flushQueue(): Promise<number> {
   try {
     for (const item of await readQueue()) {
       try {
-        await callAction(item.action, ...item.args);
+        await run(item.action, item.args);
       } catch (e) {
         if (e instanceof OfflineError) break;
       }

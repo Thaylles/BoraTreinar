@@ -9,6 +9,7 @@ export const palette = {
   ipe100: "#fff3cc",
   ipe400: "#ffd45c",
   ipe500: "#ffc72c",
+  ipe600: "#e6a800",
   anil500: "#1a3f99",
   anil700: "#002776",
   anil900: "#001647",

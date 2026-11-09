@@ -42,7 +42,23 @@ function nextControl(e: unknown) {
   return null;
 }
 
+/** Só em desenvolvimento: a prévia web do app (outra porta) chama esta rota. O app Android não precisa de CORS. */
+const DEV_CORS: Record<string, string> =
+  process.env.NODE_ENV === "production"
+    ? {}
+    : { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, content-type", "access-control-allow-methods": "POST, OPTIONS" };
+
+export function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: DEV_CORS });
+}
+
 export async function POST(request: NextRequest) {
+  const res = await handle(request);
+  for (const [k, v] of Object.entries(DEV_CORS)) res.headers.set(k, v);
+  return res;
+}
+
+async function handle(request: NextRequest) {
   let body: { action?: string; args?: unknown[] };
   try {
     body = await request.json();

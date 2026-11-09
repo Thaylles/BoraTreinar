@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { FlatList, Modal, Pressable, View, type TextInputProps } from "react-native";
+import { FlatList, Modal, Pressable, Switch, View, type TextInputProps } from "react-native";
 import { Check, ChevronDown, X } from "lucide-react-native";
 import { cx as cn } from "./cn";
 import { Field, Input, Text, useTheme } from "./index";
@@ -152,5 +152,19 @@ export function Select<T extends string>({
         </View>
       </Modal>
     </>
+  );
+}
+
+/** Interruptor com título e explicação (os "toggles" do site). */
+export function Toggle({ value, onChange, title, sub }: { value: boolean; onChange: (v: boolean) => void; title: string; sub?: string }) {
+  const t = useTheme();
+  return (
+    <Pressable onPress={() => onChange(!value)} className="flex-row items-start justify-between gap-4" accessibilityRole="switch" accessibilityState={{ checked: value }}>
+      <View className="flex-1">
+        <Text className="font-semibold">{title}</Text>
+        {sub ? <Text className="text-sm text-muted">{sub}</Text> : null}
+      </View>
+      <Switch value={value} onValueChange={onChange} trackColor={{ true: t.bandeira500, false: t.border }} thumbColor="#fff" />
+    </Pressable>
   );
 }

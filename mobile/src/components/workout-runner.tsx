@@ -514,7 +514,7 @@ function NumInput({ value, onChange, label, decimal = true, disabled, className 
       accessibilityLabel={label}
       selectTextOnFocus
       className={cn(setInput, disabled && "opacity-60", className)}
-      style={{ fontFamily: "Inter_600SemiBold" }}
+      style={{ fontFamily: "Inter_600SemiBold", minWidth: 0, width: 10 }}
     />
   );
 }

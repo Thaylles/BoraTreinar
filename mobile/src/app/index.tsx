@@ -1,8 +1,6 @@
-import { Redirect } from "expo-router";
-import { homeFor, useSession } from "~/lib/session";
+import { Loading } from "~/ui";
 
-/** Abre a área de cada papel (aluno, Personal ou admin). */
+/** O layout raiz leva para o login ou para a área de cada papel. */
 export default function Index() {
-  const { profile } = useSession();
-  return <Redirect href={homeFor(profile?.role)} />;
+  return <Loading />;
 }

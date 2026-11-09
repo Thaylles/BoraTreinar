@@ -43,8 +43,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setReady(true);
     })();
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      // Ao entrar: carrega o perfil antes de liberar as áreas, para o app abrir direto na área certa.
+      if (event === "SIGNED_IN" && s) {
+        setTimeout(() => void loadProfile(s.user.id).catch(() => {}).finally(() => setSession(s)), 0);
+        return;
+      }
       setSession(s);
-      if (event === "SIGNED_IN" && s) void loadProfile(s.user.id);
       if (event === "SIGNED_OUT") {
         setProfile(null);
         void AsyncStorage.removeItem(PROFILE_KEY);

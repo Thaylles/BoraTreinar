@@ -138,7 +138,7 @@ export default function AlunoHome() {
             <Link href={startHref} asChild>
               <Pressable className={cn("mt-4 flex-row items-center justify-center gap-2 rounded-2xl py-4 active:opacity-90", liveClass ? "bg-ipe-500" : "bg-white")}>
                 <Play color={liveClass ? t.anil900 : t.bandeira700} fill={liveClass ? t.anil900 : t.bandeira700} size={24} />
-                <Text className={cn("font-display text-xl font-extrabold", liveClass ? "text-anil-900" : "text-bandeira-700")}>
+                <Text className={cn("flex-shrink text-center font-display text-xl font-extrabold", liveClass ? "text-anil-900" : "text-bandeira-700")}>
                   {liveClass ? "Registrar início do treino" : suggested ? `Começar ${suggested.name}` : "Começar treino livre"}
                 </Text>
               </Pressable>

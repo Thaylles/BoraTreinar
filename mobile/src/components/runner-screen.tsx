@@ -40,7 +40,7 @@ export function RunnerScreen({
   const insets = useSafeAreaInsets();
   const q = useData(queryKey, load, { staleTime: 1000 * 60 * 5 });
   const weigh = useData(["weigh-in", studentId], () => getWeighInStatus(studentId), { enabled: checkWeighIn && !backdate });
-  if (q.isLoading) return <Loading label="Carregando treino…" />;
+  if (q.isLoading || (checkWeighIn && !backdate && weigh.isLoading)) return <Loading label="Carregando treino…" />;
   const data = q.data;
   if (!data || !data.exercises.length)
     return (

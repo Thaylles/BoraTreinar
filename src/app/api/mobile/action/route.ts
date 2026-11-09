@@ -10,7 +10,8 @@ import { MODULES } from "./registry";
  * - Argumento { __form: { campo: valor | { __file: { name, type, base64 } } } } vira FormData.
  * - redirect() vira { redirect: "/caminho" }; notFound() vira { notFound: true }.
  */
-export const maxDuration = 60;
+// Gerar foto/vídeo com IA pode levar até ~40 s.
+export const maxDuration = 120;
 
 /** Ações que funcionam sem login (cadastro e recuperação de senha). */
 const PUBLIC_ACTIONS = new Set(["auth#signUpPersonal", "auth#signUpStudentOpen", "auth#signUpStudent", "auth#requestPasswordReset"]);

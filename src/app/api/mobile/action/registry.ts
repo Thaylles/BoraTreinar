@@ -5,6 +5,7 @@ import * as auth_convite_token from "@/app/(auth)/convite/[token]/actions";
 import * as admin from "@/app/admin/actions";
 import * as admin_execucoes from "@/app/admin/execucoes/actions";
 import * as admin_fotos from "@/app/admin/fotos/actions";
+import * as admin_mobile_data from "@/app/admin/mobile-data";
 import * as agua_actions from "@/app/agua-actions";
 import * as aluno_aula_actions from "@/app/aluno/aula-actions";
 import * as aluno_fichas from "@/app/aluno/fichas/actions";
@@ -36,6 +37,7 @@ export const MODULES = {
   "admin": admin,
   "admin/execucoes": admin_execucoes,
   "admin/fotos": admin_fotos,
+  "admin/mobile-data": admin_mobile_data,
   "agua-actions": agua_actions,
   "aluno/aula-actions": aluno_aula_actions,
   "aluno/fichas": aluno_fichas,

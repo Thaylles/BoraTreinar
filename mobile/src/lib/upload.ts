@@ -49,3 +49,32 @@ export const uuid = () =>
     const r = (Math.random() * 16) | 0;
     return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
   });
+
+/** Foto remota → JPEG base64 (até `maxSide`), para a IA (que não aceita WebP). */
+export async function remoteToJpegBase64(url: string, maxSide = 1024): Promise<string> {
+  const { Directory, File, Paths } = await import("expo-file-system");
+  const dir = new Directory(Paths.cache, "ia");
+  if (!dir.exists) dir.create({ intermediates: true });
+  const dest = new File(dir, `ref-${Date.now()}`);
+  const file = await File.downloadFileAsync(url, dest, { idempotent: true });
+  const info = await manipulateAsync(file.uri, []);
+  const scale = Math.min(1, maxSide / Math.max(info.width, info.height));
+  const out = await manipulateAsync(file.uri, scale < 1 ? [{ resize: { width: Math.round(info.width * scale) } }] : [], { compress: 0.88, format: SaveFormat.JPEG, base64: true });
+  return out.base64!;
+}
+
+/** Imagem da IA (data URL) → JPEG 1024×764 recortado como o catálogo. */
+export async function dataUrlToCatalogJpeg(dataUrl: string): Promise<string> {
+  const { File, Paths } = await import("expo-file-system");
+  const ext = dataUrl.startsWith("data:image/png") ? "png" : dataUrl.startsWith("data:image/webp") ? "webp" : "jpg";
+  const f = new File(Paths.cache, `ia-${Date.now()}.${ext}`);
+  f.write(dataUrl.slice(dataUrl.indexOf(",") + 1), { encoding: "base64" });
+  const info = await manipulateAsync(f.uri, []);
+  const W = 1024;
+  const H = 764;
+  const scale = Math.max(W / info.width, H / info.height);
+  const w = Math.round(info.width * scale);
+  const h = Math.round(info.height * scale);
+  const out = await manipulateAsync(f.uri, [{ resize: { width: w, height: h } }, { crop: { originX: Math.max(0, Math.round((w - W) / 2)), originY: Math.max(0, Math.round((h - H) / 2)), width: Math.min(W, w), height: Math.min(H, h) } }], { compress: 0.9, format: SaveFormat.JPEG, base64: true });
+  return `data:image/jpeg;base64,${out.base64}`;
+}

@@ -29,7 +29,17 @@ npx expo start         # Expo Go / dev client
 npx tsc --noEmit       # tipos
 ```
 
-## APK de release
+## APK de release (GitHub Actions)
+
+Aba **Actions → App Android (APK) → Run workflow**. O APK assinado sai em "Artifacts" (ou numa Release, se marcado).
+O `versionCode` sobe sozinho a cada execução; a versão mostrada vem de `app.json` (ou do campo do formulário).
+
+A chave fica só nos segredos do repositório (Settings → Secrets and variables → Actions):
+`BT_KEYSTORE_BASE64` (o `.keystore` em base64) e `BT_KEYSTORE_PASSWORD`; opcionais `BT_KEY_PASSWORD` e `BT_KEY_ALIAS` (padrão `boratreinar`).
+O fluxo recusa APK assinado com chave que não esteja em `public/.well-known/assetlinks.json`.
+Em PRs que mexem em `mobile/`, o mesmo fluxo só confere se o app compila.
+
+### Build local (alternativa)
 
 ```bash
 npx expo prebuild -p android --clean --no-install
@@ -40,5 +50,4 @@ BT_KEYSTORE_PASSWORD=... BT_KEY_PASSWORD=... \
 # saída: android/app/build/outputs/apk/release/app-release.apk
 ```
 
-A chave de assinatura é a mesma do app anterior (`com.boratreinar.app`), então o APK novo atualiza por cima.
-Nunca coloque a chave nem a senha no repositório. Suba `versionCode` em `app.json` a cada versão.
+Nunca coloque a chave nem a senha no repositório.

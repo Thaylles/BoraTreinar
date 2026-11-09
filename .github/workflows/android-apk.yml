@@ -1,0 +1,170 @@
+# Gera o APK do app nativo (pasta mobile/) assinado com a chave do BoraTreinar.
+#
+# Como usar: aba "Actions" → "App Android (APK)" → "Run workflow".
+# O APK aparece no fim da execução, em "Artifacts" (e, se marcado, numa Release).
+#
+# Segredos do repositório (Settings → Secrets and variables → Actions):
+#   BT_KEYSTORE_BASE64    conteúdo do boratreinar.keystore em base64
+#   BT_KEYSTORE_PASSWORD  senha da chave
+#   BT_KEY_PASSWORD       (opcional) senha do alias, se for diferente da senha da chave
+#   BT_KEY_ALIAS          (opcional) alias da chave; padrão "boratreinar"
+#
+# Em PRs que mexem no app, o fluxo só confere se o app compila (sem publicar nada).
+name: App Android (APK)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: "Versão mostrada no celular (vazio = a do mobile/app.json)"
+        required: false
+        default: ""
+      release:
+        description: "Publicar o APK numa Release do GitHub (link para baixar)"
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - "mobile/**"
+      - ".github/workflows/android-apk.yml"
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      HAS_KEY: ${{ secrets.BT_KEYSTORE_BASE64 != '' && secrets.BT_KEYSTORE_PASSWORD != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Confere os segredos da chave
+        if: github.event_name == 'workflow_dispatch' && env.HAS_KEY != 'true'
+        run: |
+          echo "::error::Faltam os segredos BT_KEYSTORE_BASE64 e/ou BT_KEYSTORE_PASSWORD (Settings → Secrets and variables → Actions)."
+          exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            mobile/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Instala as dependências
+        run: npm ci
+
+      # O app reaproveita src/lib do site; os tipos de lá vêm do node_modules do site.
+      - name: Instala as dependências do site (para conferir os tipos)
+        working-directory: .
+        run: npm ci --ignore-scripts
+
+      - name: Confere os tipos
+        run: npx tsc --noEmit
+
+      # versionCode sobe sozinho a cada execução (o celular só atualiza se o número for maior).
+      - name: Define a versão
+        id: version
+        env:
+          VERSION_NAME: ${{ inputs.version_name }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const app = JSON.parse(fs.readFileSync("app.json", "utf8"));
+            const name = (process.env.VERSION_NAME || "").trim() || app.expo.version;
+            const code = Math.max(app.expo.android.versionCode || 1, 100 + Number(process.env.RUN_NUMBER));
+            app.expo.version = name;
+            app.expo.android.versionCode = code;
+            fs.writeFileSync("app.json", JSON.stringify(app, null, 2) + "\n");
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `name=${name}\ncode=${code}\n`);
+            console.log(`Versão ${name} (versionCode ${code})`);
+          '
+
+      - name: Gera o projeto Android
+        run: npx expo prebuild -p android --clean --no-install
+
+      - name: Prepara a chave
+        if: env.HAS_KEY == 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.BT_KEYSTORE_BASE64 }}
+        run: |
+          printf '%s' "$KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -d > "$RUNNER_TEMP/bt.keystore"
+          echo "BT_KEYSTORE=$RUNNER_TEMP/bt.keystore" >> "$GITHUB_ENV"
+
+      - name: Compila o APK
+        working-directory: mobile/android
+        env:
+          BT_KEYSTORE_PASSWORD: ${{ secrets.BT_KEYSTORE_PASSWORD }}
+          BT_KEY_PASSWORD: ${{ secrets.BT_KEY_PASSWORD || secrets.BT_KEYSTORE_PASSWORD }}
+          BT_KEY_ALIAS: ${{ secrets.BT_KEY_ALIAS || 'boratreinar' }}
+        run: ./gradlew assembleRelease --no-daemon
+
+      # Garante que o APK foi assinado com uma das chaves do app (as do assetlinks.json do site).
+      - name: Confere a assinatura
+        id: apk
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+        run: |
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify "$APK"
+          SHA=$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1 | tr 'a-f' 'A-F' | sed 's/../&:/g; s/:$//')
+          echo "Impressão digital: $SHA"
+          [ -n "$SHA" ] || { echo "::error::Não consegui ler a assinatura do APK."; exit 1; }
+          if [ "$HAS_KEY" = "true" ]; then
+            if ! grep -q "$SHA" ../public/.well-known/assetlinks.json; then
+              echo "::error::O APK foi assinado com uma chave desconhecida ($SHA). Confira o segredo BT_KEYSTORE_BASE64."
+              exit 1
+            fi
+            OUT="BoraTreinar-$VERSION_NAME-$VERSION_CODE.apk"
+          else
+            OUT="BoraTreinar-teste-sem-chave.apk"
+          fi
+          mv "$APK" "$RUNNER_TEMP/$OUT"
+          echo "file=$RUNNER_TEMP/$OUT" >> "$GITHUB_OUTPUT"
+          echo "name=$OUT" >> "$GITHUB_OUTPUT"
+          {
+            echo "### $OUT"
+            echo "- Versão: $VERSION_NAME (versionCode $VERSION_CODE)"
+            echo "- Chave: \`$SHA\`"
+            [ "$HAS_KEY" = "true" ] || echo "- ⚠️ Sem os segredos da chave: APK só para teste (não atualiza o app instalado)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Apaga a chave
+        if: always()
+        run: rm -f "$RUNNER_TEMP/bt.keystore"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.apk.outputs.name }}
+          path: ${{ steps.apk.outputs.file }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publica a Release
+        if: github.event_name == 'workflow_dispatch' && inputs.release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: app-v${{ steps.version.outputs.name }}-${{ steps.version.outputs.code }}
+          name: App BoraTreinar ${{ steps.version.outputs.name }} (${{ steps.version.outputs.code }})
+          body: APK do app Android gerado a partir de ${{ github.sha }}.
+          files: ${{ steps.apk.outputs.file }}

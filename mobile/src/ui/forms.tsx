@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { FlatList, Modal, Pressable, Switch, View, type TextInputProps } from "react-native";
 import { Check, ChevronDown, X } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { cx as cn } from "./cn";
 import { Field, Input, Text, useTheme } from "./index";
 
@@ -109,6 +110,7 @@ export function Select<T extends string>({
 }) {
   const [open, setOpen] = useState(false);
   const t = useTheme();
+  const bottom = useSafeAreaInsets().bottom;
   const current = options.find((o) => o.value === value);
   const box = (
     <Pressable onPress={() => setOpen(true)} className="w-full flex-row items-center justify-between rounded-2xl border border-border bg-surface px-4 py-3">
@@ -123,7 +125,7 @@ export function Select<T extends string>({
       {label ? <Field label={label}>{box}</Field> : box}
       <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
         <Pressable className="flex-1 bg-black/40" onPress={() => setOpen(false)} />
-        <View className="max-h-[70%] rounded-t-3xl bg-background pb-8">
+        <View className="max-h-[70%] rounded-t-3xl bg-background" style={{ paddingBottom: 32 + bottom }}>
           <View className="flex-row items-center justify-between border-b border-border px-5 py-4">
             <Text className="font-display text-lg font-bold">{label ?? placeholder}</Text>
             <Pressable onPress={() => setOpen(false)} accessibilityLabel="Fechar" className="p-1">

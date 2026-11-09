@@ -11,3 +11,5 @@ export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? "https://bora-treinar
 process.env.NEXT_PUBLIC_SUPABASE_URL = SUPABASE_URL;
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
 process.env.NEXT_PUBLIC_APP_URL = API_URL;
+// Fotos do catálogo com caminho do site (/catalogo/fotos/…) passam a usar o endereço completo.
+process.env.NEXT_PUBLIC_ASSET_ORIGIN = API_URL;

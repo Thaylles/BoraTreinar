@@ -34,5 +34,7 @@ export function equipmentImageSrc(e: Pick<Equipment, "image_path" | "image_url">
   if (e.image_path) {
     return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${EQUIPMENT_BUCKET}/${e.image_path}`;
   }
+  // Fotos do catálogo inicial ficam no site (/catalogo/fotos/…). O app nativo informa o endereço do site.
+  if (e.image_url?.startsWith("/")) return `${process.env.NEXT_PUBLIC_ASSET_ORIGIN ?? ""}${e.image_url}`;
   return e.image_url;
 }

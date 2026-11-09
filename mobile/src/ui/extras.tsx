@@ -6,6 +6,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, type Href } from "expo-router";
 import { ChevronRight, X as XIcon } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { avatarUrl } from "@/lib/avatar";
 import { cx as cn } from "./cn";
 import { Text } from "./text";
@@ -97,6 +98,7 @@ export function Disclosure({ label, children, className }: { label: string; chil
 /** Janela que sobe de baixo (os <dialog> do site). */
 export function Sheet({ visible, onClose, title, sub, children }: { visible: boolean; onClose: () => void; title: string; sub?: string; children: ReactNode }) {
   const t = useTheme();
+  const bottom = useSafeAreaInsets().bottom;
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} className="flex-1">
@@ -111,7 +113,7 @@ export function Sheet({ visible, onClose, title, sub, children }: { visible: boo
               <XIcon color={t.foreground} size={20} />
             </Pressable>
           </View>
-          <ScrollView contentContainerClassName="gap-4 p-5 pb-10" keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerClassName="gap-4 p-5" contentContainerStyle={{ paddingBottom: 40 + bottom }} keyboardShouldPersistTaps="handled">
             {children}
           </ScrollView>
         </View>

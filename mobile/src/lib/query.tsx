@@ -6,6 +6,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import { AppState } from "react-native";
 import { flushQueue } from "./api";
+import { autoSyncHealth } from "./health-connect";
 
 /** Dados ficam guardados no aparelho: sem internet o app mostra a última versão carregada. */
 export const queryClient = new QueryClient({
@@ -28,13 +29,17 @@ export function QueryProvider({ children }: { children: ReactNode }) {
       focusManager.setFocused(s === "active");
       if (s === "active") void flushQueue().then((n) => {
         if (n) void queryClient.invalidateQueries();
+        // Health Connect: treinos que subiram agora vão na hora; senão, no máximo a cada 15 min.
+        void autoSyncHealth(n > 0);
       });
     });
     const unsub = onlineManager.subscribe((online) => {
       if (online) void flushQueue().then((n) => {
         if (n) void queryClient.invalidateQueries();
+        if (n) void autoSyncHealth(true);
       });
     });
+    void autoSyncHealth();
     return () => {
       app.remove();
       unsub();

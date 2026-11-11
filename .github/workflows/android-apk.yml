@@ -1,7 +1,8 @@
 # Gera o APK do app nativo (pasta mobile/) assinado com a chave do BoraTreinar.
 #
-# Como usar: aba "Actions" → "App Android (APK)" → "Run workflow".
-# O APK aparece no fim da execução, em "Artifacts" (e, se marcado, numa Release).
+# Automático: todo merge no main que mexe em mobile/ gera o APK e publica numa Release.
+# O site (cartão "App Android") e o próprio app (aviso "Nova versão") leem a última Release.
+# Manual: aba "Actions" → "App Android (APK)" → "Run workflow".
 #
 # Segredos do repositório (Settings → Secrets and variables → Actions):
 #   BT_KEYSTORE_BASE64    conteúdo do boratreinar.keystore em base64
@@ -20,9 +21,13 @@ on:
         required: false
         default: ""
       release:
-        description: "Publicar o APK numa Release do GitHub (link para baixar)"
+        description: "Publicar o APK numa Release do GitHub (o site e o app avisam da versão nova)"
         type: boolean
-        default: false
+        default: true
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
   pull_request:
     paths:
       - "mobile/**"
@@ -48,7 +53,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Confere os segredos da chave
-        if: github.event_name == 'workflow_dispatch' && env.HAS_KEY != 'true'
+        if: github.event_name != 'pull_request' && env.HAS_KEY != 'true'
         run: |
           echo "::error::Faltam os segredos BT_KEYSTORE_BASE64 e/ou BT_KEYSTORE_PASSWORD (Settings → Secrets and variables → Actions)."
           exit 1
@@ -161,10 +166,11 @@ jobs:
           retention-days: 30
 
       - name: Publica a Release
-        if: github.event_name == 'workflow_dispatch' && inputs.release
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.release)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: app-v${{ steps.version.outputs.name }}-${{ steps.version.outputs.code }}
           name: App BoraTreinar ${{ steps.version.outputs.name }} (${{ steps.version.outputs.code }})
           body: APK do app Android gerado a partir de ${{ github.sha }}.
+          make_latest: true
           files: ${{ steps.apk.outputs.file }}

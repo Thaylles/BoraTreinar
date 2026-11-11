@@ -669,3 +669,16 @@ test("meta de água: garrafas, litros, sugestão e meta digitada", () => {
   assert.equal(parseGoal("0,2"), null);
   assert.equal(parseGoal("abc"), null);
 });
+
+test("app Android: escolhe a release com o maior versionCode que tem .apk", async () => {
+  const { parseAppTag, pickLatest } = await import("../app-release.ts");
+  assert.deepEqual(parseAppTag("app-v2.0.2-105"), { versionName: "2.0.2", versionCode: 105 });
+  assert.equal(parseAppTag("v1.0"), null);
+  const rel = (tag: string, name = "BoraTreinar.apk", extra = {}) => ({ tag_name: tag, draft: false, prerelease: false, published_at: "2026-11-10T00:00:00Z", assets: [{ name, size: 37_700_000, browser_download_url: `https://x/${tag}.apk` }], ...extra });
+  const best = pickLatest([rel("app-v2.0.0-102"), rel("app-v2.0.2-105"), rel("app-v2.0.1-103"), rel("app-v9.9.9-999", "notas.txt"), rel("app-v3.0.0-300", "a.apk", { draft: true })]);
+  assert.equal(best?.versionCode, 105);
+  assert.equal(best?.versionName, "2.0.2");
+  assert.equal(best?.url, "https://x/app-v2.0.2-105.apk");
+  assert.equal(best?.sizeMb, 36);
+  assert.equal(pickLatest([]), null);
+});

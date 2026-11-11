@@ -11,6 +11,7 @@ import { supabase } from "~/lib/supabase";
 import { Card, LinkButton, Loading, PageTitle, Screen, Text, useTheme } from "~/ui";
 import { ShortcutCard } from "~/ui/extras";
 import { AchievementsCard, NotificationsList, WaterCard } from "~/components/widgets";
+import { AppUpdate } from "~/components/app-update";
 import { OpenWorkouts, PendingSync } from "~/components/open-workouts";
 import { NotificationsCard } from "~/components/device-notifications";
 import { PersonalOverview } from "~/components/personal-overview";
@@ -42,6 +43,7 @@ export default function PersonalHome() {
   return (
     <Screen edges={[]} refreshControl={refresh}>
       <PageTitle sub="Bora acompanhar a galera?">Fala, {firstName(profile.full_name)}! 👋</PageTitle>
+      <AppUpdate />
       <PendingSync />
       <OpenWorkouts prefixes={[`bt:registro:${profile.id}:`, `bt:treino:${profile.id}:`, `bt:livre:${profile.id}:`]} />
       <NotificationsCard />

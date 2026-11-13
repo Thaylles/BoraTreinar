@@ -1,3 +1,4 @@
+import { autoSyncHealth } from "~/lib/health-connect";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
 import { router } from "expo-router";
@@ -348,6 +349,8 @@ export function WorkoutRunner({
       draftStore.remove(storageKey);
       replaceTimer(null);
       void queryClient.invalidateQueries();
+      // Treino salvo: já manda para o Health Connect (se este celular estiver conectado).
+      if (!res.queued) void autoSyncHealth(true);
       setSummary({
         ...base,
         offline: res.queued,

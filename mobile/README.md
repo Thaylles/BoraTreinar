@@ -31,7 +31,9 @@ npx tsc --noEmit       # tipos
 
 ## APK de release (GitHub Actions)
 
-Aba **Actions → App Android (APK) → Run workflow**. O APK assinado sai em "Artifacts" (ou numa Release, se marcado).
+Todo merge no `main` que mexe em `mobile/` gera o APK assinado e publica numa **Release** (`app-v<versão>-<versionCode>`).
+O site lê a última Release em `/api/app/versao` (cartão "App Android" no início, link fixo `/api/app/baixar`) e o app mostra "Nova versão" quando o `versionCode` publicado é maior que o dele.
+Também dá para rodar à mão: aba **Actions → App Android (APK) → Run workflow**.
 O `versionCode` sobe sozinho a cada execução; a versão mostrada vem de `app.json` (ou do campo do formulário).
 
 A chave fica só nos segredos do repositório (Settings → Secrets and variables → Actions):

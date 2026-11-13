@@ -17,6 +17,7 @@ import { Alert, Loading, PageTitle, Screen, Text, useTheme } from "~/ui";
 import { cx as cn } from "~/ui/cn";
 import { Gradient, ShortcutCard } from "~/ui/extras";
 import { AchievementsCard, CardioGoalCard, LinkRequestsCard, NotificationsList, WaterCard, WeeklyGoal } from "~/components/widgets";
+import { AppUpdate } from "~/components/app-update";
 import { OpenWorkouts, PendingSync } from "~/components/open-workouts";
 import { NotificationsCard } from "~/components/device-notifications";
 
@@ -113,6 +114,7 @@ export default function AlunoHome() {
         </Alert>
       ) : null}
 
+      <AppUpdate />
       <PendingSync />
       <OpenWorkouts prefixes={[`bt:treino:${profile.id}:`, `bt:livre:${profile.id}:`]} />
 

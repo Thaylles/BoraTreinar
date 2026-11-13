@@ -12,6 +12,7 @@ import { Card, PageTitle } from "@/components/ui/card";
 import { NotificationsList } from "@/components/notifications";
 import { requireRole } from "@/lib/auth";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
+import { AppDownload } from "@/components/app/app-download";
 import { PushToggle } from "@/components/pwa/push-toggle";
 import { OpenWorkouts } from "@/components/workout/open-workouts";
 import { WaterCard } from "@/components/water/water-card";
@@ -229,6 +230,7 @@ export default async function AlunoHome({
       )}
 
       <InstallPrompt />
+      <AppDownload />
       <PushToggle />
       <WaterCard initial={water} suggestion={suggestedGoal(lastWeight[0]?.weight_kg)} />
 

@@ -1,3 +1,4 @@
+import { AppUpdate } from "~/components/app-update";
 import { Pressable, View } from "react-native";
 import { Link, type Href } from "expo-router";
 import { Activity, CalendarDays, ClipboardList, Dumbbell, FileBarChart, Lock, Ticket, UserRound, Users } from "lucide-react-native";
@@ -35,6 +36,7 @@ export default function AdminHome() {
   const requests = open.data ?? [];
   return (
     <Screen edges={[]} refreshControl={refresh}>
+      <AppUpdate />
       <PageTitle sub="Visão geral do BoraTreinar.">Painel do admin</PageTitle>
       {requests.length ? (
         <ShortcutCard

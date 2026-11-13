@@ -6,6 +6,7 @@ import { LinkButton } from "@/components/ui/button";
 import { NotificationsList } from "@/components/notifications";
 import { requireRole } from "@/lib/auth";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
+import { AppDownload } from "@/components/app/app-download";
 import { PushToggle } from "@/components/pwa/push-toggle";
 import { OpenWorkouts } from "@/components/workout/open-workouts";
 import { WaterCard } from "@/components/water/water-card";
@@ -61,6 +62,7 @@ export default async function PersonalHome({ searchParams }: { searchParams: Pro
 
       <OpenWorkouts prefixes={[`bt:registro:${profile.id}:`, `bt:treino:${profile.id}:`, `bt:livre:${profile.id}:`]} />
       <InstallPrompt />
+      <AppDownload />
       <PushToggle />
       <WaterCard initial={water} suggestion={suggestedGoal(lastWeight[0]?.weight_kg)} />
 

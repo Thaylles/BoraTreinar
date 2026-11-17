@@ -113,10 +113,24 @@ async function attachSwaps(exercises: RunnerExercise[], studentId: string, subst
   });
 }
 
+/**
+ * Troca livre: o aluno escolhe qualquer exercício do catálogo para fazer no lugar do da ficha.
+ * Devolve a opção com o histórico do aluno nele e a execução aprovada (se houver).
+ */
+export async function loadSwapOption(studentId: string, item: CatalogItem): Promise<SwapOption> {
+  const history = await loadExerciseHistory(studentId, [item.id]);
+  const option: SwapOption = { equipment: toRunnerEquipment(item), history: history[item.id] ?? { last: null, best: null } };
+  await fillDemos([option.equipment]);
+  return option;
+}
+
 /** Execução aprovada pelo admin (GIF/vídeo) de cada exercício, inclusive substitutos e alternativas. */
 async function attachDemos(exercises: RunnerExercise[]) {
   const all = exercises.flatMap((e) => [e.equipment, e.substitute?.equipment, ...(e.alternatives ?? []).map((a) => a.equipment)]);
-  const eqs = all.filter((x): x is RunnerExercise["equipment"] => !!x);
+  await fillDemos(all.filter((x): x is RunnerExercise["equipment"] => !!x));
+}
+
+async function fillDemos(eqs: RunnerExercise["equipment"][]) {
   if (!eqs.length) return;
   const supabase = await createClient();
   const { data } = await supabase

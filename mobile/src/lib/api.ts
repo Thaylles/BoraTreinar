@@ -29,7 +29,8 @@ export async function callAction<T = unknown>(action: string, ...args: unknown[]
     throw new OfflineError();
   }
   const body = (await res.json().catch(() => ({}))) as ActionResponse<T>;
-  if (!res.ok && !body.error) body.error = "Algo deu errado. Tenta de novo?";
+  // Resposta sem mensagem (erro da hospedagem, tempo esgotado…): mostra o código para dar para investigar.
+  if (!res.ok && !body.error) body.error = `Algo deu errado (erro ${res.status}). Tenta de novo?`;
   return body;
 }
 

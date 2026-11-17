@@ -1,8 +1,8 @@
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Crypto from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
 import { HC_CATEGORIES, type ExportItem } from "@/lib/health-connect/shared";
-import { callAction } from "./api";
 import { API_URL } from "./config";
 import { supabase } from "./supabase";
 
@@ -129,19 +129,33 @@ export async function connectHealth(): Promise<{ error?: string; permission?: bo
     return { error: "O BoraTreinar ainda não tem permissão no Health Connect. Libere \"Exercício\" (ler e gravar) e toque em Conectar de novo.", permission: true };
   }
   if (await hasHealthToken()) return {};
-  let r;
-  try {
-    r = await callAction<{ url?: string; error?: string }>("aluno/saude-conectada#connectHealthApp");
-  } catch (e) {
-    return { error: (e as Error).message || "Sem internet. Tente de novo quando a conexão voltar." };
-  }
-  const token = /[?&]token=([\w-]+)/.exec(r.result?.url ?? "")?.[1];
-  if (!token) return { error: r.result?.error ?? r.error ?? "Não foi possível conectar." };
   const userId = (await supabase.auth.getSession()).data.session?.user.id;
   if (!userId) return { error: "Entre na sua conta de novo para conectar." };
+  // Cria o token deste aparelho direto no banco (RLS: só o dono, até 5 aparelhos). O banco guarda
+  // só o hash, igual ao que o site faz em connectHealthApp.
+  const token = base64url(Crypto.getRandomBytes(32));
+  const tokenHash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, token, { encoding: Crypto.CryptoEncoding.HEX });
+  const { error } = await supabase.from("app_tokens").insert({ token_hash: tokenHash, label: "App Android" });
+  if (error) {
+    if (/fetch|network/i.test(error.message) && !error.code) return { error: "Sem internet. Tente de novo quando a conexão voltar." };
+    if (error.code === "42501") return { error: "Você já tem 5 aparelhos conectados. Desconecte e tente de novo." };
+    return { error: `Não foi possível conectar. (${error.code ?? ""} ${error.message})`.slice(0, 200) };
+  }
   await SecureStore.setItemAsync(USER_KEY, userId);
   await SecureStore.setItemAsync(TOKEN_KEY, token);
   return {};
+}
+
+/** Bytes → base64url (o mesmo formato do token criado pelo site). */
+function base64url(bytes: Uint8Array): string {
+  const abc = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  let out = "";
+  for (let i = 0; i < bytes.length; i += 3) {
+    const n = (bytes[i] << 16) | ((bytes[i + 1] ?? 0) << 8) | (bytes[i + 2] ?? 0);
+    const chars = i + 2 < bytes.length ? 4 : i + 1 < bytes.length ? 3 : 2;
+    for (let k = 0; k < chars; k++) out += abc[(n >> (18 - 6 * k)) & 63];
+  }
+  return out;
 }
 
 export async function forgetHealthToken() {
@@ -235,7 +249,7 @@ export async function syncHealth(): Promise<SyncResult> {
   if (!res) return { error: "Sem internet. Tente de novo quando a conexão voltar." };
   const body = (await res.json().catch(() => ({}))) as { imported?: number; export?: ExportItem[]; error?: string };
   if (!res.ok) {
-    if (res.status !== 401) return { error: body.error ?? "Não foi possível sincronizar." };
+    if (res.status !== 401) return { error: body.error ?? `Não foi possível sincronizar (erro ${res.status}).` };
     await forgetHealthToken();
     return { error: "A conexão deste celular expirou. Toque em Conectar de novo.", expired: true };
   }

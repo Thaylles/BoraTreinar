@@ -27,9 +27,12 @@ import { Alert, Button, inputClass, Text, useTheme } from "~/ui";
 import { cx as cn } from "~/ui/cn";
 import { Checkbox } from "~/ui/forms";
 import { useWaterToday, WaterButtons } from "./widgets";
+import { ExercisePicker, type CatalogItem } from "./exercise-picker";
+import { loadCatalogFor } from "@/lib/plans-server";
+import { loadSwapOption } from "@/lib/runner-server";
 
 export type { BackdateInfo, RunnerExercise, SwapOption };
-type SwapSource = "personal" | "ia" | "regras";
+type SwapSource = "personal" | "ia" | "regras" | "escolha";
 type SetState = {
   load: string;
   reps: string;
@@ -40,7 +43,7 @@ type SetState = {
   level?: string;
   clock?: { total: number; endsAt?: number; left?: number; alarm?: string | null };
 };
-type ExerciseState = { rest: number; sets: SetState[]; swap?: { id: string; source: SwapSource } };
+type ExerciseState = { rest: number; sets: SetState[]; swap?: { id: string; source: SwapSource; option?: SwapOption } };
 type Draft = { v: 1; clientId: string; startedAt: string; exercises: ExerciseState[]; title?: string; href?: string };
 type Timer = { endsAt: number; total: number; exercise: number; alarm?: string | null } | null;
 type Summary = { duration: number; doneSets: number; volume: number; prs: string[]; offline: boolean; sessionId?: string };
@@ -72,7 +75,7 @@ const initialExercises = (list: RunnerExercise[]): ExerciseState[] => list.map((
 function effectiveExercise(ex: RunnerExercise, state: ExerciseState | undefined): RunnerExercise {
   const id = state?.swap?.id;
   if (!id) return ex;
-  const opt = [ex.substitute, ...(ex.alternatives ?? [])].find((o) => o?.equipment.id === id);
+  const opt = state?.swap?.option ?? [ex.substitute, ...(ex.alternatives ?? [])].find((o) => o?.equipment.id === id);
   return opt ? { ...ex, equipment: opt.equipment, history: opt.history, suggestedLoad: null } : ex;
 }
 
@@ -234,7 +237,7 @@ export function WorkoutRunner({
   function swapExercise(ei: number, opt: SwapOption | null, source: SwapSource = "regras") {
     const base = exercises[ei];
     const next = opt ? { ...base, equipment: opt.equipment, history: opt.history, suggestedLoad: null } : base;
-    updateExercise(ei, { swap: opt ? { id: opt.equipment.id, source } : undefined, sets: initialSets(next) });
+    updateExercise(ei, { swap: opt ? { id: opt.equipment.id, source, option: opt } : undefined, sets: initialSets(next) });
   }
   function removeSet(ei: number) {
     const ex = draft!.exercises[ei];
@@ -1030,19 +1033,25 @@ const SOURCE_LABEL: Record<SwapSource, string> = {
   personal: "Indicado pelo seu Personal",
   ia: "Sugestão da IA",
   regras: "Exercícios parecidos do mesmo grupo",
+  escolha: "Escolhido por você",
 };
 
 function SwapBar({ original, studentId, state, onSwap }: { original: RunnerExercise; studentId: string; state: ExerciseState; onSwap: (opt: SwapOption | null, source?: SwapSource) => void }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [picks, setPicks] = useState<{ options: SwapOption[]; source: SwapSource; reason: string | null } | null>(null);
+  const [catalog, setCatalog] = useState<CatalogItem[] | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  const [busy, setBusy] = useState<"catalog" | "pick" | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const started = state.sets.some((x) => x.done !== null);
 
   if (state.swap) {
     return (
       <View className="mt-3 flex-row flex-wrap items-center justify-between gap-2 rounded-2xl bg-anil-700/5 px-3 py-2 dark:bg-white/5">
         <Text className="flex-1 text-sm">
-          🔁 No lugar de <Text className="text-sm font-bold">{original.equipment.name}</Text> (aparelho ocupado)
+          🔁 No lugar de <Text className="text-sm font-bold">{original.equipment.name}</Text>
+          {state.swap.source === "escolha" ? " (escolhido por você)" : " (aparelho ocupado)"}
         </Text>
         {!started ? (
           <Pressable onPress={() => onSwap(null)}>
@@ -1052,7 +1061,7 @@ function SwapBar({ original, studentId, state, onSwap }: { original: RunnerExerc
       </View>
     );
   }
-  if (started || (!original.substitute && !original.alternatives?.length)) return null;
+  if (started) return null;
 
   async function openPanel() {
     setOpen(true);
@@ -1060,6 +1069,7 @@ function SwapBar({ original, studentId, state, onSwap }: { original: RunnerExerc
     if (original.substitute) return setPicks({ options: [original.substitute], source: "personal", reason: null });
     const alts = original.alternatives ?? [];
     const fallback = { options: alts.slice(0, 2), source: "regras" as SwapSource, reason: null };
+    if (!alts.length) return setPicks(fallback);
     setLoading(true);
     try {
       const r = await callAction<{ ids: string[]; reason: string | null }>("treino-actions#suggestSubstitutes", {
@@ -1076,10 +1086,38 @@ function SwapBar({ original, studentId, state, onSwap }: { original: RunnerExerc
     }
   }
 
+  /** "Escolher outro exercício": abre o catálogo inteiro (lido direto do banco, sem passar pelo site). */
+  async function chooseOther() {
+    setError(null);
+    if (!catalog) {
+      setBusy("catalog");
+      try {
+        setCatalog((await loadCatalogFor(studentId)).filter((c) => c.id !== original.equipment.id));
+      } catch {
+        setBusy(null);
+        return setError("Sem internet para abrir o catálogo. Tente de novo.");
+      }
+      setBusy(null);
+    }
+    setChoosing(true);
+  }
+  async function pick(item: CatalogItem) {
+    setChoosing(false);
+    setBusy("pick");
+    setError(null);
+    try {
+      onSwap(await loadSwapOption(studentId, item), "escolha");
+    } catch {
+      setError("Sem internet para trocar agora. Tente de novo.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   if (!open) {
     return (
       <Pressable onPress={openPanel} className="mt-3 self-start rounded-xl border border-border px-3 py-1.5">
-        <Text className="text-xs font-semibold text-muted">🔁 Aparelho ocupado?</Text>
+        <Text className="text-xs font-semibold text-muted">🔁 Trocar exercício</Text>
       </Pressable>
     );
   }
@@ -1098,29 +1136,43 @@ function SwapBar({ original, studentId, state, onSwap }: { original: RunnerExerc
         </View>
       ) : (
         <>
-          <Text className="mb-2 text-xs text-muted">
-            {SOURCE_LABEL[picks.source]}
-            {picks.reason ? ` · ${picks.reason}` : ""}
-          </Text>
-          <View className="gap-2">
-            {picks.options.map((o) => (
-              <View key={o.equipment.id} className="flex-row items-center gap-2">
-                <View className="min-w-0 flex-1">
-                  <Text className="text-sm font-semibold leading-tight">{o.equipment.name}</Text>
-                  {o.history.last ? (
-                    <Text className="text-xs text-muted">
-                      Última vez: {o.history.last.sets.map((x) => `${fmtNum(x.load)}kg×${x.reps}`).slice(0, 3).join(", ")}
-                    </Text>
-                  ) : null}
-                </View>
-                <Pressable onPress={() => onSwap(o, picks.source)} className="rounded-xl bg-bandeira-500 px-3 py-1.5">
-                  <Text className="text-xs font-bold text-white">Trocar</Text>
-                </Pressable>
+          {picks.options.length ? (
+            <>
+              <Text className="mb-2 text-xs text-muted">
+                {SOURCE_LABEL[picks.source]}
+                {picks.reason ? ` · ${picks.reason}` : ""}
+              </Text>
+              <View className="gap-2">
+                {picks.options.map((o) => (
+                  <View key={o.equipment.id} className="flex-row items-center gap-2">
+                    <View className="min-w-0 flex-1">
+                      <Text className="text-sm font-semibold leading-tight">{o.equipment.name}</Text>
+                      {o.history.last ? (
+                        <Text className="text-xs text-muted">
+                          Última vez: {o.history.last.sets.map((x) => `${fmtNum(x.load)}kg×${x.reps}`).slice(0, 3).join(", ")}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Pressable onPress={() => onSwap(o, picks.source)} className="rounded-xl bg-bandeira-500 px-3 py-1.5">
+                      <Text className="text-xs font-bold text-white">Trocar</Text>
+                    </Pressable>
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
+            </>
+          ) : null}
+          <Pressable
+            onPress={chooseOther}
+            disabled={!!busy}
+            className={cn("mt-3 flex-row items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-2", busy && "opacity-60")}
+          >
+            {busy ? <ActivityIndicator size="small" /> : null}
+            <Text className="text-xs font-semibold text-muted">{busy === "pick" ? "Trocando…" : "Escolher outro exercício do catálogo"}</Text>
+          </Pressable>
+          {error ? <Text className="mt-2 text-xs font-semibold text-pitanga-600">{error}</Text> : null}
         </>
       )}
+      {choosing && catalog ? <ExercisePicker catalog={catalog} selectedIds={[]} multiple={false} onPick={pick} onClose={() => setChoosing(false)} /> : null}
     </View>
   );
 }

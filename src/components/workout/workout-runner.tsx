@@ -22,7 +22,8 @@ import { formatRest, formatKg, techniqueInfo, type Technique } from "@/lib/plans
 import { suggestProgression } from "@/lib/progression";
 import { draftStore, outbox, type SessionPayload } from "@/lib/outbox";
 import type { ExerciseHistoryInfo } from "@/lib/history-server";
-import { saveSession, suggestSubstitutes } from "@/app/treino-actions";
+import { saveSession, suggestSubstitutes, swapCatalog, swapOptionFor } from "@/app/treino-actions";
+import { ExercisePicker, type CatalogItem } from "@/components/plans/exercise-picker";
 import { SessionRating } from "@/components/workout/session-rating";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
@@ -64,7 +65,7 @@ export type RunnerExercise = {
 
 /** Exercício para troca, já com o histórico do aluno nele. */
 export type SwapOption = { equipment: RunnerExercise["equipment"]; history: ExerciseHistoryInfo };
-type SwapSource = "personal" | "ia" | "regras";
+type SwapSource = "personal" | "ia" | "regras" | "escolha";
 
 /**
  * No cardio, `reps` guarda os minutos; os demais campos são do painel do aparelho.
@@ -83,7 +84,7 @@ type SetState = {
 /** Treino esquecido: quando começou (ISO), quanto durou e o rótulo ("Ontem às 18:30"). */
 export type BackdateInfo = { startedAt: string; minutes: number; label: string };
 /** `swap`: exercício feito no lugar do da ficha (aparelho ocupado). */
-type ExerciseState = { rest: number; sets: SetState[]; swap?: { id: string; source: SwapSource } };
+type ExerciseState = { rest: number; sets: SetState[]; swap?: { id: string; source: SwapSource; option?: SwapOption } };
 /** title/href: para o aviso "treino em aberto" na tela inicial poder retomar. */
 type Draft = { v: 1; clientId: string; startedAt: string; exercises: ExerciseState[]; title?: string; href?: string };
 type Timer = { endsAt: number; total: number; exercise: number } | null;
@@ -114,7 +115,7 @@ function initialExercises(list: RunnerExercise[]): ExerciseState[] {
 function effectiveExercise(ex: RunnerExercise, state: ExerciseState | undefined): RunnerExercise {
   const id = state?.swap?.id;
   if (!id) return ex;
-  const opt = [ex.substitute, ...(ex.alternatives ?? [])].find((o) => o?.equipment.id === id);
+  const opt = state.swap?.option ?? [ex.substitute, ...(ex.alternatives ?? [])].find((o) => o?.equipment.id === id);
   return opt ? { ...ex, equipment: opt.equipment, history: opt.history, suggestedLoad: null } : ex;
 }
 
@@ -315,7 +316,7 @@ export function WorkoutRunner({
   function swapExercise(ei: number, opt: SwapOption | null, source: SwapSource = "regras") {
     const base = exercises[ei];
     const next = opt ? { ...base, equipment: opt.equipment, history: opt.history, suggestedLoad: null } : base;
-    updateExercise(ei, { swap: opt ? { id: opt.equipment.id, source } : undefined, sets: initialSets(next) });
+    updateExercise(ei, { swap: opt ? { id: opt.equipment.id, source, option: opt } : undefined, sets: initialSets(next) });
   }
 
   function removeSet(ei: number) {
@@ -1099,6 +1100,7 @@ const SOURCE_LABEL: Record<SwapSource, string> = {
   personal: "Indicado pelo seu Personal",
   ia: "Sugestão da IA",
   regras: "Exercícios parecidos do mesmo grupo",
+  escolha: "Escolhido por você",
 };
 
 /**
@@ -1119,13 +1121,18 @@ function SwapBar({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [picks, setPicks] = useState<{ options: SwapOption[]; source: SwapSource; reason: string | null } | null>(null);
+  const [catalog, setCatalog] = useState<CatalogItem[] | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  const [busy, setBusy] = useState<"catalog" | "pick" | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const started = state.sets.some((x) => x.done !== null);
 
   if (state.swap) {
     return (
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-anil-700/5 px-3 py-2 text-sm dark:bg-white/5">
         <span>
-          🔁 No lugar de <strong>{original.equipment.name}</strong> (aparelho ocupado)
+          🔁 No lugar de <strong>{original.equipment.name}</strong>
+          {state.swap.source === "escolha" ? " (escolhido por você)" : " (aparelho ocupado)"}
         </span>
         {!started && (
           <button type="button" onClick={() => onSwap(null)} className="text-xs font-semibold text-muted hover:text-foreground">
@@ -1135,7 +1142,7 @@ function SwapBar({
       </div>
     );
   }
-  if (started || (!original.substitute && !original.alternatives?.length)) return null;
+  if (started) return null;
 
   async function openPanel() {
     setOpen(true);
@@ -1143,6 +1150,7 @@ function SwapBar({
     if (original.substitute) return setPicks({ options: [original.substitute], source: "personal", reason: null });
     const alts = original.alternatives ?? [];
     const fallback = { options: alts.slice(0, 2), source: "regras" as SwapSource, reason: null };
+    if (!alts.length) return setPicks(fallback);
     setLoading(true);
     try {
       const r = await suggestSubstitutes({
@@ -1159,6 +1167,36 @@ function SwapBar({
     }
   }
 
+  /** "Escolher outro exercício": abre o catálogo inteiro. */
+  async function chooseOther() {
+    setError(null);
+    if (!catalog) {
+      setBusy("catalog");
+      try {
+        setCatalog((await swapCatalog(studentId)).filter((c) => c.id !== original.equipment.id));
+      } catch {
+        setBusy(null);
+        return setError("Sem internet para abrir o catálogo. Tente de novo.");
+      }
+      setBusy(null);
+    }
+    setChoosing(true);
+  }
+  async function pick(item: CatalogItem) {
+    setChoosing(false);
+    setBusy("pick");
+    setError(null);
+    try {
+      const opt = await swapOptionFor(studentId, item.id);
+      if (opt) onSwap(opt, "escolha");
+      else setError("Não foi possível usar esse exercício.");
+    } catch {
+      setError("Sem internet para trocar agora. Tente de novo.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   if (!open) {
     return (
       <button
@@ -1166,7 +1204,7 @@ function SwapBar({
         onClick={openPanel}
         className="mt-3 inline-flex items-center gap-1 rounded-xl border border-border px-3 py-1.5 text-xs font-semibold text-muted hover:border-bandeira-500 hover:text-foreground"
       >
-        🔁 Aparelho ocupado?
+        🔁 Trocar exercício
       </button>
     );
   }
@@ -1184,32 +1222,49 @@ function SwapBar({
         </p>
       ) : (
         <>
-          <p className="mb-2 text-xs text-muted">
-            {SOURCE_LABEL[picks.source]}
-            {picks.reason && ` · ${picks.reason}`}
-          </p>
-          <ul className="space-y-2">
-            {picks.options.map((o) => (
-              <li key={o.equipment.id} className="flex items-center gap-2">
-                <span className="min-w-0 flex-1">
-                  <span className="block font-semibold leading-tight">{o.equipment.name}</span>
-                  {o.history.last && (
-                    <span className="text-xs text-muted">
-                      Última vez: {o.history.last.sets.map((x) => `${fmtNum(x.load)}kg×${x.reps}`).slice(0, 3).join(", ")}
+          {picks.options.length > 0 && (
+            <>
+              <p className="mb-2 text-xs text-muted">
+                {SOURCE_LABEL[picks.source]}
+                {picks.reason && ` · ${picks.reason}`}
+              </p>
+              <ul className="space-y-2">
+                {picks.options.map((o) => (
+                  <li key={o.equipment.id} className="flex items-center gap-2">
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold leading-tight">{o.equipment.name}</span>
+                      {o.history.last && (
+                        <span className="text-xs text-muted">
+                          Última vez: {o.history.last.sets.map((x) => `${fmtNum(x.load)}kg×${x.reps}`).slice(0, 3).join(", ")}
+                        </span>
+                      )}
                     </span>
-                  )}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => onSwap(o, picks.source)}
-                  className="rounded-xl bg-bandeira-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-bandeira-600"
-                >
-                  Trocar
-                </button>
-              </li>
-            ))}
-          </ul>
+                    <button
+                      type="button"
+                      onClick={() => onSwap(o, picks.source)}
+                      className="rounded-xl bg-bandeira-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-bandeira-600"
+                    >
+                      Trocar
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={chooseOther}
+            disabled={!!busy}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-2 text-xs font-semibold text-muted hover:border-bandeira-500 hover:text-foreground disabled:opacity-60"
+          >
+            {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+            {busy === "pick" ? "Trocando…" : "Escolher outro exercício do catálogo"}
+          </button>
+          {error && <p className="mt-2 text-xs font-semibold text-pitanga-600">{error}</p>}
         </>
+      )}
+      {choosing && catalog && (
+        <ExercisePicker catalog={catalog} selectedIds={[]} multiple={false} onPick={pick} onClose={() => setChoosing(false)} />
       )}
     </div>
   );

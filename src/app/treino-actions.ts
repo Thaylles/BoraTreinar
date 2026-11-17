@@ -8,6 +8,10 @@ import { getSessionProfile } from "@/lib/auth";
 import { loadCautions } from "@/lib/health-server";
 import { AI_PROVIDERS, extractJson } from "@/lib/ai";
 import { SWAP_SYSTEM, parseSwap, swapPrompt } from "@/lib/swaps";
+import { loadCatalogFor } from "@/lib/plans-server";
+import { loadSwapOption } from "@/lib/runner-server";
+import type { CatalogItem } from "@/components/plans/exercise-picker";
+import type { SwapOption } from "@/components/workout/workout-runner";
 
 export type SaveSessionResult =
   | { ok: true; id: string; prs: string[]; duplicate: boolean }
@@ -71,6 +75,19 @@ export async function suggestSubstitutes(input: {
     }
   }
   return none;
+}
+
+/** Troca livre: o catálogo que o aluno pode usar (o mesmo da montagem de ficha). */
+export async function swapCatalog(studentId: string): Promise<CatalogItem[]> {
+  if (!(await getSessionProfile())) return [];
+  return loadCatalogFor(studentId);
+}
+
+/** Troca livre: o exercício escolhido, já com o histórico do aluno e a execução. */
+export async function swapOptionFor(studentId: string, equipmentId: string): Promise<SwapOption | null> {
+  if (!(await getSessionProfile())) return null;
+  const item = (await loadCatalogFor(studentId)).find((c) => c.id === equipmentId);
+  return item ? loadSwapOption(studentId, item) : null;
 }
 
 /** Comentário no treino (aluno ou Personal vinculado). O outro lado recebe uma notificação. */

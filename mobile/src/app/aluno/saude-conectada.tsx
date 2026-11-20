@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { AppState, Linking, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
-import { RefreshCw, Settings, Smartphone } from "lucide-react-native";
+import { Database, RefreshCw, Settings, Smartphone } from "lucide-react-native";
 import { formatDateTime } from "@/lib/format";
 import { confirmAsk } from "~/lib/confirm";
 import { useData, useRefresh } from "~/lib/data";
-import { connectHealth, forgetHealthToken, hasHealthToken, healthAccess, healthConnectStatus, openHealthSettings, syncHealth, type HcAccess, type HcStatus } from "~/lib/health-connect";
+import { connectHealth, forgetHealthToken, hasHealthToken, healthAccess, healthConnectStatus, lastSyncResult, openHealthData, openHealthSettings, syncHealth, type HcAccess, type HcStatus, type LastSync } from "~/lib/health-connect";
 import { queryClient } from "~/lib/query";
 import { supabase } from "~/lib/supabase";
 import { useCall } from "~/lib/use-action";
@@ -28,6 +28,7 @@ export default function SaudeConectada() {
   const [busy, setBusy] = useState<"connect" | "sync" | null>(null);
   const [msg, setMsg] = useState<{ error?: string; ok?: string; warning?: string; permission?: boolean } | null>(null);
   const [access, setAccess] = useState<HcAccess | null>(null);
+  const [result, setResult] = useState<LastSync | null>(null);
   const disconnect = useCall("aluno/saude-conectada#disconnectHealthApps");
   // "boratreinar://sync" (botão do site) chega aqui com auto=1 e já sincroniza.
   const { auto } = useLocalSearchParams<{ auto?: string }>();
@@ -37,6 +38,7 @@ export default function SaudeConectada() {
       void healthConnectStatus().then(setStatus);
       void hasHealthToken().then(setHasToken);
       void healthAccess().then(setAccess);
+      void lastSyncResult().then(setResult);
     };
     load();
     // Voltou das configurações do Health Connect: confere as permissões de novo.
@@ -59,7 +61,8 @@ export default function SaudeConectada() {
     try {
       const r = await syncHealth();
       if (r.error) setMsg({ error: r.error });
-      else setMsg({ ok: `Pronto! ${r.imported} atividade(s) recebida(s) e ${r.exported} treino(s) enviados ao Health Connect.`, warning: r.warning });
+      else setMsg({ ok: `Pronto! ${r.imported} atividade(s) recebida(s) e ${r.exported} de ${r.sent} treino(s) gravados no Health Connect.`, warning: r.warning });
+      setResult(await lastSyncResult());
       setHasToken(await hasHealthToken());
       setAccess(await healthAccess());
       void queryClient.invalidateQueries();
@@ -124,6 +127,18 @@ export default function SaudeConectada() {
       ) : null}
       {msg?.error ? <Alert className="mb-3">{msg.error}</Alert> : msg?.ok ? <Alert kind="success" className="mb-3">{msg.ok}</Alert> : null}
       {msg?.warning ? <Alert kind="info" className="mb-3">{msg.warning}</Alert> : null}
+      {connected && result ? (
+        <Card className="mb-3 gap-1">
+          <Text className="font-display text-base font-bold">Última sincronização deste celular</Text>
+          <Text className="text-sm text-muted">
+            {`${formatDateTime(new Date(result.at).toISOString())}: ${result.exported} de ${result.sent} treino(s) gravados e ${result.imported} atividade(s) recebida(s).`}
+          </Text>
+          {result.inHealthConnect != null ? (
+            <Text className="text-sm text-muted">{`No Health Connect agora: ${result.inHealthConnect} treino(s) do BoraTreinar nos últimos 30 dias.`}</Text>
+          ) : null}
+          {result.warning ? <Text className="text-sm text-pitanga-600">{result.warning}</Text> : null}
+        </Card>
+      ) : null}
       <View className="gap-3">
         {status === "instalar" ? (
           <Button onPress={() => void Linking.openURL("market://details?id=com.google.android.apps.healthdata")}>Instalar o Health Connect</Button>
@@ -136,6 +151,11 @@ export default function SaudeConectada() {
         <Button variant={connected ? "ghost" : "primary"} size={connected ? "sm" : "lg"} icon={Smartphone} loading={busy === "connect"} disabled={status !== "ok" || !!busy} onPress={connect}>
           {connected ? (missing ? "Liberar permissões" : "Conectar de novo") : "Conectar com o Health Connect"}
         </Button>
+        {connected && status === "ok" ? (
+          <Button variant="ghost" size="sm" icon={Database} onPress={openHealthData}>
+            Ver os dados no Health Connect
+          </Button>
+        ) : null}
         {status === "ok" && (missing || msg?.permission) ? (
           <Button variant="ghost" size="sm" icon={Settings} onPress={openHealthSettings}>
             Abrir o Health Connect

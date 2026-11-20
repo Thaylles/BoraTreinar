@@ -14,6 +14,7 @@ import { supabase } from "./supabase";
 const TOKEN_KEY = "bt-hc-token";
 const USER_KEY = "bt-hc-user";
 const LAST_KEY = "bt:hc:ultima";
+const RESULT_KEY = "bt:hc:resultado";
 type HC = typeof import("react-native-health-connect");
 const hc = (): HC => require("react-native-health-connect");
 
@@ -161,10 +162,10 @@ function base64url(bytes: Uint8Array): string {
 export async function forgetHealthToken() {
   await SecureStore.deleteItemAsync(TOKEN_KEY);
   await SecureStore.deleteItemAsync(USER_KEY);
-  await AsyncStorage.removeItem(LAST_KEY);
+  await AsyncStorage.multiRemove([LAST_KEY, RESULT_KEY]);
 }
 
-export type SyncResult = { imported?: number; exported?: number; error?: string; warning?: string; expired?: boolean };
+export type SyncResult = { imported?: number; exported?: number; sent?: number; inHealthConnect?: number | null; error?: string; warning?: string; expired?: boolean };
 const iso = (s: string) => new Date(s).toISOString();
 
 /** Lê do Health Connect as atividades dos últimos 30 dias (de outros apps). */
@@ -195,18 +196,23 @@ async function readActivities() {
   return items;
 }
 
-/** Grava os treinos do BoraTreinar no Health Connect (um tipo de registro por chamada). */
-async function writeWorkouts(out: ExportItem[]) {
+type WriteResult = { written: number; failed: number; error: string | null };
+
+/**
+ * Grava os treinos do BoraTreinar no Health Connect (um tipo de registro por chamada).
+ * Se o lote inteiro for recusado, tenta um por um para não perder os outros e guardar o motivo.
+ */
+async function writeWorkouts(out: ExportItem[]): Promise<WriteResult> {
   const { insertRecords, ExerciseType } = hc();
   const sessions = out.map((w) => ({
     recordType: "ExerciseSession" as const,
     startTime: iso(w.start),
     endTime: iso(w.end),
     exerciseType: exerciseType(w.category, ExerciseType),
-    title: w.title,
-    metadata: { clientRecordId: `bt-${w.id}`, clientRecordVersion: 1, recordingMethod: 3 },
+    title: w.title.slice(0, 60),
+    metadata: { clientRecordId: `bt-${w.id}`, clientRecordVersion: 2, recordingMethod: 3 },
   }));
-  if (sessions.length) await insertRecords(sessions as never);
+  const res = await insertEach(sessions);
   const distances = out
     .filter((w) => w.distance_m)
     .map((w) => ({
@@ -214,14 +220,65 @@ async function writeWorkouts(out: ExportItem[]) {
       startTime: iso(w.start),
       endTime: iso(w.end),
       distance: { unit: "meters" as const, value: w.distance_m! },
-      metadata: { clientRecordId: `bt-d-${w.id}`, clientRecordVersion: 1, recordingMethod: 3 },
+      metadata: { clientRecordId: `bt-d-${w.id}`, clientRecordVersion: 2, recordingMethod: 3 },
     }));
-  if (distances.length) {
+  if (distances.length) await insertEach(distances).catch(() => null); // sem permissão de distância: o treino já foi
+  return res;
+
+  async function insertEach(records: object[]): Promise<WriteResult> {
+    if (!records.length) return { written: 0, failed: 0, error: null };
     try {
-      await insertRecords(distances as never);
-    } catch {
-      /* sem permissão de distância: o treino já foi gravado */
+      await insertRecords(records as never);
+      return { written: records.length, failed: 0, error: null };
+    } catch (batchError) {
+      let written = 0;
+      let error: string | null = null;
+      for (const r of records) {
+        try {
+          await insertRecords([r] as never);
+          written++;
+        } catch (e) {
+          error ??= e instanceof Error ? e.message : String(e);
+        }
+      }
+      return { written, failed: records.length - written, error: error ?? (batchError instanceof Error ? batchError.message : String(batchError)) };
     }
+  }
+}
+
+/** Quantos treinos gravados pelo BoraTreinar estão no Health Connect (últimos 30 dias). */
+export async function countOwnWorkouts(): Promise<number | null> {
+  try {
+    const { initialize, readRecords } = hc();
+    if (!(await initialize())) return null;
+    const since = new Date(Date.now() - 31 * 86_400_000).toISOString();
+    const res = await readRecords("ExerciseSession", {
+      timeRangeFilter: { operator: "between", startTime: since, endTime: new Date().toISOString() },
+      dataOriginFilter: ["com.boratreinar.app"],
+      pageSize: 500,
+    });
+    return res.records.length;
+  } catch {
+    return null;
+  }
+}
+
+/** Resultado da última sincronização (para a tela mostrar mesmo depois de fechar o app). */
+export type LastSync = { at: number; imported: number; exported: number; sent: number; inHealthConnect: number | null; warning?: string };
+export async function lastSyncResult(): Promise<LastSync | null> {
+  try {
+    return JSON.parse((await AsyncStorage.getItem(RESULT_KEY)) ?? "null");
+  } catch {
+    return null;
+  }
+}
+
+/** Abre a tela do Health Connect com os dados que o BoraTreinar gravou. */
+export function openHealthData() {
+  try {
+    hc().openHealthConnectDataManagement();
+  } catch {
+    openHealthSettings();
   }
 }
 
@@ -258,14 +315,18 @@ export async function syncHealth(): Promise<SyncResult> {
   if (!access.write) warnings.push("Sem permissão para gravar exercícios: seus treinos não vão para o Health Connect.");
   else if (out.length) {
     try {
-      await writeWorkouts(out);
-      exported = out.length;
+      const w = await writeWorkouts(out);
+      exported = w.written;
+      if (w.failed) warnings.push(`O Health Connect recusou ${w.failed} de ${out.length} treino(s).${w.error ? ` (${w.error.slice(0, 140)})` : ""}`);
     } catch (e) {
       warnings.push(`Não deu para gravar os treinos no Health Connect.${detail(e)}`);
     }
   }
-  await AsyncStorage.setItem(LAST_KEY, String(Date.now()));
-  return { imported: body.imported ?? 0, exported, warning: warnings.join(" ") || undefined };
+  const inHealthConnect = access.read ? await countOwnWorkouts() : null;
+  const result: LastSync = { at: Date.now(), imported: body.imported ?? 0, exported, sent: out.length, inHealthConnect, warning: warnings.join(" ") || undefined };
+  await AsyncStorage.setItem(LAST_KEY, String(result.at));
+  await AsyncStorage.setItem(RESULT_KEY, JSON.stringify(result));
+  return result;
 }
 
 let running: Promise<SyncResult | null> | null = null;
